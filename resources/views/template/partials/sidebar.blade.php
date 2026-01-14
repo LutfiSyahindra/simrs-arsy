@@ -33,13 +33,13 @@
                 <div class="collapse" id="users">
                     <ul class="nav sub-menu">
                         <li class="nav-item">
-                            <a href="" class="nav-link">Users</a>
+                            <a href="{{route('users.index')}}" class="nav-link">Users</a>
                         </li>
                         <li class="nav-item">
-                            <a href="" class="nav-link">Role</a>
+                            <a href="{{route('roles.role')}}" class="nav-link">Role</a>
                         </li>
                         <li class="nav-item">
-                            <a href="" class="nav-link">Permission</a>
+                            <a href="{{route('permissions.permissions')}}" class="nav-link">Permission</a>
                         </li>
                     </ul>
                 </div>
