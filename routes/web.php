@@ -2,6 +2,8 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\Pelayanan\display\PoliWsController;
+use App\Http\Controllers\simrs\Pelayanan\PetugasPanggil\poliPanggilController;
 use App\Http\Controllers\simrs\Settings\Auth\PermissionsController;
 use App\Http\Controllers\simrs\Settings\Auth\RoleController;
 use App\Http\Controllers\simrs\Settings\Auth\UsersController;
@@ -55,6 +57,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/permissions/{id}/edit', [PermissionsController::class, 'edit'])->name('permissions.edit');
         Route::put('/permissions/{id}/update', [PermissionsController::class, 'update'])->name('permissions.update');
         Route::delete('/permissions/{id}/delete', [PermissionsController::class, 'destroy'])->name('permissions.delete');
+    });
+
+    Route::prefix('simrs/pelayanan/display')->group(function () {
+        Route::get('/display/poli-ws', [PoliWsController::class, 'index'])->name('pelayanan.display.poliws');
+    });
+
+    Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {
+        Route::get('/petugasPanggilpoli-ws', [poliPanggilController::class, 'poliPanggil'])->name('pelayanan.petugasPanggil.poliws');
+        Route::get('/petugasPanggilpoli-ws/getDataPoli', [poliPanggilController::class, 'getDataPoli'])->name('pelayanan.petugasPanggil.getDataPoli');
+        Route::get('/petugasPanggilpoli-ws/getDataDokter', [poliPanggilController::class, 'getDataDokter'])->name('pelayanan.petugasPanggil.getDataDokter');
+        Route::get('/petugasPanggilpoli-ws/getDataPasien', [poliPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.getDataPasien');
+        Route::post('/petugasPanggilpoli-ws/panggilPasien', [poliPanggilController::class, 'panggilPasien'])->name('pelayanan.petugasPanggil.panggilPasien');
     });
 });
 

@@ -47,7 +47,40 @@
                 </li>
             @endcan
 
-            {{-- Lainnya --}}
+            {{-- Display --}}
+            <li class="nav-item nav-category">Pelayanan</li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="collapse" href="#display" role="button" aria-expanded="false"
+                    aria-controls="display">
+                    <i class="link-icon" data-feather="monitor"></i>
+                    <span class="link-title">Display</span>
+                    <i class="link-arrow" data-feather="chevron-down"></i>
+                </a>
+                <div class="collapse" id="display">
+                    <ul class="nav sub-menu">
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.poliws") }}" class="nav-link">Poli WS</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+
+            {{-- Petugas Panggil --}}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="collapse" href="#petugasPanggil" role="button"
+                    aria-expanded="false" aria-controls="petugasPanggi">
+                    <i class="link-icon" data-feather="volume-2"></i>
+                    <span class="link-title">Petugas Panggil</span>
+                    <i class="link-arrow" data-feather="chevron-down"></i>
+                </a>
+                <div class="collapse" id="petugasPanggil">
+                    <ul class="nav sub-menu">
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Poli</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
         </ul>
     </div>
 </nav>
