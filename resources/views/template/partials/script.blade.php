@@ -16,3 +16,15 @@
 <script src="{{ asset("assets/js/dashboard-light.js") }}"></script>
 <!-- End custom js for this page -->
 
+<script>
+    let isRedirecting = false;
+
+    $(document).ajaxError(function(event, xhr) {
+        if (xhr.status === 401 && !isRedirecting) {
+            isRedirecting = true;
+
+            alert('Session anda telah habis, silakan login kembali');
+            window.location.href = "{{ route("login") }}";
+        }
+    });
+</script>

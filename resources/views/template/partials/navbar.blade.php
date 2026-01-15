@@ -236,17 +236,19 @@
                     <img class="wd-30 ht-30 rounded-circle" src="https://via.placeholder.com/30x30" alt="profile">
                 </a>
                 <div class="dropdown-menu p-0" aria-labelledby="profileDropdown">
-                    <div class="d-flex flex-column align-items-center border-bottom px-5 py-3">
-                        <div class="mb-3">
-                            <img class="wd-80 ht-80 rounded-circle"
-                                src="{{ auth()->user()->avatar ?? "https://via.placeholder.com/80x80" }}"
-                                alt="{{ auth()->user()->name }}">
+                    @auth
+                        <div class="d-flex flex-column align-items-center border-bottom px-5 py-3">
+                            <div class="mb-3">
+                                <img class="wd-80 ht-80 rounded-circle"
+                                    src="{{ auth()->user()->avatar ?? "https://via.placeholder.com/80x80" }}"
+                                    alt="{{ auth()->user()->name }}">
+                            </div>
+                            <div class="text-center">
+                                <p class="tx-16 fw-bolder">{{ auth()->user()->name }}</p>
+                                <p class="tx-12 text-muted">{{ auth()->user()->email }}</p>
+                            </div>
                         </div>
-                        <div class="text-center">
-                            <p class="tx-16 fw-bolder">{{ auth()->user()->name }}</p>
-                            <p class="tx-12 text-muted">{{ auth()->user()->email }}</p>
-                        </div>
-                    </div>
+                    @endauth
                     <ul class="list-unstyled p-1">
                         {{-- <li class="dropdown-item py-2">
                             <a href="pages/general/profile.html" class="text-body ms-0">
