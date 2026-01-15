@@ -22,28 +22,32 @@
             </li>
 
             {{-- Settings --}}
-            <li class="nav-item nav-category">Settings</li>
-            <li class="nav-item">
-                <a class="nav-link" data-bs-toggle="collapse" href="#users" role="button" aria-expanded="false"
-                    aria-controls="users">
-                    <i class="link-icon" data-feather="users"></i>
-                    <span class="link-title">Auth</span>
-                    <i class="link-arrow" data-feather="chevron-down"></i>
-                </a>
-                <div class="collapse" id="users">
-                    <ul class="nav sub-menu">
-                        <li class="nav-item">
-                            <a href="{{route('users.index')}}" class="nav-link">Users</a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{route('roles.role')}}" class="nav-link">Role</a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{route('permissions.permissions')}}" class="nav-link">Permission</a>
-                        </li>
-                    </ul>
-                </div>
-            </li>
+            @can("SIMRS.USERS")
+                <li class="nav-item nav-category">Settings</li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="collapse" href="#users" role="button" aria-expanded="false"
+                        aria-controls="users">
+                        <i class="link-icon" data-feather="users"></i>
+                        <span class="link-title">Auth</span>
+                        <i class="link-arrow" data-feather="chevron-down"></i>
+                    </a>
+                    <div class="collapse" id="users">
+                        <ul class="nav sub-menu">
+                            <li class="nav-item">
+                                <a href="{{ route("users.index") }}" class="nav-link">Users</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route("roles.role") }}" class="nav-link">Role</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route("permissions.permissions") }}" class="nav-link">Permission</a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+            @endcan
+
+            {{-- Lainnya --}}
         </ul>
     </div>
 </nav>
