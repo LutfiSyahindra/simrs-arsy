@@ -61,6 +61,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.poliws") }}" class="nav-link">Poli WS</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.pipp") }}" class="nav-link">Pipp</a>
+                        </li>
                     </ul>
                 </div>
             </li>
@@ -77,6 +80,9 @@
                     <ul class="nav sub-menu">
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Poli</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.petugasPanggil.pipp.pippPanggil") }}" class="nav-link">Pipp</a>
                         </li>
                     </ul>
                 </div>

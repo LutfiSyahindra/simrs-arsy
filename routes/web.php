@@ -2,7 +2,9 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\Pelayanan\display\PippController;
 use App\Http\Controllers\simrs\Pelayanan\display\PoliWsController;
+use App\Http\Controllers\simrs\Pelayanan\petugasPanggil\pippPanggilController;
 use App\Http\Controllers\simrs\Pelayanan\PetugasPanggil\poliPanggilController;
 use App\Http\Controllers\simrs\Settings\Auth\PermissionsController;
 use App\Http\Controllers\simrs\Settings\Auth\RoleController;
@@ -61,6 +63,7 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('simrs/pelayanan/display')->group(function () {
         Route::get('/display/poli-ws', [PoliWsController::class, 'index'])->name('pelayanan.display.poliws');
+        Route::get('/display/pipp', [PippController::class, 'index'])->name('pelayanan.display.pipp');
     });
 
     Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {
@@ -69,6 +72,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/petugasPanggilpoli-ws/getDataDokter', [poliPanggilController::class, 'getDataDokter'])->name('pelayanan.petugasPanggil.getDataDokter');
         Route::get('/petugasPanggilpoli-ws/getDataPasien', [poliPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.getDataPasien');
         Route::post('/petugasPanggilpoli-ws/panggilPasien', [poliPanggilController::class, 'panggilPasien'])->name('pelayanan.petugasPanggil.panggilPasien');
+
+        Route::get('/petugasPanggilpipp/pippPanggil', [pippPanggilController::class, 'index'])->name('pelayanan.petugasPanggil.pipp.pippPanggil');
+        Route::get('/petugasPanggilpipp/dataPasien', [pippPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.pipp.pippPanggil.dataPasien');
+        Route::post('/petugasPanggilpipp/panggilPipp', [pippPanggilController::class, 'panggilPipp'])->name('pelayanan.petugasPanggil.pipp.pippPanggil.panggilPipp');
     });
 });
 
