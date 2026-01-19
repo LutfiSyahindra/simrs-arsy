@@ -64,6 +64,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.pipp") }}" class="nav-link">Pipp</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.kasir") }}" class="nav-link">Kasir WS</a>
+                        </li>
                     </ul>
                 </div>
             </li>
@@ -83,6 +86,9 @@
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.petugasPanggil.pipp.pippPanggil") }}" class="nav-link">Pipp</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.petugasPanggil.kasir.kasirWs") }}" class="nav-link">Kasir</a>
                         </li>
                     </ul>
                 </div>
