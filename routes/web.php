@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\KasirController;
 use App\Http\Controllers\simrs\Pelayanan\display\PippController;
 use App\Http\Controllers\simrs\Pelayanan\display\PoliWsController;
@@ -67,6 +68,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/display/poli-ws', [PoliWsController::class, 'index'])->name('pelayanan.display.poliws');
         Route::get('/display/pipp', [PippController::class, 'index'])->name('pelayanan.display.pipp');
         Route::get('/display/kasir-ws', [KasirController::class, 'index'])->name('pelayanan.display.kasir');
+        Route::get('/display/anjungan', [AnjunganController::class, 'index'])->name('pelayanan.display.anjungan');
     });
 
     Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {

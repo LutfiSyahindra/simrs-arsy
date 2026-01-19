@@ -67,6 +67,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.kasir") }}" class="nav-link">Kasir WS</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.anjungan") }}" class="nav-link">Anjungan</a>
+                        </li>
                     </ul>
                 </div>
             </li>
