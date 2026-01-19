@@ -12,20 +12,54 @@
         });
 
         let alertShown = false;
-        $('#jenis-rawat').val('').trigger('change');
+        $('#jenis-rawat').val('');
+
+        function pilihJenisRawatAlert() {
+            Swal.fire({
+                icon: 'info',
+                title: 'Pilih Jenis Rawat',
+                html: `
+                <select id="swal-jenis-rawat" class="form-select">
+                    <option value="">-- Pilih Jenis Rawat --</option>
+                    <option value="Rawat Jalan">Rawat Jalan</option>
+                    <option value="Rawat Inap">Rawat Inap</option>
+                </select>
+            `,
+                confirmButtonText: 'Lanjutkan',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                preConfirm: () => {
+                    const jenisRawat = document.getElementById('swal-jenis-rawat').value;
+                    if (!jenisRawat) {
+                        Swal.showValidationMessage('Jenis Rawat wajib dipilih');
+                    }
+                    return jenisRawat;
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+
+                    // set dropdown utama
+                    $('#jenis-rawat').val(result.value);
+
+                    // ambil date range (kalau ada)
+                    let startDate = '';
+                    let endDate = '';
+
+                    if ($('#date-range').val()) {
+                        const dr = $('#date-range').val().split(' - ');
+                        startDate = dr[0] || '';
+                        endDate = dr[1] || '';
+                    }
+
+                    // 🔥 PANGGIL LANGSUNG
+                    loadData(startDate, endDate, result.value);
+                }
+            });
+        }
 
         function loadData(startDate = '', endDate = '', jenisRawat = '') {
 
             if (!jenisRawat) {
-                if (!alertShown) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Perhatian',
-                        text: 'Silahkan pilih Jenis Rawat terlebih dahulu',
-                        confirmButtonText: 'OK'
-                    });
-                    alertShown = true;
-                }
                 table.clear().draw();
                 return;
             }
@@ -52,17 +86,16 @@
                     $.each(response, function(index, item) {
                         var button =
                             `<button class="btn btn-info panggil-pasienkasir"
-                        data-nama="${item.nm_pasien}"
-                        data-poli="${item.nm_poli}"
-                        data-dokter="${item.nm_dokter}"
-                        data-tgl="${item.tgl_lahir}"
-                        data-alamat="${item.alamat}"
-                        data-jk="${item.jk}"
-                        data-rm="${item.no_rkm_medis}"
-                        data-rawat="${item.no_rawat}"
-                        data-reg="${item.no_reg}">
-                        <i class="bi bi-soundwave"></i> Panggil
-                    </button>`;
+                                data-nama="${item.nm_pasien}"
+                                data-poli="${item.nm_poli}"
+                                data-dokter="${item.nm_dokter}"
+                                data-tgl="${item.tgl_lahir}"
+                                data-alamat="${item.alamat}"
+                                data-jk="${item.jk}"
+                                data-rm="${item.no_rkm_medis}"
+                                data-rawat="${item.no_rawat}"
+                                data-reg="${item.no_reg}">
+                                '<i class="ri-volume-up-line me-1"></i> Panggil</button>`;
 
                         table.row.add([
                             item.no_rawat,
@@ -80,9 +113,8 @@
             });
         }
 
-
         // Default Load Data
-        loadData();
+        pilihJenisRawatAlert();
 
         // Date Range Picker
         if ($.fn.daterangepicker) {
@@ -99,12 +131,23 @@
 
         // Tangani perubahan pada filter
         $('#date-range, #jenis-rawat').on('change', function() {
-            var dateRange = $('#date-range').val().split(" - ");
-            var startDate = dateRange[0] || '';
-            var endDate = dateRange[1] || '';
+
             var jenisRawat = $('#jenis-rawat').val();
+            if (!jenisRawat) return;
+
+            let startDate = '';
+            let endDate = '';
+
+            const dateVal = $('#date-range').val();
+            if (dateVal && dateVal.includes(' - ')) {
+                const dr = dateVal.split(' - ');
+                startDate = dr[0];
+                endDate = dr[1];
+            }
+
             loadData(startDate, endDate, jenisRawat);
         });
+
 
         $.ajaxSetup({
             headers: {
