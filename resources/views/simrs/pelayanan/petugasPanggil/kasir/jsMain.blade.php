@@ -13,6 +13,7 @@
 
         let alertShown = false;
         $('#jenis-rawat').val('');
+        $('#date-range').val('');
 
         function pilihJenisRawatAlert() {
             Swal.fire({
