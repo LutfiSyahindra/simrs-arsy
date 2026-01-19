@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\KasirController;
 use App\Http\Controllers\simrs\Pelayanan\display\PippController;
@@ -69,6 +70,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/display/pipp', [PippController::class, 'index'])->name('pelayanan.display.pipp');
         Route::get('/display/kasir-ws', [KasirController::class, 'index'])->name('pelayanan.display.kasir');
         Route::get('/display/anjungan', [AnjunganController::class, 'index'])->name('pelayanan.display.anjungan');
+
+        // Anjungan Admisi
+        Route::post('/display/anjungan/admisi/generateAntrianAdmisi', [anjunganAdmisiController::class, 'generateAntrianAdmisi'])->name('pelayanan.display.anjungan.generateAntrianAdmisi');
+        Route::get('/display/anjungan/admisi/cetakAntrian/{nomor}', [anjunganAdmisiController::class, 'cetakAntrian'])->name('pelayanan.display.anjungan.cetakAntrian');
     });
 
     Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {

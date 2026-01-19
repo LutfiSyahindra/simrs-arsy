@@ -185,12 +185,12 @@
     </head>
 
     <body>
-        {{-- @include("SIMRS.anjungan.admisi.modalAdmisi")
-        @include("SIMRS.anjungan.antrianFarmasi.modalFarmasi")
-        @include("SIMRS.anjungan.jkn.main.modalJknMain")
-        @include("SIMRS.anjungan.jkn.rujukanBaru.modalRujukanBaru")
-        @include("SIMRS.anjungan.jkn.kontrolPoli.modalKontrolPoli")
-        @include("SIMRS.anjungan.jkn.rujukInternal.modalRujukInternal") --}}
+        @include("simrs.pelayanan.anjungan.admisi.modalAdmisi")
+        {{-- @include("SIMRS.anjungan.antrianFarmasi.modalFarmasi") --}}
+        {{-- @include("SIMRS.anjungan.jkn.main.modalJknMain") --}}
+        {{-- @include("SIMRS.anjungan.jkn.rujukanBaru.modalRujukanBaru") --}}
+        {{-- @include("SIMRS.anjungan.jkn.kontrolPoli.modalKontrolPoli") --}}
+        {{-- @include("SIMRS.anjungan.jkn.rujukInternal.modalRujukInternal") --}}
 
         <div class="header">
             <i class="fas fa-hospital fa-2x"></i>
@@ -214,12 +214,12 @@
             </div>
         </div>
 
-        {{-- @include("SIMRS.anjungan.antrianFarmasi.js")
-        @include("SIMRS.anjungan.admisi.js")
-        @include("SIMRS.anjungan.jkn.main.js")
-        @include("SIMRS.anjungan.jkn.rujukanBaru.js")
-        @include("SIMRS.anjungan.jkn.kontrolPoli.js")
-        @include("SIMRS.anjungan.jkn.rujukInternal.js") --}}
+        @include("simrs.pelayanan.anjungan.admisi.jsMain")
+        {{-- @include("SIMRS.anjungan.antrianFarmasi.js") --}}
+        {{-- @include("SIMRS.anjungan.jkn.main.js") --}}
+        {{-- @include("SIMRS.anjungan.jkn.rujukanBaru.js") --}}
+        {{-- @include("SIMRS.anjungan.jkn.kontrolPoli.js") --}}
+        {{-- @include("SIMRS.anjungan.jkn.rujukInternal.js") --}}
 
     </body>
 
