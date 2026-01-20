@@ -10,20 +10,19 @@
 
 @section("content")
     @include("simrs.pelayanan.petugasPanggil.admisi.modal")
-    <!-- start page title -->
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box justify-content-between d-flex align-items-md-center flex-md-row flex-column">
-                <h4 class="page-title">Petugas Panggil</h4>
-                <ol class="breadcrumb m-0">
-                    <li class="breadcrumb-item"><a href="javascript: void(0);">Petugas Panggil</a></li>
-                    <li class="breadcrumb-item"><a href="javascript: void(0);">Admisi</a></li>
-                </ol>
-            </div>
+    {{-- PAGE TITLE --}}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h4 class="fw-bold mb-1">Petugas Panggil Admisi</h4>
+            <p class="text-muted mb-0">Manajemen antrian pasien Admisi</p>
         </div>
+        <nav>
+            <ol class="breadcrumb breadcrumb-dot mb-0">
+                <li class="breadcrumb-item">SIMRS</li>
+                <li class="breadcrumb-item active">Petugas Panggil</li>
+            </ol>
+        </nav>
     </div>
-    <!-- end page title -->
-
     <div class="row">
         <div class="col-xl-4 col-lg-5">
             <div class="card shadow-sm border-0 rounded-4">
