@@ -4,6 +4,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
+use App\Http\Controllers\simrs\Pelayanan\display\ApotekController;
 use App\Http\Controllers\simrs\Pelayanan\display\KasirController;
 use App\Http\Controllers\simrs\Pelayanan\display\PippController;
 use App\Http\Controllers\simrs\Pelayanan\display\PoliWsController;
@@ -71,9 +72,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/display/kasir-ws', [KasirController::class, 'index'])->name('pelayanan.display.kasir');
         Route::get('/display/anjungan', [AnjunganController::class, 'index'])->name('pelayanan.display.anjungan');
 
-        // Anjungan Admisi
-        Route::post('/display/anjungan/admisi/generateAntrianAdmisi', [anjunganAdmisiController::class, 'generateAntrianAdmisi'])->name('pelayanan.display.anjungan.generateAntrianAdmisi');
-        Route::get('/display/anjungan/admisi/cetakAntrian/{nomor}', [anjunganAdmisiController::class, 'cetakAntrian'])->name('pelayanan.display.anjungan.cetakAntrian');
+        // Display Apotek
+        Route::get('/display/apotek', [ApotekController::class, 'index'])->name('pelayanan.display.apotek');
+        Route::get('/display/panggil-apotek', [ApotekController::class, 'panggilAntrean'])->name('pelayanan.display.panggilapotek');
+        Route::put('/display/update-apotek', [ApotekController::class, 'updateAntrean'])->name('pelayanan.display.updateapotek');
+        Route::get('/display/nonracikan', [ApotekController::class, 'dataNonracikan'])->name('pelayanan.display.nonracikan');
+        Route::get('/display/racikan', [ApotekController::class, 'dataracikan'])->name('pelayanan.display.racikan');
     });
 
     Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {

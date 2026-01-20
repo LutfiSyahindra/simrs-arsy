@@ -70,6 +70,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.anjungan") }}" class="nav-link">Anjungan</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.apotek") }}" class="nav-link">Apotek</a>
+                        </li>
                     </ul>
                 </div>
             </li>
