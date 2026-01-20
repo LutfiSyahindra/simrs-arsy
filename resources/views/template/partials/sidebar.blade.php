@@ -76,6 +76,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.admisi") }}" class="nav-link">Admisi</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.igd") }}" class="nav-link">IGD</a>
+                        </li>
                     </ul>
                 </div>
             </li>
@@ -102,6 +105,9 @@
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("petugasPanggil.admisi.admisiPanggil") }}" class="nav-link">Admisi</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.petugasPanggil.igd.igdPanggil") }}" class="nav-link">IGD</a>
                         </li>
                     </ul>
                 </div>
