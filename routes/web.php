@@ -5,10 +5,13 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\ApotekController;
+use App\Http\Controllers\simrs\Pelayanan\display\DisplayAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\display\KasirController;
 use App\Http\Controllers\simrs\Pelayanan\display\PippController;
 use App\Http\Controllers\simrs\Pelayanan\display\PoliWsController;
+use App\Http\Controllers\simrs\Pelayanan\petugasPanggil\admisiPanggilController;
 use App\Http\Controllers\simrs\Pelayanan\petugasPanggil\kasirPanggilController;
+use App\Http\Controllers\simrs\Pelayanan\petugasPanggil\loket\LoketAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\petugasPanggil\pippPanggilController;
 use App\Http\Controllers\simrs\Pelayanan\PetugasPanggil\poliPanggilController;
 use App\Http\Controllers\simrs\Settings\Auth\PermissionsController;
@@ -78,6 +81,9 @@ Route::middleware('auth')->group(function () {
         Route::put('/display/update-apotek', [ApotekController::class, 'updateAntrean'])->name('pelayanan.display.updateapotek');
         Route::get('/display/nonracikan', [ApotekController::class, 'dataNonracikan'])->name('pelayanan.display.nonracikan');
         Route::get('/display/racikan', [ApotekController::class, 'dataracikan'])->name('pelayanan.display.racikan');
+
+        // Display Admisi
+        Route::get('/display/admisi', [DisplayAdmisiController::class, 'index'])->name('pelayanan.display.admisi');
     });
 
     Route::prefix('simrs/pelayanan/petugasPanggil')->group(function () {
@@ -97,6 +103,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/petugasPanggilkasir/kasirWs', [kasirPanggilController::class, 'index'])->name('pelayanan.petugasPanggil.kasir.kasirWs');
         Route::get('/petugasPanggilkasir/getDataPasien', [kasirPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.kasir.getDataPasien');
         Route::post('/petugasPanggilkasir/panggilKasir', [kasirPanggilController::class, 'panggilKasir'])->name('pelayanan.petugasPanggil.kasir.panggilKasir');
+
+        // Admisi Panggil & Loket Admisi
+        Route::get('/petugasPanggildmisi/admisiPanggil', [admisiPanggilController::class, 'index'])->name('petugasPanggil.admisi.admisiPanggil');
+        Route::get('/petugasPanggiladmisi/admisiPanggil/dataPasien', [admisiPanggilController::class, 'getDataPasien'])->name('petugasPanggil.admisi.admisiPanggil.dataPasien');
+        Route::post('/petugasPanggiladmisi/admisiPanggil/panggilAdmisi', [admisiPanggilController::class, 'panggilAdmisi'])->name('petugasPanggil.admisi.admisiPanggil.panggilAdmisi');
+
+        // Admisi
+        Route::get('/loket/admisi/getAllLoket', [LoketAdmisiController::class, 'getAllLoket'])->name('loket.admisi.getAllLoket');
+        Route::post('/loket/admisi/lockLoket', [LoketAdmisiController::class, 'lockLoket'])->name('loket.admisi.lockLoket');
+        Route::post('/loket/admisi/unlockLoket', [LoketAdmisiController::class, 'unlockLoket'])->name('loket.admisi.unlockLoket');
+        Route::get('/loket/admisi/getLoketAktif', [LoketAdmisiController::class, 'getLoketAktif'])->name('loket.admisi.getLoketAktif');
     });
 });
 

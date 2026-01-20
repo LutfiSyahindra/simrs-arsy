@@ -73,6 +73,9 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.display.apotek") }}" class="nav-link">Apotek</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.display.admisi") }}" class="nav-link">Admisi</a>
+                        </li>
                     </ul>
                 </div>
             </li>
@@ -91,10 +94,14 @@
                             <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Poli</a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ route("pelayanan.petugasPanggil.pipp.pippPanggil") }}" class="nav-link">Pipp</a>
+                            <a href="{{ route("pelayanan.petugasPanggil.pipp.pippPanggil") }}"
+                                class="nav-link">Pipp</a>
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.petugasPanggil.kasir.kasirWs") }}" class="nav-link">Kasir</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("petugasPanggil.admisi.admisiPanggil") }}" class="nav-link">Admisi</a>
                         </li>
                     </ul>
                 </div>
