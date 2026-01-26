@@ -112,6 +112,28 @@
                     </ul>
                 </div>
             </li>
+
+            {{-- Back Office --}}
+            <li class="nav-item nav-category">Back Office</li>
+            {{-- Keuangan --}}
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="collapse" href="#keuangan" role="button" aria-expanded="false"
+                    aria-controls="keuangan">
+                    <i class="link-icon" data-feather="dollar-sign"></i>
+                    <span class="link-title">Keuangan</span>
+                    <i class="link-arrow" data-feather="chevron-down"></i>
+                </a>
+                <div class="collapse" id="keuangan">
+                    <ul class="nav sub-menu">
+                        <li class="nav-item">
+                            <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Premi</a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
         </ul>
     </div>
 </nav>

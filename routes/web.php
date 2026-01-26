@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\ApotekController;
@@ -122,6 +123,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/petugasPanggiligd/igdPanggil', [igdPanggilController::class, 'index'])->name('pelayanan.petugasPanggil.igd.igdPanggil');
         Route::get('/petugasPanggiligd/dataPasien', [igdPanggilController::class, 'getDataPasienIgd'])->name('pelayanan.petugasPanggil.igd.igdPanggil.dataPasien');
         Route::post('/petugasPanggiligd/panggilIgd', [igdPanggilController::class, 'panggilIgd'])->name('pelayanan.petugasPanggil.igd.igdPanggil.panggilIgd');
+    });
+
+    Route::prefix('simrs/backOffice/keuangan')->group(function () {
+        Route::get('/premi', [premiController::class, 'index'])->name('backOffice.keuangan.premi');
+        Route::get('/premi/getPremiTable', [premiController::class, 'getPremiTable'])->name('backOffice.keuangan.premi.getPremiTable');
+        Route::get('/premi/getPremiDetail', [premiController::class, 'getPremiDetail'])->name('backOffice.keuangan.premi.getPremiDetail');
     });
 });
 
