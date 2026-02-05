@@ -14,28 +14,28 @@ class premiService
         $this->premiRepository = $premiRepository;
     }
 
-    /**
-     * ============================
-     * PREMI DOKTER
-     * ============================
-     */
-    public function getPremiDokter($tglAwal, $tglAkhir, array $filter = [])
-    {
-        return $this->premiRepository
-            ->getPremiDokter($tglAwal, $tglAkhir, $filter);
-    }
+    // /**
+    //  * ============================
+    //  * PREMI DOKTER
+    //  * ============================
+    //  */
+    // public function getPremiDokter($tglAwal, $tglAkhir, array $filter = [])
+    // {
+    //     return $this->premiRepository
+    //         ->getPremiDokter($tglAwal, $tglAkhir, $filter);
+    // }
 
-    /**
-     * ============================
-     * PREMI PERAWAT
-     * (sementara TANPA filter piutang)
-     * ============================
-     */
-    public function getPremiPerawat($tglAwal, $tglAkhir, array $filter = [])
-    {
-        return $this->premiRepository
-            ->getPremiPerawat($tglAwal, $tglAkhir, $filter);
-    }
+    // /**
+    //  * ============================
+    //  * PREMI PERAWAT
+    //  * (sementara TANPA filter piutang)
+    //  * ============================
+    //  */
+    // public function getPremiPerawat($tglAwal, $tglAkhir, array $filter = [])
+    // {
+    //     return $this->premiRepository
+    //         ->getPremiPerawat($tglAwal, $tglAkhir, $filter);
+    // }
 
     /**
      * ============================
@@ -44,8 +44,6 @@ class premiService
      */
     public function getPremiTable($tglAwal, $tglAkhir, array $filter = [])
     {
-        Log::info('Filter Premi', $filter);
-
         $dataPremi = [];
 
         /**
@@ -88,6 +86,26 @@ class premiService
             }
         }
 
+        /**
+         * ============================
+         * TAB PREMI KAMAR
+         * ============================
+         */
+        if (($filter['jenis'] ?? null) === 'kamar_inap') {
+
+            $premiKamar = $this->premiRepository
+                ->getPremiKamar($tglAwal, $tglAkhir, $filter);
+
+            foreach ($premiKamar as $p) {
+                $dataPremi[] = [
+                    'kode'  => $p->kd_kamar,
+                    'nama'  => $p->nama ?? 'Kamar ' . $p->kd_kamar,
+                    'jenis' => 'Kamar',
+                    'premi' => (int) $p->total_kamar,
+                ];
+            }
+        }
+
         return collect($dataPremi);
     }
 
@@ -122,6 +140,21 @@ class premiService
 
             return $this->premiRepository->getDetailPremiParamedis(
                 $filter['nip'],
+                $tglAwal,
+                $tglAkhir,
+                $filter
+            );
+        }
+
+        /* ================= KAMAR INAP ================= */
+        if ($filter['jenis'] === 'Kamar') {
+
+            if (empty($filter['kd_kamar'])) {
+                throw new \InvalidArgumentException('kd_kamar wajib diisi untuk detail kamar');
+            }
+
+            return $this->premiRepository->getDetailPremiKamar(
+                $filter['kd_kamar'],
                 $tglAwal,
                 $tglAkhir,
                 $filter
@@ -170,14 +203,36 @@ class premiService
                 );
             }
 
+            /* ================= KAMAR ================= */
+            if ($filter['jenis'] === 'Kamar') {
+                if (empty($filter['kd_kamar'])) {
+                    throw new \InvalidArgumentException('kd_kamar wajib diisi untuk total kamar');
+                }
+
+                return $this->premiRepository->getTotalPremiKamar(
+                    $filter['kd_kamar'],
+                    $tglAwal,
+                    $tglAkhir,
+                    $filter
+                );
+            }
+
             throw new \InvalidArgumentException('Jenis premi tidak dikenali');
     }
 
+    public function getPremiDokterChart($tglAwal, $tglAkhir, array $filter = [])
+    {
+        return $this->premiRepository->getPremiDokterChart($tglAwal, $tglAkhir, $filter);
+    }
 
+    public function getPremiParamedisChart($tglAwal, $tglAkhir, array $filter = [])
+    {
+        return $this->premiRepository->getPremiParamedisChart($tglAwal, $tglAkhir, $filter);
+    }
 
-
-
-
-
+    public function getPremiKamarChart($tglAwal, $tglAkhir, array $filter = [])
+    {
+        return $this->premiRepository->getPremiKamarChart($tglAwal, $tglAkhir, $filter);
+    }
 
 }
