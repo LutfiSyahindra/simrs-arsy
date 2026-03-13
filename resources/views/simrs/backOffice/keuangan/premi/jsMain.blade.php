@@ -34,6 +34,8 @@
         let currentSumber = '';
         let currentKode = '';
         let currentJenis = '';
+        let modeKamar = 'grouped';
+        let tablePremiKamarInap;
 
 
         $('#date-range').daterangepicker({
@@ -204,38 +206,153 @@
             ]
         });
 
-        let tablePremiKamarInap = $('#tablePremiKamarInap').DataTable({
-            processing: true,
-            serverSide: true,
-            responsive: true,
-            autoWidth: false,
-            ajax: {
-                url: "{{ route("backOffice.keuangan.premi.getPremiTable") }}",
-                type: "GET",
-                data: function(d) {
-                    applyFilterToDatatable(d, 'kamar_inap');
-                }
-            },
-            columns: [{
-                    data: 'DT_RowIndex',
-                    orderable: false,
-                    searchable: false
+        // let tablePremiKamarInap = $('#tablePremiKamarInap').DataTable({
+        //     processing: true,
+        //     serverSide: true,
+        //     responsive: true,
+        //     autoWidth: false,
+        //     ajax: {
+        //         url: "{{ route("backOffice.keuangan.premi.getPremiTable") }}",
+        //         type: "GET",
+        //         data: function(d) {
+        //             applyFilterToDatatable(d, 'kamar_inap');
+        //         }
+        //     },
+        //     columns: [{
+        //             data: 'DT_RowIndex',
+        //             orderable: false,
+        //             searchable: false
+        //         },
+        //         {
+        //             data: 'kode',
+        //             name: 'kode'
+        //         },
+        //         {
+        //             data: 'premi',
+        //             className: 'text-end'
+        //         },
+        //         {
+        //             data: 'actions',
+        //             orderable: false,
+        //             searchable: false
+        //         }
+        //     ]
+        // });
+
+        initTableKamar();
+
+        function initTableKamar() {
+
+            tablePremiKamarInap = $('#tablePremiKamarInap').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: true,
+                autoWidth: false,
+                ajax: {
+                    url: "{{ route("backOffice.keuangan.premi.getPremiTable") }}",
+                    type: "GET",
+                    data: function(d) {
+                        applyFilterToDatatable(d, 'kamar_inap');
+                        d.view_mode = modeKamar; // 🔥 kirim mode ke backend
+                    }
                 },
-                {
-                    data: 'kode',
-                    name: 'kode'
-                },
-                {
-                    data: 'premi',
-                    className: 'text-end'
-                },
-                {
-                    data: 'actions',
-                    orderable: false,
-                    searchable: false
-                }
-            ]
-        });
+                columns: modeKamar === 'grouped' ? [{
+                        data: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'kode',
+                        name: 'kode'
+                    },
+                    {
+                        data: 'premi',
+                        className: 'text-end'
+                    },
+                    {
+                        data: 'actions',
+                        orderable: false,
+                        searchable: false
+                    }
+                ] : [{
+                        data: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false
+                    },
+                    {
+                        data: 'no_rawat'
+                    },
+                    {
+                        data: 'nama'
+                    },
+                    {
+                        data: 'kode'
+                    },
+                    {
+                        data: 'tgl_masuk'
+                    },
+                    {
+                        data: 'lama'
+                    },
+                    {
+                        data: 'premi',
+                        className: 'text-end'
+                    }
+                ]
+            });
+            tablePremiKamarInap.columns.adjust();
+        }
+
+        function updateHeaderKamar() {
+
+            let headerGrouped = `
+                <tr>
+                    <th>No</th>
+                    <th>Kode</th>
+                    <th>Total Premi</th>
+                    <th>Aksi</th>
+                </tr>
+            `;
+
+            let headerAll = `
+                <tr>
+                    <th>No</th>
+                    <th>No Rawat</th>
+                    <th>Nama Pasien</th>
+                    <th>Kamar</th>
+                    <th>Tanggal Masuk</th>
+                    <th>Lama</th>
+                    <th>Premi</th>
+                </tr>
+            `;
+
+            $('#tablePremiKamarInap thead').html(
+                modeKamar === 'grouped' ? headerGrouped : headerAll
+            );
+        }
+
+        window.toggleKamarView = function() {
+
+            if ($.fn.DataTable.isDataTable('#tablePremiKamarInap')) {
+                tablePremiKamarInap.clear().destroy();
+            }
+
+            // 🔥 RESET STYLE LAMA
+            $('#tablePremiKamarInap')
+                .removeAttr('style')
+                .css('width', '100%');
+
+            if (modeKamar === 'grouped') {
+                modeKamar = 'all';
+                $('#btnToggleKamarView').text('Tampilkan Grouped');
+            } else {
+                modeKamar = 'grouped';
+                $('#btnToggleKamarView').text('Tampilkan Semua Data');
+            }
+
+            updateHeaderKamar();
+            initTableKamar();
+        }
 
         window.detailPremi = function(kode, jenis, nama = '', mode = 'umum') {
 
@@ -1083,8 +1200,12 @@
         // CETAK PDF & EXCEL
         // ===============================
         function cetakPremiPdf(jenis) {
+
             const params = buildFilter(jenis);
             if (!params) return;
+
+            // 🔥 Tambahkan mode yang sedang aktif
+            params.view_mode = modeKamar;
 
             Swal.fire({
                 title: 'Menyiapkan PDF',
@@ -1095,10 +1216,12 @@
 
             setTimeout(() => {
                 Swal.close();
+
                 window.open(
                     '{{ route("backOffice.keuangan.premi.cetakPremiAllPdf") }}?' + $.param(params),
                     '_blank'
                 );
+
             }, 300);
         }
 

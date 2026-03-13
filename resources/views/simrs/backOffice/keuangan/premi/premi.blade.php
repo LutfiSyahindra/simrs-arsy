@@ -424,6 +424,14 @@
                                             <div class="vr"></div>
 
                                             <div class="d-flex gap-2">
+
+                                                <button class="btn btn-soft-success btn-sm btn-export"
+                                                    id="btnToggleKamarView" data-view="grouped"
+                                                    onclick="toggleKamarView()">
+                                                    <i class="mdi mdi-view-grid-outline"></i>
+                                                    <span id="labelToggleKamarView">Grouped</span>
+                                                </button>
+
                                                 <button class="btn btn-soft-danger btn-sm btn-export" id="btnPdfKamarInap"
                                                     onclick="btnPdfKamarInap()">
                                                     <i class="mdi mdi-file-pdf-box"></i>

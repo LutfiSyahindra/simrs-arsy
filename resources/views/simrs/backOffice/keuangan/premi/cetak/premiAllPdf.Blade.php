@@ -163,7 +163,7 @@
 
                     <td width="10%">Penjamin</td>
                     <td width="2%">:</td>
-                    <td width="28%"> {{ strtoupper($penjamin ?? 'Semua Penjamin') }}</td>
+                    <td width="28%"> {{ strtoupper($penjamin ?? "Semua Penjamin") }}</td>
 
                 </tr>
             </table>
@@ -178,21 +178,58 @@
             $grandTotal = $data->sum("premi");
         @endphp
 
+        {{-- @dd($data) --}}
+
         <table class="data">
             <thead>
-                <tr>
-                    <th>No</th>
-                    <th>Nama</th>
-                    <th class="text-right">Premi (Rp)</th>
-                </tr>
+                @if ($view_mode === "grouped")
+                    <tr>
+                        <th width="5%">No</th>
+
+                        @if (isset($data[0]["group_by"]) && $data[0]["group_by"] === "kamar_inap")
+                            <th class="text-center">Kamar</th>
+                        @else
+                            <th class="text-center">Nama</th>
+                        @endif
+
+                        <th class="text-right">Premi (Rp)</th>
+                    </tr>
+                @else
+                    <tr>
+                        <th width="5%">No</th>
+                        <th>No Rawat</th>
+                        <th>Nama Pasien</th>
+                        <th>Kamar</th>
+                        <th>Tanggal Masuk</th>
+                        <th>Lama</th>
+                        <th class="text-right">Premi (Rp)</th>
+                    </tr>
+                @endif
             </thead>
+
             <tbody>
                 @foreach ($data as $i => $row)
-                    <tr>
-                        <td class="text-center">{{ $i + 1 }}</td>
-                        <td class="text-center">{{ $row['nama'] }}</td>
-                        <td class="text-right">{{ number_format($row['premi'], 0, ",", ".") }}</td>
-                    </tr>
+                    @if ($view_mode === "grouped")
+                        <tr>
+                            <td class="text-center">{{ $i + 1 }}</td>
+                            <td>{{ $row["nama"] }}</td>
+                            <td class="text-right">
+                                {{ number_format($row["premi"], 0, ",", ".") }}
+                            </td>
+                        </tr>
+                    @else
+                        <tr>
+                            <td class="text-center">{{ $i + 1 }}</td>
+                            <td>{{ $row["no_rawat"] ?? "-" }}</td>
+                            <td>{{ $row["nama"] ?? "-" }}</td>
+                            <td>{{ $row["kode"] ?? "-" }}</td>
+                            <td>{{ $row["tgl_masuk"] ?? "-" }}</td>
+                            <td class="text-center">{{ $row["lama"] ?? "-" }}</td>
+                            <td class="text-right">
+                                {{ number_format($row["premi"], 0, ",", ".") }}
+                            </td>
+                        </tr>
+                    @endif
                 @endforeach
             </tbody>
         </table>

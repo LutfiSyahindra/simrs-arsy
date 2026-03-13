@@ -941,16 +941,43 @@ class premiRepository
             ->get();
     }
 
-    public function getPremiKamar($tglAwal, $tglAkhir, array $filter = [])
+    // public function getPremiKamar($tglAwal, $tglAkhir, array $filter = [])
+    // {
+    //     $db = DB::connection('mysql_khanza');
+
+    //     $query = $db->table('kamar_inap as ki')
+    //         ->select(
+    //             'ki.kd_kamar',
+    //             DB::raw('SUM(ki.ttl_biaya) as total_kamar')
+    //         )
+    //         ->whereBetween('ki.tgl_masuk', [$tglAwal, $tglAkhir]) 
+    //         ->when(
+    //             ($filter['status_bayar'] ?? null) === 'piutang',
+    //             fn ($q) => $this->filterPiutang($q, 'ki')
+    //         )
+    //         ->when(
+    //             ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
+    //             fn ($q) => $this->filterLunasNonPiutang($q, 'ki')
+    //         )
+    //         ->when(
+    //             ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
+    //             fn ($q) => $this->filterBelumClosingKasir($q, 'ki')
+    //         )
+    //         ->when(
+    //             in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+    //             fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
+    //         )
+    //         ->groupBy('ki.kd_kamar');
+
+    //     return $query->get();
+    // }
+
+    public function getPremiKamar($tglAwal, $tglAkhir, array $filter = [], $mode = 'grouped')
     {
         $db = DB::connection('mysql_khanza');
 
         $query = $db->table('kamar_inap as ki')
-            ->select(
-                'ki.kd_kamar',
-                DB::raw('SUM(ki.ttl_biaya) as total_kamar')
-            )
-            ->whereBetween('ki.tgl_masuk', [$tglAwal, $tglAkhir]) 
+            ->whereBetween('ki.tgl_masuk', [$tglAwal, $tglAkhir])
             ->when(
                 ($filter['status_bayar'] ?? null) === 'piutang',
                 fn ($q) => $this->filterPiutang($q, 'ki')
@@ -966,8 +993,40 @@ class premiRepository
             ->when(
                 in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
                 fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
-            )
-            ->groupBy('ki.kd_kamar');
+            );
+
+        /**
+         * ============================
+         * MODE GROUPED
+         * ============================
+         */
+        if ($mode === 'grouped') {
+
+            $query->select(
+                    'ki.kd_kamar',
+                    DB::raw('SUM(ki.ttl_biaya) as total_kamar')
+                )
+                ->groupBy('ki.kd_kamar');
+
+        } else {
+
+            /**
+             * ============================
+             * MODE DETAIL (NON GROUPED)
+             * ============================
+             */
+            $query->leftJoin('reg_periksa as rp', 'ki.no_rawat', '=', 'rp.no_rawat')
+                ->leftJoin('pasien as p', 'rp.no_rkm_medis', '=', 'p.no_rkm_medis')
+                ->leftJoin('kamar as k', 'ki.kd_kamar', '=', 'k.kd_kamar')
+                ->select(
+                    'ki.no_rawat',
+                    'ki.kd_kamar',
+                    'ki.tgl_masuk',
+                    'ki.lama',
+                    'ki.ttl_biaya as premi',
+                    'p.nm_pasien'
+                );
+        }
 
         return $query->get();
     }

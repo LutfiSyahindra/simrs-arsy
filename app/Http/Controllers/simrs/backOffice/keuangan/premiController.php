@@ -90,6 +90,7 @@ class premiController extends Controller
             'penjamin'     => $request->penjamin,       // umum | bpjs | asuransi
             'status_rawat' => $request->status_rawat,   // rj | ri
             'jenis'        => $request->jenis ?? 'dokter', // 🔑 dokter | paramedis
+            'view_mode'         => $request->view_mode, // detail | grouped
         ];
 
         // ================= PANGGIL SERVICE =================
@@ -98,6 +99,13 @@ class premiController extends Controller
             $request->tgl_akhir,
             $filter
         );
+
+        Log::info(['data'        => $data,
+            'tgl_awal'    => $request->tgl_awal,
+            'tgl_akhir'   => $request->tgl_akhir,
+            'penjamin'    => $request->penjamin,
+            'jenis'       => $request->jenis,
+            'view_mode'   => $request->view_mode]);
 
         return DataTables::of($data)
             ->addIndexColumn()
@@ -708,6 +716,7 @@ class premiController extends Controller
             'penjamin'     => $request->penjamin,       // umum | bpjs | asuransi
             'status_rawat' => $request->status_rawat,   // rj | ri
             'jenis'        => $request->jenis ?? 'dokter', // 🔑 dokter | paramedis
+            'view_mode'    => $request->view_mode ?? 'grouped', // grouped | detail
         ];
 
         // ================= PANGGIL SERVICE =================
@@ -730,6 +739,7 @@ class premiController extends Controller
             'tgl_akhir'   => $request->tgl_akhir,
             'penjamin'    => $request->penjamin,
             'jenis'       => $request->jenis,
+            'view_mode'   => $request->view_mode
         ])
         ->setPaper('A4', 'portrait')
         ->stream('Detail-Premi.pdf');

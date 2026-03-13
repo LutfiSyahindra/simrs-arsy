@@ -45,6 +45,7 @@ class premiService
     public function getPremiTable($tglAwal, $tglAkhir, array $filter = [])
     {
         $dataPremi = [];
+        $mode = $filter['view_mode'] ?? 'grouped';
 
         /**
          * ============================
@@ -94,15 +95,34 @@ class premiService
         if (($filter['jenis'] ?? null) === 'kamar_inap') {
 
             $premiKamar = $this->premiRepository
-                ->getPremiKamar($tglAwal, $tglAkhir, $filter);
+                ->getPremiKamar($tglAwal, $tglAkhir, $filter, $mode);
 
-            foreach ($premiKamar as $p) {
-                $dataPremi[] = [
-                    'kode'  => $p->kd_kamar,
-                    'nama'  => $p->nama ?? 'Kamar ' . $p->kd_kamar,
-                    'jenis' => 'Kamar',
-                    'premi' => (int) $p->total_kamar,
-                ];
+            if ($mode === 'grouped') {
+
+                foreach ($premiKamar as $p) {
+                    $dataPremi[] = [
+                        'kode'  => $p->kd_kamar,
+                        'nama'  => $p->nama ?? 'Kamar ' . $p->kd_kamar,
+                        'jenis' => 'Kamar',
+                        'premi' => (int) $p->total_kamar,
+                        'group_by' => 'kamar_inap',
+                    ];
+                }
+
+            } else {
+
+                foreach ($premiKamar as $p) {
+                    $dataPremi[] = [
+                        'no_rawat' => $p->no_rawat,
+                        'nama'     => $p->nm_pasien,
+                        'kode'     => $p->kd_kamar,
+                        'tgl_masuk'=> $p->tgl_masuk,
+                        'lama'     => $p->lama,
+                        'premi'    => (int) $p->premi,
+                        'jenis' => 'Kamar',
+                    ];
+                }
+
             }
         }
 
