@@ -3,6 +3,10 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
+use App\Http\Controllers\simrs\master\keuangan\gapokController;
+use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
+use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
+use App\Http\Controllers\simrs\master\masterDataKeuanganController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\ApotekController;
@@ -141,6 +145,41 @@ Route::middleware('auth')->group(function () {
         Route::get('/premi/cetakPremiDetailPdf', [premiController::class, 'cetakPremiDetailPdf'])->name('backOffice.keuangan.premi.cetakPremiDetailPdf');
         Route::get('/premi/cetakPremiDetailExcel', [premiController::class, 'cetakPremiDetailExcel'])->name('backOffice.keuangan.premi.cetakPremiDetailExcel');
         Route::get('/premi/cetakPremiAllPdf', [premiController::class, 'cetakAllPremiPdf'])->name('backOffice.keuangan.premi.cetakPremiAllPdf');
+    });
+
+    Route::prefix('simrs/masterData/keuangan')->group(function () {
+        Route::get('/gapok', [gapokController::class, 'index'])->name('masterData.keuangan.gapok');
+        Route::get('/gapok/getGapokTable', [gapokController::class, 'getGapokTable'])->name('masterData.keuangan.gapok.getGapokTable');
+        Route::get('/gapok/exportTemplate', [gapokController::class, 'exportTemplate'])->name('masterData.keuangan.gapok.exportTemplate');
+        Route::post('/gapok/import', [gapokController::class, 'importGapok'])->name('masterData.keuangan.gapok.import');
+        Route::post('/gapok/store', [gapokController::class, 'store'])->name('masterData.keuangan.gapok.store');
+        Route::get('/gapok/{id}/edit', [gapokController::class, 'edit'])->name('masterData.keuangan.gapok.edit');
+        Route::put('/gapok/{id}/update', [gapokController::class, 'update'])->name('masterData.keuangan.gapok.update');
+        Route::delete('/gapok/{id}/delete', [gapokController::class, 'destroy'])->name('masterData.keuangan.gapok.delete');
+
+        Route::get('/tunjangan', [jenisTunjanganController::class, 'index'])->name('masterData.keuangan.tunjangan');
+        Route::get('/tunjangan/generateKode', [jenisTunjanganController::class, 'generateKodeTunjangan'])->name('masterData.keuangan.tunjangan.generateKode');
+        Route::get('/tunjangan/getTunjanganTable', [jenisTunjanganController::class, 'getJnsTunjanganTable'])->name('masterData.keuangan.tunjangan.getJnsTunjanganTable');
+        Route::get('/tunjangan/exportTemplate', [jenisTunjanganController::class, 'exportTemplate'])->name('masterData.keuangan.tunjangan.exportTemplate');
+        Route::post('/tunjangan/import', [jenisTunjanganController::class, 'importTunjangan'])->name('masterData.keuangan.tunjangan.import');
+        Route::post('/tunjangan/store', [jenisTunjanganController::class, 'store'])->name('masterData.keuangan.tunjangan.store');
+        Route::get('/tunjangan/{id}/edit', [jenisTunjanganController::class, 'edit'])->name('masterData.keuangan.tunjangan.edit');
+        Route::put('/tunjangan/{id}/update', [jenisTunjanganController::class, 'update'])->name('masterData.keuangan.tunjangan.update');
+        Route::delete('/tunjangan/{id}/delete', [jenisTunjanganController::class, 'destroy'])->name('masterData.keuangan.tunjangan.delete');
+
+        Route::get('/tunjanganPegawai', [tunjanganPegawaiController::class, 'index'])->name('masterData.keuangan.tunjanganPegawai');
+        Route::get('/tunjanganPegawai/getTunjanganPegawaiTable', [tunjanganPegawaiController::class, 'getTunjanganPegawaiTable'])->name('masterData.keuangan.tunjangan.gettunjnaganPegawaiTable');
+        Route::get('/tunjanganPegawai/guideJenisTunjangan', [tunjanganPegawaiController::class, 'guideJenisTunjangan'])->name('masterData.keuangan.tunjangan.getGuideJenisTunjangan');
+        Route::get('/tunjanganPegawai/exportTemplate', [tunjanganPegawaiController::class, 'exportTemplate'])->name('masterData.keuangan.tunjangan.getTunjanganPegawaiExportTemplate');
+        Route::post('/tunjanganPegawai/import', [tunjanganPegawaiController::class, 'importTunjanganPegawai'])->name('masterData.keuangan.tunjangan.importTunjanganPegawai');
+        Route::get('/tunjanganPegawai/getPegawai', [tunjanganPegawaiController::class, 'getPegawai'])->name('masterData.keuangan.tunjangan.getPegawai');
+        Route::post('/tunjanganPegawai/store', [tunjanganPegawaiController::class, 'store'])->name('masterData.keuangan.tunjanganPegawai.store');
+        Route::put('/tunjangan/update-inline/{id}',[TunjanganPegawaiController::class, 'updateInline'])->name('masterData.keuangan.tunjanganPegawai.updateInline');
+        Route::put('/tunjangan/bulk-update', [TunjanganPegawaiController::class, 'bulkUpdate'])->name('masterData.keuangan.tunjanganPegawai.bulkUpdate');
+        Route::delete('/tunjanganPegawai/{id}/delete', [tunjanganPegawaiController::class, 'destroy'])->name('masterData.keuangan.tunjanganPegawai.delete');
+        Route::get('/tunjangan/by-pegawai/{nik}',[TunjanganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.tunjanganPegawai.getByPegawai');
+        Route::post('/tunjangan/distribusi',[TunjanganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.tunjangan.distribusi');
+        Route::post('/tunjangan/preview-distribusi',[TunjanganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.tunjangan.previewDistribusi');
     });
 });
 

@@ -46,7 +46,8 @@
                 <div class="card-body">
                     <div
                         class="d-flex flex-wrap justify-content-between align-items-center mb-3 p-3 bg-light rounded-3 shadow-sm">
-                        <!-- Bagian Kiri: Ikon dan Judul -->
+
+                        <!-- Bagian Kiri -->
                         <div class="d-flex align-items-center mb-3 mb-md-0">
                             <div class="icon bg-primary bg-opacity-10 text-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
                                 style="width: 44px; height: 44px;">
@@ -58,9 +59,10 @@
                             </div>
                         </div>
 
-                        <!-- Bagian Kanan: Search dan Tombol Aksi -->
+                        <!-- Bagian Kanan -->
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <!-- Search Bar -->
+
+                            <!-- Search -->
                             <div class="input-group input-group-sm" style="width: 220px;">
                                 <span class="input-group-text bg-white border-end-0">
                                     <i class="mdi mdi-magnify text-muted"></i>
@@ -68,6 +70,14 @@
                                 <input type="text" id="searchUser" class="form-control border-start-0"
                                     placeholder="Cari User...">
                             </div>
+
+                            <!-- Button Tambah User -->
+                            <button type="button" id="btnTambahUser" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#usersModal">
+
+                                <i class="mdi mdi-account-plus-outline"></i>
+                            </button>
+
                         </div>
                     </div>
                     <div class="table-responsive">

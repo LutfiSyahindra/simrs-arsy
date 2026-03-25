@@ -5,6 +5,7 @@
     @include("template.AddOn.mdiicon")
     @include("template.AddOn.sweetAlert")
     @include("template.AddOn.select2")
+    @include("template.AddOn.dropify")
     <style>
         .modal-dialog {
             overflow-y: initial !important;
@@ -31,13 +32,12 @@
 @endpush
 
 @section("content")
-    @include("simrs.settings.auth.roles.modalMain")
-    @include("simrs.settings.auth.roles.modalAssignPermissions")
-
+    @include("simrs.masterData.Keuangan.gajiPokok.modalMain")
+    @include("simrs.masterData.Keuangan.gajiPokok.modalExcell")
     <nav class="page-breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="#">Roles</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Data Roles</li>
+            <li class="breadcrumb-item"><a href="#">Gaji Pokok</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Data Gaji Pokok</li>
         </ol>
     </nav>
 
@@ -51,11 +51,11 @@
                         <div class="d-flex align-items-center mb-3 mb-md-0">
                             <div class="icon bg-primary bg-opacity-10 text-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
                                 style="width: 44px; height: 44px;">
-                                <i class="mdi mdi-account-lock-outline mdi-24px"></i>
+                                <i class="mdi mdi-cash mdi-24px"></i>
                             </div>
                             <div>
-                                <h5 class="fw-bold text-primary mb-1">Data Roles</h5>
-                                <small class="text-muted">Kelola dan cari data Roles dengan cepat</small>
+                                <h5 class="fw-bold text-primary mb-1">Data Gaji Pokok</h5>
+                                <small class="text-muted">Kelola dan cari data Gaji Pokok dengan cepat</small>
                             </div>
                         </div>
 
@@ -66,28 +66,34 @@
                                 <span class="input-group-text bg-white border-end-0">
                                     <i class="mdi mdi-magnify text-muted"></i>
                                 </span>
-                                <input type="text" id="searchRole" class="form-control border-start-0"
-                                    placeholder="Cari Role...">
+                                <input type="text" id="searchGapok" class="form-control border-start-0"
+                                    placeholder="Cari Gaji Pokok...">
                             </div>
-                            <button type="button" id="btnTambahRole" class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                                data-bs-target="#rolesModal">
 
-                                <i class="mdi mdi-account-lock-outline"></i>
+                            <button type="button" class="btn btn-success btn-sm d-flex align-items-center"
+                                data-bs-toggle="modal" data-bs-target="#gapokModalExcell">
+                                <i class="mdi mdi-file-excel me-1"></i>
+                            </button>
+
+                            <button type="button" id="btnTambahGapok" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                                data-bs-target="#gapokModal">
+                                <i class="mdi mdi-cash-plus"></i>
                             </button>
                         </div>
                     </div>
-
                     <div class="table-responsive">
-                        <table id="tableRoles" class="table">
+                        <table id="tableGapok" class="table">
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Roles</th>
+                                    <th>Nama</th>
+                                    <th>Jabatan</th>
+                                    <th>Status Kerja</th>
+                                    <th>Gaji Pokok</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-
                             </tbody>
                         </table>
                     </div>
@@ -98,5 +104,5 @@
 @endsection
 
 @push("scripts")
-    @include("simrs.settings.auth.roles.jsMain")
+    @include("simrs.masterData.Keuangan.gajiPokok.jsMain")
 @endpush

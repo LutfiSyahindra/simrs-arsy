@@ -47,6 +47,34 @@
                 </li>
             @endcan
 
+            {{-- Master Data --}}
+            @can("SIMRS.USERS")
+                <li class="nav-item nav-category">Master Data</li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="collapse" href="#master_keuangan" role="button"
+                        aria-expanded="false" aria-controls="master_keuangan">
+                        <i class="link-icon" data-feather="users"></i>
+                        <span class="link-title">Master Keuangan</span>
+                        <i class="link-arrow" data-feather="chevron-down"></i>
+                    </a>
+                    <div class="collapse" id="master_keuangan">
+                        <ul class="nav sub-menu">
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji
+                                    Pokok</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.tunjangan") }}" class="nav-link">Jenis Tunjangan</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.tunjanganPegawai") }}" class="nav-link">Tunjangan
+                                    Pegawai</a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
+            @endcan
+
             {{-- Display --}}
             <li class="nav-item nav-category">Pelayanan</li>
             <li class="nav-item">
@@ -101,7 +129,8 @@
                                 class="nav-link">Pipp</a>
                         </li>
                         <li class="nav-item">
-                            <a href="{{ route("pelayanan.petugasPanggil.kasir.kasirWs") }}" class="nav-link">Kasir</a>
+                            <a href="{{ route("pelayanan.petugasPanggil.kasir.kasirWs") }}"
+                                class="nav-link">Kasir</a>
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("petugasPanggil.admisi.admisiPanggil") }}" class="nav-link">Admisi</a>

@@ -5,39 +5,15 @@
     @include("template.AddOn.mdiicon")
     @include("template.AddOn.sweetAlert")
     @include("template.AddOn.select2")
-    <style>
-        .modal-dialog {
-            overflow-y: initial !important;
-        }
-
-        .modal-body {
-            max-height: auto !important;
-            overflow-y: auto;
-        }
-
-        .select2-container {
-            z-index: 999999 !important;
-        }
-
-        .select2-dropdown {
-            z-index: 999999 !important;
-        }
-
-        .notif-unread {
-            background-color: #fff7e6 !important;
-            font-weight: 600;
-        }
-    </style>
+    @include("template.AddOn.dropify")
 @endpush
 
 @section("content")
-    @include("simrs.settings.auth.roles.modalMain")
-    @include("simrs.settings.auth.roles.modalAssignPermissions")
-
+    @include("simrs.masterData.Keuangan.Jenistunjangan.modalMain")
     <nav class="page-breadcrumb">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="#">Roles</a></li>
-            <li class="breadcrumb-item active" aria-current="page">Data Roles</li>
+            <li class="breadcrumb-item"><a href="#">Jenis Tunjangan</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Data Jenis Tunjangan</li>
         </ol>
     </nav>
 
@@ -51,11 +27,11 @@
                         <div class="d-flex align-items-center mb-3 mb-md-0">
                             <div class="icon bg-primary bg-opacity-10 text-primary rounded-circle me-3 d-flex align-items-center justify-content-center"
                                 style="width: 44px; height: 44px;">
-                                <i class="mdi mdi-account-lock-outline mdi-24px"></i>
+                                <i class="mdi mdi-cash mdi-24px"></i>
                             </div>
                             <div>
-                                <h5 class="fw-bold text-primary mb-1">Data Roles</h5>
-                                <small class="text-muted">Kelola dan cari data Roles dengan cepat</small>
+                                <h5 class="fw-bold text-primary mb-1">Data Jenis Tunjangan</h5>
+                                <small class="text-muted">Kelola dan cari data Jenis Tunjangan dengan cepat</small>
                             </div>
                         </div>
 
@@ -66,28 +42,28 @@
                                 <span class="input-group-text bg-white border-end-0">
                                     <i class="mdi mdi-magnify text-muted"></i>
                                 </span>
-                                <input type="text" id="searchRole" class="form-control border-start-0"
-                                    placeholder="Cari Role...">
+                                <input type="text" id="searchJnsTunjangan" class="form-control border-start-0"
+                                    placeholder="Cari Jenis Tunjangan...">
                             </div>
-                            <button type="button" id="btnTambahRole" class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                                data-bs-target="#rolesModal">
 
-                                <i class="mdi mdi-account-lock-outline"></i>
+                            <button type="button" id="btnTambahTunjangan" class="btn btn-primary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#tunjanganModal">
+                                <i class="mdi mdi-cash-plus"></i>
                             </button>
                         </div>
                     </div>
-
                     <div class="table-responsive">
-                        <table id="tableRoles" class="table">
+                        <table id="tableJnsTunjangan" class="table">
                             <thead>
                                 <tr>
                                     <th>No</th>
-                                    <th>Roles</th>
+                                    <th>Kode</th>
+                                    <th>Jns Tunjangan</th>
+                                    <th>Persentase (%)</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-
                             </tbody>
                         </table>
                     </div>
@@ -98,5 +74,5 @@
 @endsection
 
 @push("scripts")
-    @include("simrs.settings.auth.roles.jsMain")
+    @include("simrs.masterData.Keuangan.Jenistunjangan.jsMain")
 @endpush

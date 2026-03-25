@@ -67,6 +67,12 @@
                                 <input type="text" id="searchPermission" class="form-control border-start-0"
                                     placeholder="Cari Permission...">
                             </div>
+
+                            <button type="button" id="btnTambahPermission" class="btn btn-primary btn-sm"
+                                data-bs-toggle="modal" data-bs-target="#permissionsModal">
+
+                                <i class="mdi mdi-shield-key-outline"></i>
+                            </button>
                         </div>
                     </div>
                     <div class="table-responsive">
