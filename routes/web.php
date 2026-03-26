@@ -4,7 +4,9 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
+use App\Http\Controllers\simrs\master\keuangan\jabatanController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
+use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
@@ -180,6 +182,22 @@ Route::middleware('auth')->group(function () {
         Route::get('/tunjangan/by-pegawai/{nik}',[TunjanganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.tunjanganPegawai.getByPegawai');
         Route::post('/tunjangan/distribusi',[TunjanganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.tunjangan.distribusi');
         Route::post('/tunjangan/preview-distribusi',[TunjanganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.tunjangan.previewDistribusi');
+
+        Route::get('/jabatan', [jabatanController::class, 'index'])->name('masterData.keuangan.jabatan');
+        Route::get('/jabatan/getJabatanTable', [jabatanController::class, 'jabatanTable'])->name('masterData.keuangan.jabatan.getJabatanTable');
+        Route::get('/jabatan/generateKode', [jabatanController::class, 'generateKodeJabatan'])->name('masterData.keuangan.jabatan.generateKode');
+        Route::post('/jabatan/store', [jabatanController::class, 'store'])->name('masterData.keuangan.jabatan.store');
+        Route::get('/jabatan/{id}/edit', [jabatanController::class, 'edit'])->name('masterData.keuangan.jabatan.edit');
+        Route::put('/jabatan/{id}/update', [jabatanController::class, 'update'])->name('masterData.keuangan.jabatan.update');
+        Route::delete('/jabatan/{id}/delete', [jabatanController::class, 'destroy'])->name('masterData.keuangan.jabatan.delete');
+
+        Route::get('/profesi', [profesiController::class, 'index'])->name('masterData.keuangan.profesi');
+        Route::get('/profesi/getProfesiTable', [profesiController::class, 'profesiTable'])->name('masterData.keuangan.profesi.getProfesiTable');
+        Route::get('/profesi/generateKode', [profesiController::class, 'generateKodeProfesi'])->name('masterData.keuangan.profesi.generateKode');
+        Route::post('/profesi/store', [profesiController::class, 'store'])->name('masterData.keuangan.profesi.store');
+        Route::get('/profesi/{id}/edit', [profesiController::class, 'edit'])->name('masterData.keuangan.profesi.edit');
+        Route::put('/profesi/{id}/update', [profesiController::class, 'update'])->name('masterData.keuangan.profesi.update');
+        Route::delete('/profesi/{id}/delete', [profesiController::class, 'destroy'])->name('masterData.keuangan.profesi.delete');
     });
 });
 

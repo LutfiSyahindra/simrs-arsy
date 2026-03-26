@@ -60,6 +60,12 @@
                     <div class="collapse" id="master_keuangan">
                         <ul class="nav sub-menu">
                             <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.jabatan") }}" class="nav-link">Jabatan</a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.profesi") }}" class="nav-link">Profesi</a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji
                                     Pokok</a>
                             </li>
