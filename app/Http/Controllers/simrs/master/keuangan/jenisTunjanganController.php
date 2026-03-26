@@ -79,8 +79,10 @@ class jenisTunjanganController extends Controller
                 'kode.*' => 'required|string|max:20',
                 'nama' => 'required|array|min:1',
                 'nama.*' => 'required|string|max:100',
-                'persentase' => 'nullable|array',
-                'persentase.*' => 'nullable|numeric|min:0|max:100',
+                'tipe' => 'nullable|array',
+                'tipe.*' => 'nullable|string|in:jabatan,profesi,anak,pasangan,masa_kerja,custom',
+                'nilai' => 'nullable|array',
+                'nilai.*' => 'nullable|numeric|min:0',
             ], [
                 'kode.required' => 'Kode wajib ada',
                 'kode.*.required' => 'Kode tidak boleh kosong',
@@ -88,9 +90,9 @@ class jenisTunjanganController extends Controller
                 'nama.required' => 'Nama tunjangan wajib ada',
                 'nama.*.required' => 'Nama tunjangan tidak boleh kosong',
 
-                'persentase.numeric' => 'Persentase harus berupa angka',
-                'persentase.min' => 'Persentase tidak boleh kurang dari 0',
-                'persentase.max' => 'Persentase tidak boleh lebih dari 100',
+                'tipe.*.in' => 'Tipe tunjangan tidak valid',
+                'nilai.*.numeric' => 'Nilai harus berupa angka',
+                'nilai.*.min' => 'Nilai tidak boleh kurang dari 0',
             ]);
 
             // ✅ KIRIM KE SERVICE (JANGAN PAKAI KODE DARI FRONTEND!)
@@ -142,18 +144,80 @@ class jenisTunjanganController extends Controller
     public function update(Request $request, string $id)
     {
         try {
-            // ✅ VALIDASI SINGLE
+
+            // =========================
+            // VALIDASI DASAR
+            // =========================
             $validated = $request->validate([
                 'nama' => 'required|string|max:100|unique:master_tunjangan,nama,' . $id,
-                'persentase' => 'required|numeric|min:0|max:100'
+                'tipe' => 'required|string|in:jabatan,profesi,anak,pasangan,masa_kerja,custom',
+                'nilai' => 'nullable|numeric|min:0'
             ], [
                 'nama.required' => 'Nama tunjangan wajib diisi',
                 'nama.unique' => 'Nama tunjangan sudah digunakan',
 
-                'persentase.required' => 'Persentase wajib diisi',
-                'persentase.numeric' => 'Persentase harus angka'
+                'tipe.required' => 'Tipe tunjangan wajib diisi',
+                'nilai.numeric' => 'Nilai harus angka'
             ]);
 
+            // =========================
+            // VALIDASI LOGIC BERDASARKAN TIPE
+            // =========================
+            $tipe = $request->tipe;
+            $nilai = $request->nilai;
+
+            // 🔥 jabatan & profesi → tidak boleh ada nilai
+            if (in_array($tipe, ['jabatan', 'profesi'])) {
+                $validated['nilai'] = null;
+            }
+
+            // 🔥 anak & pasangan → wajib persen
+            if (in_array($tipe, ['anak', 'pasangan'])) {
+
+                if ($nilai === null) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => [
+                            'nilai' => ['Nilai wajib diisi untuk tipe ini']
+                        ]
+                    ], 422);
+                }
+
+                if ($nilai > 100) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => [
+                            'nilai' => ['Persentase tidak boleh lebih dari 100%']
+                        ]
+                    ], 422);
+                }
+            }
+
+            // 🔥 masa kerja → nominal (bukan persen)
+            if ($tipe === 'masa_kerja') {
+
+                if ($nilai === null) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => [
+                            'nilai' => ['Nominal per tahun wajib diisi']
+                        ]
+                    ], 422);
+                }
+
+                if ($nilai < 1000) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => [
+                            'nilai' => ['Nominal terlalu kecil (minimal 1000)']
+                        ]
+                    ], 422);
+                }
+            }
+
+            // =========================
+            // UPDATE
+            // =========================
             $result = $this->jnsTunjanganService->update($id, $validated);
 
             return response()->json([

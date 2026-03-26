@@ -10,5 +10,5 @@ class jnsTunjanganModel extends Model
     use HasFactory;
 
     protected $table = 'master_tunjangan';
-    protected $fillable = ['kode', 'nama', 'persentase'];
+    protected $fillable = ['kode', 'nama', 'tipe', 'nilai'];
 }

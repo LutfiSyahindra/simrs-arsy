@@ -15,13 +15,24 @@
         // INIT MODAL (AMBIL KODE AWAL)
         $('#tunjanganModal').on('show.bs.modal', function() {
 
+            // reset container
             container.html('');
 
-            // 🔥 JIKA EDIT → JANGAN JALANKAN INIT CREATE
+            // 🔥 kalau edit → skip init create
             if (isEditMode) return;
 
-            $('#addRow').prop('disabled', false);
+            // =========================
+            // MODE CREATE
+            // =========================
+            $('#addRow').prop('hidden', false);
 
+            $('.modal-title').text('Master Jenis Tunjangan');
+
+            $('button[form="tunjanganForm"]').html(`
+                <i data-feather="save" class="me-1"></i> Simpan
+            `);
+
+            // ambil kode awal
             $.get('/simrs/masterData/keuangan/tunjangan/generateKode', function(res) {
 
                 currentKode = parseInt(res.kode.replace('TJ', ''));
@@ -34,17 +45,28 @@
         // CLOSE MODAL (RESET SEMUA)
         $('#tunjanganModal').on('hidden.bs.modal', function() {
 
-            isEditMode = false; // 🔥 reset mode
+            // =========================
+            // RESET STATE
+            // =========================
+            isEditMode = false;
 
             $('#tunjanganId').val('');
-            $('#addRow').prop('disabled', false);
+            $('#addRow').prop('hidden', false);
 
-            $('#tunjanganModalLabel').html('Jenis Tunjangan');
-            $('#submitForm').html(`
-                <i data-feather="save" class="me-1"></i>
-                Simpan Data
+            // reset form & container
+            $('#tunjanganForm')[0].reset();
+            $('#tunjanganContainer').html('');
+
+            // reset UI
+            $('.modal-title').text('Master Jenis Tunjangan');
+
+            $('button[form="tunjanganForm"]').html(`
+                <i data-feather="save" class="me-1"></i> Simpan
             `);
 
+            $('.form-control, .form-select').removeClass('is-invalid');
+
+            // refresh icon
             if (typeof feather !== "undefined") {
                 feather.replace();
             }
@@ -61,34 +83,52 @@
         // TEMPLATE ROW
         function createRow(kode) {
             return `
-            <div class="card border">
-                <div class="card-body py-3">
-                    <div class="row g-3 align-items-end">
+            <div class="tunjangan-card p-3 rounded-4 border">
+                <div class="row g-3 align-items-end">
 
-                        <div class="col-md-3">
-                            <label class="form-label">Kode</label>
-                            <input type="text" name="kode[]" class="form-control"
-                                value="${kode}" readonly>
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Nama Tunjangan</label>
-                            <input type="text" name="nama[]" class="form-control"
-                                placeholder="Contoh: Tunjangan Jabatan">
-                        </div>
-
-                        <div class="col-md-4">
-                            <label class="form-label">Persen (%)</label>
-                            <input type="number" name="persentase[]" class="form-control" placeholder="Contoh: 10">
-                        </div>
-
-                        <div class="col-md-1 text-end">
-                            <button type="button" class="btn btn-light btn-icon removeRow">
-                                <i data-feather="x"></i>
-                            </button>
-                        </div>
-
+                    <!-- KODE -->
+                    <div class="col-md-2">
+                        <label class="form-label small text-muted">Kode</label>
+                        <input type="text" name="kode[]" class="form-control form-control-sm bg-light"
+                            value="${kode}" readonly>
                     </div>
+
+                    <!-- NAMA -->
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">Nama</label>
+                        <input type="text" name="nama[]" class="form-control form-control-sm"
+                            placeholder="Contoh: Tunjangan Anak">
+                    </div>
+
+                    <!-- TIPE -->
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">Tipe</label>
+                        <select name="tipe[]" class="form-select form-select-sm tipeTunjangan">
+                            <option value="">Pilih</option>
+                            <option value="jabatan">Jabatan</option>
+                            <option value="profesi">Profesi</option>
+                            <option value="anak">Anak</option>
+                            <option value="pasangan">Suami/Istri</option>
+                            <option value="masa_kerja">Masa Kerja</option>
+                            <option value="custom">Custom</option>
+                        </select>
+                    </div>
+
+                    <!-- NILAI -->
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted">Nilai</label>
+                        <input type="number" name="nilai[]" 
+                            class="form-control form-control-sm input-nilai"
+                            placeholder="Isi sesuai tipe">
+                    </div>
+
+                    <!-- REMOVE -->
+                    <div class="col-md-1 text-end">
+                        <button type="button" class="btn btn-sm btn-light removeRow">
+                            <i data-feather="trash-2"></i>
+                        </button>
+                    </div>
+
                 </div>
             </div>`;
         }
@@ -104,18 +144,32 @@
             addRow();
         });
 
-        // REMOVE ROW
-        container.on("click", ".removeRow", function() {
+        $(document).on('change', '.tipeTunjangan', function() {
 
-            if (container.find(".card").length === 1) {
-                Swal.fire({
-                    icon: "warning",
-                    title: "Minimal 1 data"
-                });
-                return;
+            let row = $(this).closest('.row');
+            let tipe = $(this).val();
+            let input = row.find('.input-nilai');
+
+            input.prop('disabled', false);
+
+            if (tipe === 'jabatan' || tipe === 'profesi') {
+                input.val('');
+                input.prop('disabled', true);
+                input.attr('placeholder', 'Otomatis dari master');
+            } else if (tipe === 'anak') {
+                input.attr('placeholder', 'Persen per anak (contoh: 5)');
+            } else if (tipe === 'pasangan') {
+                input.attr('placeholder', 'Persen (contoh: 10)');
+            } else if (tipe === 'masa_kerja') {
+                input.attr('placeholder', 'Nominal per tahun (contoh: 50000)');
+            } else {
+                input.attr('placeholder', 'Nominal / persen bebas');
             }
 
-            $(this).closest(".card").remove();
+        });
+        // REMOVE ROW
+        $(document).on('click', '.removeRow', function() {
+            $(this).closest('.tunjangan-card').remove();
         });
 
         // FEATHER ICON
@@ -126,6 +180,10 @@
         }
 
         // DATATABLE
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID').format(angka);
+        }
+
         let jnsTunjanganTable = $('#tableJnsTunjangan').DataTable({
             processing: true,
             serverSide: true,
@@ -150,19 +208,27 @@
                     name: 'nama'
                 },
                 {
-                    data: 'persentase',
-                    name: 'persentase', // 🔥 FIX (hapus %)
+                    data: 'tipe',
+                    name: 'tipe'
+                },
+                {
+                    data: 'nilai',
+                    name: 'nilai', // 🔥 FIX (hapus %)
                     render: function(data, type, row) {
 
-                        if (!data) return '-';
+                        if (row.tipe === 'jabatan' || row.tipe === 'profesi') {
+                            return '<span class="text-muted">Mengikutkan dari master</span>';
+                        }
 
-                        let val = parseFloat(data);
+                        if (row.tipe === 'anak' || row.tipe === 'pasangan') {
+                            return `<span class="badge bg-light text-dark">${data}%</span>`;
+                        }
 
-                        return `
-                    <span class="badge bg-light text-dark border fw-semibold">
-                        ${val}%
-                    </span>
-                `;
+                        if (row.tipe === 'masa_kerja') {
+                            return `<span class="badge bg-light text-dark">Rp ${formatRupiah(data)} / tahun</span>`;
+                        }
+
+                        return `<span class="badge bg-light text-dark">Rp ${formatRupiah(data)}</span>`;
                     }
                 },
                 {
@@ -196,11 +262,9 @@
 
             // RESET VALIDASI
             $('.form-control, .form-select').removeClass('is-invalid');
-            $('.invalid-feedback').text('');
 
             Swal.fire({
-                title: tunjanganId ?
-                    'Perbarui data tunjangan?' : 'Simpan data tunjangan?',
+                title: tunjanganId ? 'Perbarui data tunjangan?' : 'Simpan data tunjangan?',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, simpan',
@@ -215,22 +279,19 @@
                     method: method,
                     data: formData,
 
-                    // ✅ LOADING START
                     beforeSend: function() {
                         Swal.fire({
                             title: 'Menyimpan...',
                             text: 'Mohon tunggu sebentar',
                             allowOutsideClick: false,
                             showConfirmButton: false,
-                            didOpen: () => {
-                                Swal.showLoading();
-                            }
+                            didOpen: () => Swal.showLoading()
                         });
                     },
 
                     success: function(response) {
 
-                        Swal.close(); // ✅ tutup loading dulu
+                        Swal.close();
 
                         if (response.status === true) {
 
@@ -256,7 +317,7 @@
 
                     error: function(xhr) {
 
-                        Swal.close(); // ✅ WAJIB
+                        Swal.close();
 
                         if (xhr.status === 422) {
 
@@ -264,11 +325,25 @@
 
                             $.each(errors, function(key, value) {
 
-                                let input = $('[name="' + key + '"]');
+                                // 🔥 HANDLE ARRAY VALIDATION
+                                let name = key.replace(/\.\d+/g, '[]');
+                                let indexMatch = key.match(/\d+/);
+                                let index = indexMatch ? indexMatch[0] :
+                                    null;
+
+                                let input;
+
+                                if (index !== null) {
+                                    input = $('[name="' + name + '"]').eq(
+                                        index);
+                                } else {
+                                    input = $('[name="' + key + '"]');
+                                }
 
                                 input.addClass('is-invalid');
-                                $('#error-' + key).text(value[0]);
 
+                                // OPTIONAL: tooltip error
+                                input.attr('title', value[0]);
                             });
 
                         } else {
@@ -281,7 +356,8 @@
                             });
 
                         }
-                    },
+
+                    }
 
                 });
 
@@ -302,17 +378,13 @@
             $('#tunjanganId').val(id);
             $('#addRow').prop('hidden', true);
 
-            // reset dulu sebelum show
             form[0].reset();
             container.html('');
 
-            $('.invalid-feedback').text('');
             $('.form-control, .form-select').removeClass('is-invalid');
 
-            // baru tampilkan modal
             modal.modal('show');
 
-            // loading
             Swal.fire({
                 title: 'Mengambil data...',
                 allowOutsideClick: false,
@@ -331,55 +403,77 @@
                     let data = response.data || response;
 
                     // =========================
-                    // UI MODE EDIT
+                    // HEADER EDIT
                     // =========================
-                    $('#tunjanganModalLabel').html(`
-                        <i class="mdi mdi-pencil text-warning me-1"></i>
-                        Edit Jenis Tunjangan
-                    `);
-
-                    $('#submitForm').html(`
-                        <i class="mdi mdi-content-save-outline me-1"></i>
-                        Update
-                    `);
+                    $('.modal-title').text('Edit Jenis Tunjangan');
+                    $('button[form="tunjanganForm"]').html(`
+                <i data-feather="save" class="me-1"></i> Update
+            `);
 
                     // =========================
-                    // INJECT ROW
+                    // BUILD ROW
                     // =========================
+                    let disabled = (data.tipe === 'jabatan' || data.tipe === 'profesi') ?
+                        'disabled' : '';
+
                     container.html(`
-                        <div class="card border">
-                            <div class="card-body py-3">
-                                <div class="row g-3 align-items-end">
+                <div class="tunjangan-card p-3 rounded-4 border">
+                    <div class="row g-3 align-items-end">
 
-                                    <div class="col-md-3">
-                                        <label class="form-label">Kode</label>
-                                        <input type="text" class="form-control"
-                                            value="${data.kode}" readonly>
-                                    </div>
-
-                                    <div class="col-md-4">
-                                        <label class="form-label">Nama Tunjangan</label>
-                                        <input type="text" name="nama" class="form-control"
-                                            value="${data.nama}">
-                                    </div>
-
-                                    <div class="col-md-4">
-                                        <label class="form-label">Persen (%)</label>
-                                        <input type="number" name="persentase" class="form-control" placeholder="Contoh: 10" value="${data.persentase}">
-                                    </div>
-
-                                    <input type="hidden" name="tunjanganId" id="tunjanganId"  value="${data.id}">
-
-                                    <div class="col-md-1 text-end">
-                                        <button type="button" class="btn btn-light btn-icon removeRow">
-                                            <i data-feather="x"></i>
-                                        </button>
-                                    </div>
-
-                                </div>
-                            </div>
+                        <!-- KODE -->
+                        <div class="col-md-2">
+                            <label class="form-label small text-muted">Kode</label>
+                            <input type="text" class="form-control form-control-sm bg-light"
+                                value="${data.kode}" readonly>
                         </div>
-                    `);
+
+                        <!-- NAMA -->
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Nama</label>
+                            <input type="text" name="nama" class="form-control form-control-sm"
+                                value="${data.nama}">
+                        </div>
+
+                        <!-- TIPE -->
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Tipe</label>
+                            <select name="tipe" class="form-select form-select-sm tipeTunjangan">
+                                <option value="">Pilih</option>
+                                <option value="jabatan" ${data.tipe === 'jabatan' ? 'selected' : ''}>Jabatan</option>
+                                <option value="profesi" ${data.tipe === 'profesi' ? 'selected' : ''}>Profesi</option>
+                                <option value="anak" ${data.tipe === 'anak' ? 'selected' : ''}>Anak</option>
+                                <option value="pasangan" ${data.tipe === 'pasangan' ? 'selected' : ''}>Suami/Istri</option>
+                                <option value="masa_kerja" ${data.tipe === 'masa_kerja' ? 'selected' : ''}>Masa Kerja</option>
+                                <option value="custom" ${data.tipe === 'custom' ? 'selected' : ''}>Custom</option>
+                            </select>
+                        </div>
+
+                        <!-- NILAI -->
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Nilai</label>
+                            <input type="number" name="nilai"
+                                class="form-control form-control-sm input-nilai"
+                                value="${data.nilai ?? ''}"
+                                ${disabled}>
+                        </div>
+
+                        <input type="hidden" name="tunjanganId" id="tunjanganId" value="${data.id}">
+
+                        <!-- REMOVE -->
+                        <div class="col-md-1 text-end">
+                            <button type="button" class="btn btn-sm btn-light removeRow">
+                                <i data-feather="trash-2"></i>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            `);
+
+                    // =========================
+                    // TRIGGER TIPE LOGIC (BIAR PLACEHOLDER IKUT)
+                    // =========================
+                    $('.tipeTunjangan').trigger('change');
 
                     if (typeof feather !== "undefined") {
                         feather.replace();
@@ -399,8 +493,8 @@
 
                     modal.modal('hide');
 
-                    // 🔥 BALIKIN KE CREATE MODE
-                    $('#addRow').prop('disabled', false);
+                    // BALIKIN MODE CREATE
+                    $('#addRow').prop('hidden', false);
                     $('#tunjanganId').val('');
                 }
             });

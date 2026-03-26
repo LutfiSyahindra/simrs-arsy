@@ -13,12 +13,12 @@ class jenisTunjanganRepository
 
     public function getJnsTunjangan()
     {
-        return jnsTunjanganModel::select('id','kode','nama','persentase')
+        return jnsTunjanganModel::select('id','kode','nama','tipe','nilai')
             ->get()
             ->map(function ($item) {
 
                 // 🔥 hapus nol di belakang
-                $item->persentase = rtrim(rtrim($item->persentase, '0'), '.');
+                $item->persentase = rtrim(rtrim($item->nilai, '0'), '.');
 
                 return $item;
             });
@@ -45,7 +45,8 @@ class jenisTunjanganRepository
 
         $model->update([
             'nama' => $data['nama'],
-            'persentase' => $data['persentase'],
+            'tipe' => $data['tipe'],
+            'nilai' => $data['nilai'],
         ]);
 
         return $model;

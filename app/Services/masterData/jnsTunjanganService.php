@@ -44,7 +44,8 @@ class jnsTunjanganService
             $data[] = [
                 'kode' => $kode,
                 'nama' => $nama,
-                'persentase' => $persentase,
+                'tipe' => $request->tipe[$i] ?? null,
+                'nilai' => $request->nilai[$i] ?? null,
                 'created_at' => now(),
                 'updated_at' => now()
             ];
@@ -66,7 +67,8 @@ class jnsTunjanganService
                     'id' => $j->id,
                     'kode' => $j->kode,
                     'nama' => $j->nama,
-                    'persentase' => $j->persentase,
+                    'tipe' => $j->tipe,
+                    'nilai' => $j->nilai,
                 ];
             }
         }

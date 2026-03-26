@@ -58,8 +58,9 @@
                                 <tr>
                                     <th>No</th>
                                     <th>Kode</th>
-                                    <th>Jns Tunjangan</th>
-                                    <th>Persentase (%)</th>
+                                    <th>Nama Tunjangan</th>
+                                    <th>Tipe</th>
+                                    <th>Nilai</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
