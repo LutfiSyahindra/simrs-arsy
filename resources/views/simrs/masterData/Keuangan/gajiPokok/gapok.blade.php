@@ -79,6 +79,11 @@
                                 data-bs-target="#gapokModal">
                                 <i class="mdi mdi-cash-plus"></i>
                             </button>
+
+                            <button type="button" id="btnSyncGapok"
+                                class="btn btn-warning btn-sm d-flex align-items-center">
+                                <i class="mdi mdi-sync me-1"></i>
+                            </button>
                         </div>
                     </div>
                     <div class="table-responsive">

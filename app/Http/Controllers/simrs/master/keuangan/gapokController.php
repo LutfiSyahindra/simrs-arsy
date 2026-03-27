@@ -72,24 +72,82 @@ class gapokController extends Controller
                 'file' => 'required|mimes:xls,xlsx|max:5120'
             ]);
 
-            // reset counter di service
+            // 🔥 reset counter
             $this->masterGapokService->resetCounter();
 
-            Excel::import(
-                new GapokImport($this->masterGapokService),
-                $request->file('file')
-            );
+            // 🔥 init import class (biar bisa ambil errors)
+            $import = new GapokImport($this->masterGapokService);
+
+            Excel::import($import, $request->file('file'));
 
             return response()->json([
-                'success' => true,
-                'added' => $this->masterGapokService->getAdded(),
-                'skipped' => $this->masterGapokService->getSkipped()
+                'status' => true,
+                'message' => 'Import selesai',
+                'result' => [
+                    'added' => $this->masterGapokService->getAdded(),
+                    'updated' => $this->masterGapokService->getUpdated(), // 🔥 tambahan
+                    'skipped' => $this->masterGapokService->getSkipped(),
+                ],
+                'errors' => $import->errors ?? [] // 🔥 ambil error detail
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getPegawai(Request $request)
+    {
+        $pegawai = $this->masterGapokService->getPegawai();
+
+        return response()->json($pegawai);
+    }
+
+    public function getPegawaiByNik($nik)
+    {
+
+        $pegawai = $this->masterGapokService->getPegawaiByNik($nik);
+
+        if ($pegawai) {
+            return response()->json([
+                'status' => true,
+                'data' => $pegawai
+            ]);
+        } else {
+            return response()->json([
+                'status' => false,
+                'message' => 'Pegawai dengan NIK tersebut tidak ditemukan'
+            ], 404);
+        }
+    }
+
+    public function syncGapok()
+    {
+        try {
+
+            $result = $this->masterGapokService->syncFromPegawai();
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Sinkronisasi selesai',
+                'result' => $result
             ]);
 
         } catch (\Throwable $e) {
 
             return response()->json([
-                'success' => false,
+                'status' => false,
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -116,7 +174,8 @@ class gapokController extends Controller
                 'nama' => 'required|string|max:100',
                 'jbtn' => 'required|string|max:100',
                 'stts_kerja' => 'required|in:T,FT,PT',
-                'masa_kerja' => 'required|in:FT>1,<1,PT',
+                'mulai_kontrak' => 'required|date',
+                'masa_kerja' => 'required',
                 'gaji_pokok' => 'required|numeric|min:0',
             ], [
                 'nik.required' => 'NIK wajib diisi',
@@ -124,8 +183,9 @@ class gapokController extends Controller
                 'jbtn.required' => 'Jabatan wajib diisi',
                 'stts_kerja.required' => 'Status kerja wajib dipilih',
                 'stts_kerja.in' => 'Status kerja tidak valid',
+                'mulai_kontrak.required' => 'Tanggal mulai kontrak wajib diisi',
+                'mulai_kontrak.date' => 'Format tanggal tidak valid',
                 'masa_kerja.required' => 'Masa kerja wajib dipilih',
-                'masa_kerja.in' => 'Masa kerja tidak valid',
                 'gaji_pokok.required' => 'Gaji pokok wajib diisi',
                 'gaji_pokok.numeric' => 'Gaji pokok harus berupa angka',
             ]);
@@ -175,6 +235,7 @@ class gapokController extends Controller
     /**
      * Update the specified resource in storage.
      */
+
     public function update(Request $request, $id)
     {
         try {
@@ -189,7 +250,7 @@ class gapokController extends Controller
                 'nama' => 'required|string|max:100',
                 'jbtn' => 'required|string|max:100',
                 'stts_kerja' => 'required|in:T,FT,PT',
-                'masa_kerja' => 'required|in:FT>1,<1,PT',
+                'mulai_kontrak' => 'required|date',
                 'gaji_pokok' => 'required|numeric|min:0',
             ], [
                 'nik.required' => 'NIK wajib diisi',
@@ -198,8 +259,8 @@ class gapokController extends Controller
                 'jbtn.required' => 'Jabatan wajib diisi',
                 'stts_kerja.required' => 'Status kerja wajib dipilih',
                 'stts_kerja.in' => 'Status kerja tidak valid',
-                'masa_kerja.required' => 'Masa kerja wajib dipilih',
-                'masa_kerja.in' => 'Masa kerja tidak valid',
+                'mulai_kontrak.required' => 'Tanggal mulai kontrak wajib diisi',
+                'mulai_kontrak.date' => 'Format tanggal tidak valid',
                 'gaji_pokok.required' => 'Gaji pokok wajib diisi',
                 'gaji_pokok.numeric' => 'Gaji pokok harus berupa angka',
             ]);

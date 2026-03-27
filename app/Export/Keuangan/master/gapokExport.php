@@ -9,10 +9,10 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
 class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithTitle
 {
-
     public function collection()
     {
         $data = pegawaiModel::select(
@@ -20,8 +20,8 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
             'nama',
             'jbtn',
             'stts_kerja',
-            'ms_kerja'
-        )->where('stts_aktif', '=', 'AKTIF')->get();
+            'mulai_kontrak'
+        )->where('stts_aktif', 'AKTIF')->get();
 
         return $data->map(function ($item) {
             return [
@@ -29,8 +29,8 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
                 $item->nama,
                 $item->jbtn,
                 $item->stts_kerja,
-                $item->ms_kerja,
-                '' // Gaji Pokok kosong
+                $item->mulai_kontrak,
+                '' // hanya ini yang diisi user
             ];
         });
     }
@@ -38,41 +38,73 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
     public function headings(): array
     {
         return [
-            'Nik',
-            'Nama',
-            'Jabatan',
-            'Status Kerja',
-            'Masa Kerja',
-            'Gaji Pokok',
+            'nik',
+            'nama',
+            'jbtn',
+            'stts_kerja',
+            'mulai_kontrak',
+            'gaji_pokok',
         ];
     }
 
     public function styles(Worksheet $sheet)
     {
-        return [
-            1 => [
-                'font' => ['bold' => true],
-                'alignment' => [
-                    'horizontal' => 'center',
-                    'vertical' => 'center'
-                ],
-                'fill' => [
-                    'fillType' => 'solid',
-                    'startColor' => ['rgb' => 'D9D9D9'],
-                ],
+        $highestRow = $sheet->getHighestRow();
+
+        // 🔥 STYLE HEADER
+        $sheet->getStyle('A1:F1')->applyFromArray([
+            'font' => [
+                'bold' => true,
+                'size' => 11
             ],
-        ];
+            'alignment' => [
+                'horizontal' => 'center',
+                'vertical' => 'center'
+            ],
+            'fill' => [
+                'fillType' => 'solid',
+                'startColor' => ['rgb' => 'D9D9D9'],
+            ],
+        ]);
+
+        // 🔥 FORMAT TANGGAL (mulai_kontrak)
+        $sheet->getStyle("E2:E{$highestRow}")
+            ->getNumberFormat()
+            ->setFormatCode(NumberFormat::FORMAT_DATE_YYYYMMDD2);
+
+        // 🔥 HIGHLIGHT KOLOM GAJI
+        $sheet->getStyle("F1:F{$highestRow}")->applyFromArray([
+            'fill' => [
+                'fillType' => 'solid',
+                'startColor' => ['rgb' => 'FFF3CD'], // kuning soft
+            ],
+        ]);
+
+        // 🔥 LOCK KOLOM A-E
+        $sheet->getStyle("A2:E{$highestRow}")
+            ->getProtection()
+            ->setLocked(true);
+
+        // 🔥 UNLOCK KOLOM GAJI (F)
+        $sheet->getStyle("F2:F{$highestRow}")
+            ->getProtection()
+            ->setLocked(false);
+
+        // 🔥 AKTIFKAN PROTECTION
+        $sheet->getProtection()->setSheet(true);
+
+        return [];
     }
 
     public function columnWidths(): array
     {
         return [
             'A' => 20,
-            'B' => 40,
-            'C' => 40,
+            'B' => 35,
+            'C' => 35,
             'D' => 20,
             'E' => 25,
-            'F' => 25, // Gaji Pokok
+            'F' => 25,
         ];
     }
 

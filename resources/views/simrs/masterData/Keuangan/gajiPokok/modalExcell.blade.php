@@ -101,7 +101,8 @@
 
                                 <ul class="small mb-0 ps-3">
                                     <li>Jangan ubah struktur kolom</li>
-                                    <li>Isi hanya <b>Gaji Pokok</b></li>
+                                    <li>Isi <b>NIK</b> sesuai data pegawai</li>
+                                    <li>Isi <b>Gaji Pokok</b></li>
                                     <li>Simpan dalam format Excel</li>
                                     <li>Upload kembali ke sistem</li>
                                 </ul>
@@ -118,8 +119,8 @@
                                 </h6>
 
                                 <p class="small mb-0">
-                                    Sistem hanya membaca data sesuai template.
-                                    Perubahan struktur akan menyebabkan gagal upload.
+                                    Sistem akan otomatis mengambil data pegawai berdasarkan NIK.
+                                    Pastikan NIK valid dan sudah terdaftar.
                                 </p>
 
                             </div>

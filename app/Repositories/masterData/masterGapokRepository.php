@@ -2,6 +2,7 @@
 
 namespace App\Repositories\masterData;
 
+use App\Models\dbKhanza\pegawaiModel;
 use App\Models\dbSimrs\gapokModel;
 
 class masterGapokRepository
@@ -12,7 +13,12 @@ class masterGapokRepository
 
     public function getGapok()
     {
-        return gapokModel::select('id','nik','nama','jbtn','stts_kerja','masa_kerja','gaji_pokok')->get();
+        return gapokModel::select('id','nik','nama','jbtn','stts_kerja','masa_kerja','mulai_kontrak','gaji_pokok')->get();
+    }
+
+    public function getPegawai()
+    {
+        return pegawaiModel::select('nik','nama','jbtn','stts_kerja','mulai_kontrak')->get();
     }
 
     public function createGapok($data)

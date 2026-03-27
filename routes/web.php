@@ -152,6 +152,9 @@ Route::middleware('auth')->group(function () {
     Route::prefix('simrs/masterData/keuangan')->group(function () {
         Route::get('/gapok', [gapokController::class, 'index'])->name('masterData.keuangan.gapok');
         Route::get('/gapok/getGapokTable', [gapokController::class, 'getGapokTable'])->name('masterData.keuangan.gapok.getGapokTable');
+        Route::get('/gapok/getPegawai', [gapokController::class, 'getPegawai'])->name('masterData.keuangan.gapok.getPegawai');
+        Route::get('/gapok/getPegawaiByNik/{nik}', [gapokController::class, 'getPegawaiByNik'])->name('masterData.keuangan.gapok.getPegawaiByNik');
+        Route::post('/gapok/syncGapok', [gapokController::class, 'syncGapok'])->name('masterData.keuangan.gapok.syncGapok');
         Route::get('/gapok/exportTemplate', [gapokController::class, 'exportTemplate'])->name('masterData.keuangan.gapok.exportTemplate');
         Route::post('/gapok/import', [gapokController::class, 'importGapok'])->name('masterData.keuangan.gapok.import');
         Route::post('/gapok/store', [gapokController::class, 'store'])->name('masterData.keuangan.gapok.store');

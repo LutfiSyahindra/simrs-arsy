@@ -9,6 +9,7 @@ use App\Repositories\masterData\masterGapokRepository;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
+use Carbon\Carbon;
 
 class masterGapokService
 {
@@ -18,6 +19,11 @@ class masterGapokService
     {
         $this->masterGapokRepository = $masterGapokRepository;
     }
+
+    
+    public $added = 0;
+    public $updated = 0;
+    public $skipped = 0;
 
     private function getStatusAlias($status)
     {
@@ -37,6 +43,27 @@ class masterGapokService
             '<1' => '< 1 Tahun',
             default => $masaKerja . ' Tahun'
         };
+    }
+
+    public function getPegawai()
+    {
+        return $this->masterGapokRepository->getPegawai();
+    }
+
+    public function getPegawaiByNik($nik)
+    {
+        $pegawai = pegawaiModel::where('nik', $nik)->first();
+
+        if (!$pegawai) {
+            return null;
+        }
+
+        return [
+            'nama' => $pegawai->nama,
+            'jbtn' => $pegawai->jbtn,
+            'stts_kerja' => $pegawai->stts_kerja,
+            'mulai_kontrak' => $pegawai->mulai_kontrak ?? '-',
+        ];
     }
 
     public function getGapokTable()
@@ -77,22 +104,33 @@ class masterGapokService
         }
     }
 
-    protected $added = 0;
-    protected $skipped = 0;
-
     public function resetCounter()
     {
         $this->added = 0;
+        $this->updated = 0; // 🔥 tambahkan ini
         $this->skipped = 0;
+    }
+
+    // 🔥 FUNCTION HITUNG MASA KERJA
+    private function hitungMasaKerja($mulaiKontrak)
+    {
+        if (!$mulaiKontrak) return null;
+
+        $mulai = Carbon::parse($mulaiKontrak);
+        $sekarang = Carbon::now();
+
+        return $mulai->diff($sekarang)->format('%y Tahun %m Bulan');
     }
 
     public function prosesImportGapok($data)
     {
-        if (!$data['nik'] || !$data['gaji_pokok']) {
+        // 🔥 VALIDASI DASAR
+        if (empty($data['nik']) || empty($data['gaji_pokok'])) {
             $this->skipped++;
             return;
         }
 
+        // 🔥 CEK PEGAWAI
         $pegawai = pegawaiModel::where('nik', $data['nik'])->first();
 
         if (!$pegawai) {
@@ -100,29 +138,49 @@ class masterGapokService
             return;
         }
 
-        $exists = gapokModel::where('nik', $data['nik'])->exists();
+        // 🔥 HITUNG MASA KERJA
+        $masaKerja = $this->hitungMasaKerja($pegawai->mulai_kontrak);
 
+        // 🔥 CEK DATA EXIST
+        $existing = gapokModel::where('nik', $data['nik'])->first();
+
+        // 🔥 UPSERT
         gapokModel::updateOrCreate(
             ['nik' => $data['nik']],
             [
                 'nama' => $pegawai->nama,
                 'jbtn' => $pegawai->jbtn,
                 'stts_kerja' => $pegawai->stts_kerja,
-                'masa_kerja' => $pegawai->ms_kerja,
+                'mulai_kontrak' => $pegawai->mulai_kontrak, // 🔥 FIX
+                'masa_kerja' => $masaKerja, // 🔥 AUTO HITUNG
                 'gaji_pokok' => $data['gaji_pokok']
             ]
         );
 
-        if ($exists) {
-            $this->skipped++; // dianggap update
+        // 🔥 LOGIC COUNTER
+        if ($existing) {
+
+            // cek apakah ada perubahan
+            if ($existing->gaji_pokok != $data['gaji_pokok']) {
+                $this->updated++;
+            } else {
+                $this->skipped++; // tidak ada perubahan
+            }
+
         } else {
             $this->added++;
         }
     }
 
+    // 🔥 GETTER
     public function getAdded()
     {
         return $this->added;
+    }
+
+    public function getUpdated()
+    {
+        return $this->updated;
     }
 
     public function getSkipped()
@@ -148,6 +206,44 @@ class masterGapokService
     public function delete($id)
     {
         return $this->masterGapokRepository->delete($id);
+    }
+
+    public function syncFromPegawai()
+    {
+        $this->resetCounter();
+
+        $pegawais = pegawaiModel::where('stts_aktif', 'AKTIF')->get();
+
+        foreach ($pegawais as $pegawai) {
+
+            $existing = gapokModel::where('nik', $pegawai->nik)->first();
+
+            $masaKerja = $this->hitungMasaKerja($pegawai->mulai_kontrak);
+
+            gapokModel::updateOrCreate(
+                ['nik' => $pegawai->nik],
+                [
+                    'nama' => $pegawai->nama,
+                    'jbtn' => $pegawai->jbtn,
+                    'stts_kerja' => $pegawai->stts_kerja,
+                    'mulai_kontrak' => $pegawai->mulai_kontrak,
+                    'masa_kerja' => $masaKerja,
+                    'gaji_pokok' => $existing->gaji_pokok ?? 0 // 🔥 tidak overwrite
+                ]
+            );
+
+            if ($existing) {
+                $this->updated++;
+            } else {
+                $this->added++;
+            }
+        }
+
+        return [
+            'added' => $this->added,
+            'updated' => $this->updated,
+            'skipped' => $this->skipped
+        ];
     }
     
 }
