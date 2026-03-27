@@ -25,6 +25,16 @@
                 type: "GET"
             },
             columns: [{
+                    className: 'dt-control text-center',
+                    orderable: false,
+                    data: null,
+                    defaultContent: `
+                        <button class="btn-expand">
+                            <i class="mdi mdi-chevron-down"></i>
+                        </button>
+                    `
+                },
+                {
                     data: 'DT_RowIndex',
                     name: 'DT_RowIndex',
                     orderable: false,
@@ -41,7 +51,7 @@
                 {
                     data: 'status',
                     name: 'status',
-                    render: function(data, type, row) {
+                    render: function(data) {
 
                         if (data === 'Tetap') {
                             return `<span class="badge bg-success">Tetap</span>`;
@@ -50,6 +60,7 @@
                         if (data === 'Kontrak') {
                             return `<span class="badge bg-warning text-dark">Kontrak</span>`;
                         }
+
                         if (data === 'Casual') {
                             return `<span class="badge bg-secondary">Casual</span>`;
                         }
@@ -68,6 +79,107 @@
                     searchable: false
                 }
             ]
+        });
+
+        function formatGapokDetail(row) {
+
+            let jabatan = row.jabatan ?? '-';
+            let status = row.status ?? '-';
+            let mulai = row.mulaiKontrak ?? '-';
+            let masa = row.masaKerja ?? '-';
+
+            return `
+                <div class="card border-0 shadow-sm mt-2">
+                    
+                    <div class="card-body">
+
+                        <div class="fw-semibold text-primary mb-3">
+                            Informasi Pegawai
+                        </div>
+
+                        <div class="row g-4">
+
+                            <!-- Jabatan -->
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Jabatan</small>
+                                <div class="fw-semibold mt-1 text-wrap">${jabatan}</div>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Status Kerja</small>
+                                <div class="mt-1">
+                                    <span class="badge bg-success">${status}</span>
+                                </div>
+                            </div>
+
+                            <!-- Mulai -->
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Mulai Kontrak</small>
+                                <div class="fw-semibold mt-1">${mulai}</div>
+                            </div>
+
+                            <!-- Masa -->
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Masa Kerja</small>
+                                <div class="fw-semibold mt-1">${masa}</div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            `;
+        }
+
+        $('#tableGapok tbody').on('click', '.btn-expand', function(e) {
+
+            e.stopPropagation(); // 🔥 biar tidak bentrok
+
+            let tr = $(this).closest('tr');
+            let row = gapokTable.row(tr);
+            let btn = $(this);
+
+            // 🔥 tutup semua dulu (smooth)
+            gapokTable.rows().every(function() {
+                if (this.child.isShown()) {
+                    $(this.child()).slideUp(150, () => {
+                        this.child.hide();
+                    });
+                    $(this.node()).removeClass('shown');
+
+                    $(this.node()).find('.btn-expand i')
+                        .removeClass('mdi-chevron-up')
+                        .addClass('mdi-chevron-down');
+                }
+            });
+
+            if (row.child.isShown()) {
+
+                $(row.child()).slideUp(150, () => {
+                    row.child.hide();
+                });
+
+                tr.removeClass('shown');
+
+                btn.find('i')
+                    .removeClass('mdi-chevron-up')
+                    .addClass('mdi-chevron-down');
+
+            } else {
+
+                row.child(formatGapokDetail(row.data())).show();
+
+                let childNode = row.child();
+                $(childNode).hide().slideDown(200); // 🔥 smooth open
+
+                tr.addClass('shown');
+
+                btn.find('i')
+                    .removeClass('mdi-chevron-down')
+                    .addClass('mdi-chevron-up');
+            }
+
         });
 
         $('.dataTables_filter').hide();

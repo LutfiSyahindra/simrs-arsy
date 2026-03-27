@@ -80,6 +80,7 @@ class masterGapokService
                     'jabatan' => $g->jbtn,
                     'status' => $this->getStatusAlias($g->stts_kerja),
                     'masaKerja' => $this->getMasaKerjaAlias($g->masa_kerja),
+                    'mulaiKontrak' => $g->mulai_kontrak ? Carbon::parse($g->mulai_kontrak)->format('d-m-Y') : '-',
                     'gaji_pokok' => (int) $g->gaji_pokok,
                 ];
             }

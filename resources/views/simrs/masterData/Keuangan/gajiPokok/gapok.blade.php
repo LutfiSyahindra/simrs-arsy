@@ -28,6 +28,74 @@
             background-color: #fff7e6 !important;
             font-weight: 600;
         }
+
+        td.dt-control::before {
+            display: none !important;
+        }
+
+        /* card lebih soft */
+        .expand-card {
+            background: #ffffff;
+            border-radius: 10px;
+            border: 1px solid #f1f1f1;
+            padding: 18px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            animation: fadeSmooth 0.2s ease;
+        }
+
+        /* label */
+        .detail-item small {
+            font-size: 11px;
+            color: #888;
+        }
+
+        /* value */
+        .detail-item div {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        /* tombol expand */
+        .btn-expand {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: none;
+            background: #f1f3f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: all 0.2s ease;
+        }
+
+        .btn-expand i {
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .btn-expand:hover {
+            background: #e9ecef;
+            transform: scale(1.1);
+        }
+
+        /* animasi halus */
+        @keyframes fadeSmooth {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* hilangkan icon default datatable */
+        td.dt-control::before {
+            display: none !important;
+        }
     </style>
 @endpush
 
@@ -90,6 +158,7 @@
                         <table id="tableGapok" class="table">
                             <thead>
                                 <tr>
+                                    <th></th> <!-- 🔥 expand -->
                                     <th>No</th>
                                     <th>Nama</th>
                                     <th>Jabatan</th>
