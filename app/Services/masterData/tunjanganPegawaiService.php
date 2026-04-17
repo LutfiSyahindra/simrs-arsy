@@ -5,7 +5,9 @@ namespace App\Services\masterData;
 use App\Export\Keuangan\master\tunjanganPegawaiExport;
 use App\Models\dbKhanza\pegawaiModel;
 use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\jabatanModel;
 use App\Models\dbSimrs\jnsTunjanganModel;
+use App\Models\dbSimrs\profesiModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
 use App\Repositories\masterData\jenisTunjanganRepository;
 use App\Repositories\masterData\masterGapokRepository;
@@ -36,10 +38,13 @@ class tunjanganPegawaiService
 
     public function getTunjanganPegawaiTable()
     {
+        $jabatanList = $this->tunjanganPegawaiRepository->getJabatan();
+        $profesiList = $this->tunjanganPegawaiRepository->getProfesi();
+
         return $this->tunjanganPegawaiRepository
             ->getTunjanganPegawai()
             ->groupBy('nik')
-            ->map(function ($items) {
+            ->map(function ($items) use ($jabatanList, $profesiList) {
 
                 $first = $items->first();
 
@@ -50,56 +55,142 @@ class tunjanganPegawaiService
                     default => '<span class="badge bg-secondary">-</span>',
                 };
 
-                $tunjanganList = $items->map(function ($t) {
-                    return '
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                // 🔥 HEADER + BUTTON TAMBAH
+                $header = "
+                    <div class='d-flex justify-content-between align-items-center mb-2'>
+                        <small class='text-muted fw-semibold'>TUNJANGAN</small>
+                    </div>
+                ";
 
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-light text-primary border">
-                                    '.$t->jenisTunjangan->kode.'
-                                </span>
-                                <span>'.$t->jenisTunjangan->nama.'</span>
-                            </div>
+                // 🔥 LIST
+                $tunjanganList = $items->map(function ($t) use ($jabatanList, $profesiList) {
 
-                            <div class="d-flex align-items-center gap-2">
+                    $inputDetail = '-';
 
-                                <input type="number"
-                                    class="form-control form-control-sm input-nominal"
-                                    value="'.$t->nominal.'"
-                                    data-id="'.$t->id.'"
-                                    data-old="'.$t->nominal.'"
-                                    style="width:120px;" />
+                    switch ($t->jenisTunjangan->tipe) {
 
-                                <button class="btn btn-sm btn-success btn-save"
-                                    data-id="'.$t->id.'">
-                                    <i class="mdi mdi-check"></i>
-                                </button>
+                        case 'jabatan':
+                            $options = collect($jabatanList)->map(function ($j) use ($t) {
+                                $selected = $t->referensi_id == $j->id ? 'selected' : '';
+                                return "<option value='{$j->id}' {$selected}>{$j->nama}</option>";
+                            })->implode('');
 
-                                <button class="btn btn-sm btn-danger btn-delete"
-                                    data-id="'.$t->id.'">
-                                    <i class="mdi mdi-trash-can"></i>
-                                </button>
+                            $inputDetail = "
+                                <select class='form-select form-select-sm input-ref' data-id='{$t->id}'>
+                                    {$options}
+                                </select>
+                            ";
+                            break;
+
+                        case 'profesi':
+                            $options = collect($profesiList)->map(function ($p) use ($t) {
+                                $selected = $t->referensi_id == $p->id ? 'selected' : '';
+                                return "<option value='{$p->id}' {$selected}>{$p->nama}</option>";
+                            })->implode('');
+
+                            $inputDetail = "
+                                <select class='form-select form-select-sm input-ref' data-id='{$t->id}'>
+                                    {$options}
+                                </select>
+                            ";
+                            break;
+
+                        case 'anak':
+                            $inputDetail = "
+                                <div class='d-flex align-items-center gap-2'>
+                                    <input type='number'
+                                        class='form-control form-control-sm input-qty'
+                                        value='".($t->qty ?? 0)."'
+                                        data-id='{$t->id}'
+                                        min='0' max='3'
+                                        style='width:80px;' />
+                                    <span class='text-muted small'>maks 3 anak</span>
+                                </div>
+                            ";
+                            break;
+
+                        case 'pasangan':
+                            $inputDetail = "<span class='text-muted small'>1 pasangan</span>";
+                            break;
+
+                        case 'masa_kerja':
+                            $inputDetail = "<span class='text-muted small'>otomatis berdasarkan masa kerja</span>";
+                            break;
+                    }
+
+                    return "
+                        <div class='list-group-item py-3'>
+
+                            <div class='row align-items-center g-2'>
+
+                                <!-- LEFT -->
+                                <div class='col-md-7'>
+
+                                    <div class='d-flex align-items-center gap-2 mb-1'>
+                                        <span class='badge bg-light text-primary border'>
+                                            {$t->jenisTunjangan->kode}
+                                        </span>
+
+                                        <span class='fw-semibold'>
+                                            {$t->jenisTunjangan->nama}
+                                        </span>
+                                    </div>
+
+                                    {$inputDetail}
+
+                                </div>
+
+                                <!-- RIGHT -->
+                                <div class='col-md-5'>
+
+                                    <div class='d-flex justify-content-end align-items-center gap-2'>
+
+                                        <div class='text-end'>
+                                            <small class='text-muted d-block'>Nominal</small>
+
+                                            <input type='number'
+                                                class='form-control form-control-sm text-end fw-semibold input-nominal'
+                                                value='{$t->nominal}'
+                                                data-id='{$t->id}'
+                                                style='width:140px;' disabled />
+                                        </div>
+
+                                        <button class='btn btn-danger btn-sm btn-delete'
+                                            data-id='{$t->id}'>
+                                            <i class='mdi mdi-trash-can'></i>
+                                        </button>
+
+                                    </div>
+
+                                </div>
 
                             </div>
 
                         </div>
-                    ';
+                    ";
                 })->implode('');
 
                 $total = $items->sum('nominal');
 
                 return [
-                    'id' => $first->nik, // 🔥 penting untuk action
+                    'id' => $first->nik,
                     'nama' => $first->gapok->nama ?? '-',
                     'jabatan' => '<span class="fw-semibold">' . ($first->gapok->jbtn ?? '-') . '</span>',
                     'status' => $status,
-                    'tunjangan' => $tunjanganList,
+
+                    // 🔥 FIX DI SINI (GABUNG HEADER + LIST)
+                    'tunjangan' => $header . "
+                        <div class='list-group list-group-flush'>
+                            {$tunjanganList}
+                        </div>
+                    ",
+
                     'total' => '<span class="fw-bold text-primary">'
-                                .number_format($total,0,',','.')
-                            .'</span>'
+                        . number_format($total, 0, ',', '.')
+                        . '</span>'
                 ];
             })
-            ->values(); // 🔥 WAJIB biar index rapi
+            ->values();
     }
 
     public function guideJenisTunjangan()
@@ -129,11 +220,80 @@ class tunjanganPegawaiService
         $this->skipped = 0;
     }
 
+    // public function prosesImportTunjanganPegawai($data)
+    // {
+    //     // NORMALISASI
+    //     $nik = trim($data['nik'] ?? '');
+    //     $kode = strtoupper(trim($data['tunjangan_id'] ?? ''));
+
+    //     $kode = preg_replace('/[^A-Z0-9]/', '', $kode);
+
+    //     if ($kode === '') {
+    //         $this->skipped++;
+    //         return;
+    //     }
+
+    //     // CEK PEGAWAI (GAPOK)
+    //     $gapok = gapokModel::where('nik', $nik)->first();
+
+    //     if (!$gapok) {
+    //         $this->skipped++;
+    //         return;
+    //     }
+
+    //     // MAPPING KODE → TUNJANGAN
+    //     $tunjangan = jnsTunjanganModel::whereRaw(
+    //         'UPPER(REPLACE(kode," ","")) = ?',
+    //         [$kode]
+    //     )->first();
+
+    //     if (!$tunjangan) {
+    //         $this->skipped++;
+    //         return;
+    //     }
+
+    //     // HITUNG NOMINAL 🔥
+    //     $persen = $tunjangan->persentase ?? 0;
+
+    //     if ($persen <= 0) {
+    //         $this->skipped++;
+    //         return;
+    //     }
+
+    //     $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
+
+    //     // CEK EXISTING
+    //     $exists = tunjanganPegawaiModel::where('nik', $nik)
+    //         ->where('tunjangan_id', $tunjangan->id)
+    //         ->exists();
+
+    //     // SIMPAN
+    //     tunjanganPegawaiModel::updateOrCreate(
+    //         [
+    //             'nik' => $nik,
+    //             'tunjangan_id' => $tunjangan->id
+    //         ],
+    //         [
+    //             'nominal' => $nominal,
+    //             'updated_at' => now()
+    //         ]
+    //     );
+
+    //     // COUNTER
+    //     if ($exists) {
+    //         $this->skipped++;
+    //     } else {
+    //         $this->added++;
+    //     }
+    // }
+
     public function prosesImportTunjanganPegawai($data)
     {
-        // NORMALISASI
+        Log::info('Memproses data: ' . json_encode($data));
         $nik = trim($data['nik'] ?? '');
         $kode = strtoupper(trim($data['tunjangan_id'] ?? ''));
+        $refId = $data['referensi_id'] ?? null;
+        $qty = is_numeric($data['qty']) ? $data['qty'] : 1;
 
         $kode = preg_replace('/[^A-Z0-9]/', '', $kode);
 
@@ -142,58 +302,129 @@ class tunjanganPegawaiService
             return;
         }
 
-        // CEK PEGAWAI (GAPOK)
+        // CEK PEGAWAI
         $gapok = gapokModel::where('nik', $nik)->first();
-
         if (!$gapok) {
             $this->skipped++;
             return;
         }
 
-        // MAPPING KODE → TUNJANGAN
-        $tunjangan = jnsTunjanganModel::whereRaw(
-            'UPPER(REPLACE(kode," ","")) = ?',
-            [$kode]
-        )->first();
-
+        // CEK MASTER TUNJANGAN
+        $tunjangan = jnsTunjanganModel::where('kode', $kode)->first();
         if (!$tunjangan) {
             $this->skipped++;
             return;
         }
 
-        // HITUNG NOMINAL 🔥
-        $persen = $tunjangan->persentase ?? 0;
+        $nominal = 0;
 
-        if ($persen <= 0) {
-            $this->skipped++;
-            return;
+        switch ($kode) {
+
+            case 'TJ001':
+
+                if (!$refId) {
+                    $this->skipped++;
+                    return;
+                }
+
+                $jabatan = jabatanModel::where('kode', $refId)->first();
+
+                if (!$jabatan) {
+                    $this->skipped++;
+                    return;
+                }
+
+                $nominal = $jabatan->tunjangan ?? 0;
+
+                // ⬇️ INI YANG PENTING
+                $refId = $jabatan->id;
+
+                $nominal = $jabatan->tunjangan ?? 0;
+                break;
+
+
+            case 'TJ005':
+
+                if (!$refId) {
+                    $this->skipped++;
+                    return;
+                }
+
+                $profesi = profesiModel::where('kode', $refId)->first();
+
+                if (!$profesi) {
+                    $this->skipped++;
+                    return;
+                }
+
+                $nominal = $profesi->tunjangan ?? 0;
+
+                // ⬇️ INI YANG PENTING
+                $refId = $profesi->id;
+
+                $nominal = $profesi->tunjangan ?? 0;
+                break;
+
+            // ======================
+            // TJ002 → ANAK
+            // qty * nilai% * gaji
+            // ======================
+            case 'TJ002':
+
+                $nilai = $tunjangan->nilai ?? 0;
+
+                $nominal = $qty * ($nilai / 100) * $gapok->gaji_pokok;
+                break;
+
+            // ======================
+            // TJ003 → PASANGAN
+            // nilai% * gaji
+            // ======================
+            case 'TJ003':
+
+                $nilai = $tunjangan->nilai ?? 0;
+
+                $nominal = ($nilai / 100) * $gapok->gaji_pokok;
+                break;
+
+            // ======================
+            // TJ004 → MASA KERJA
+            // ======================
+            case 'TJ004':
+
+                $nilai = $tunjangan->nilai ?? 0;
+
+                // 🔥 PARSING "12 Tahun 2 Bulan"
+                preg_match('/(\d+)/', $gapok->masa_kerja, $match);
+
+                $tahun = $match[0] ?? 0;
+
+                $nominal = $tahun * $nilai;
+                break;
+
+            default:
+                $this->skipped++;
+                return;
         }
 
-        $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
-
-        // CEK EXISTING
-        $exists = tunjanganPegawaiModel::where('nik', $nik)
-            ->where('tunjangan_id', $tunjangan->id)
-            ->exists();
+        // BULATKAN
+        $nominal = round($nominal, -3);
 
         // SIMPAN
         tunjanganPegawaiModel::updateOrCreate(
             [
                 'nik' => $nik,
-                'tunjangan_id' => $tunjangan->id
+                'tunjangan_id' => $tunjangan->id,
+                'referensi_id' => $refId // 🔥 tambahkan ini
             ],
             [
+                'qty' => $qty,
                 'nominal' => $nominal,
                 'updated_at' => now()
             ]
         );
 
-        // COUNTER
-        if ($exists) {
-            $this->skipped++;
-        } else {
-            $this->added++;
-        }
+        $this->added++;
     }
 
     public function getAdded()
@@ -209,66 +440,34 @@ class tunjanganPegawaiService
 
     public function create(array $data)
     {
-        $result = [];
+        DB::beginTransaction();
 
-        $nik = $data['nik'];
+        try {
 
-        // =========================
-        // AMBIL GAPOK
-        // =========================
-        $gapok = gapokModel::where('nik', $nik)->first();
+            $inserted = [];
 
-        if (!$gapok) {
-            throw new \Exception('Data gapok tidak ditemukan');
+            foreach ($data as $row) {
+
+                $inserted[] = DB::table('tunjangan_pegawai')->insertGetId([
+                    'nik' => $row['nik'],
+                    'tunjangan_id' => $row['tunjangan_id'],
+                    'referensi_id' => $row['referensi_id'],
+                    'qty' => $row['qty'],
+                    'nominal' => $row['nominal'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::commit();
+
+            return $inserted;
+
+        } catch (\Throwable $e) {
+
+            DB::rollBack();
+            throw $e;
         }
-
-        foreach ($data['tunjangan_id'] as $tunjanganId) {
-
-            // =========================
-            // AMBIL MASTER TUNJANGAN
-            // =========================
-            $master = jnsTunjanganModel::find($tunjanganId);
-
-            if (!$master) continue;
-
-            $persen = $master->persentase ?? 0;
-
-            // =========================
-            // HITUNG NOMINAL OTOMATIS 🔥
-            // =========================
-            $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
-
-            // =========================
-            // CEK EXISTING
-            // =========================
-            $exists = $this->tunjanganPegawaiRepository
-                ->exists($nik, $tunjanganId);
-
-            // =========================
-            // SIMPAN
-            // =========================
-            $this->tunjanganPegawaiRepository->updateOrCreate(
-                [
-                    'nik' => $nik,
-                    'tunjangan_id' => $tunjanganId
-                ],
-                [
-                    'nominal' => $nominal
-                ]
-            );
-
-            // =========================
-            // RESULT
-            // =========================
-            $result[] = [
-                'tunjangan_id' => $tunjanganId,
-                'persentase' => $persen,
-                'nominal' => $nominal,
-                'status' => $exists ? 'updated' : 'created'
-            ];
-        }
-
-        return $result;
     }
 
     public function updateNominal($id, $nominal)
@@ -360,5 +559,42 @@ class tunjanganPegawaiService
             'added' => $added,
             'skipped' => $skipped
         ];
+    }
+
+    public function getListJabatan()
+    {
+        return $this->tunjanganPegawaiRepository->getJabatan();
+    }
+
+    public function getGapokById($nik){
+        return $this->tunjanganPegawaiRepository->getGapokById($nik);
+    }
+
+    public function getListProfesi()
+    {
+        return $this->tunjanganPegawaiRepository->getProfesi();
+    }
+
+    public function updateInline($id, $data)
+    {
+        return DB::table('tunjangan_pegawai')
+            ->where('id', $id)
+            ->update($data);
+    }
+
+    public function findById($id)
+    {
+        return tunjanganPegawaiModel::with(['jenisTunjangan', 'gapok'])
+            ->find($id);
+    }
+
+    public function getJabatanById($id)
+    {
+        return jabatanModel::find($id);
+    }
+
+    public function getProfesiById($id)
+    {
+        return profesiModel::find($id);
     }
 }

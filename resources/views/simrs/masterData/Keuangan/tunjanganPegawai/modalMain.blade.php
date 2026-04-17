@@ -26,7 +26,6 @@
                         <label class="form-label">Pilih Pegawai</label>
                         <select name="nik" id="pegawaiSelect" class="form-select">
                             <option value="">-- Pilih Pegawai --</option>
-                            <!-- AJAX / loop -->
                         </select>
                         <div class="invalid-feedback" id="error-nik"></div>
                     </div>
@@ -40,21 +39,29 @@
                                     INFORMASI PEGAWAI
                                 </small>
 
-                                <span class="badge bg-light text-primary border" id="infoStatus">
-                                    -
-                                </span>
+                                <span class="badge bg-light text-primary border" id="infoStatus">-</span>
                             </div>
 
-                            <div class="row g-2 small">
+                            <div class="row g-3 small">
 
-                                <div class="col-md-6">
+                                <!-- NAMA -->
+                                <div class="col-md-4">
                                     <div class="text-muted">Nama</div>
                                     <div class="fw-semibold" id="infoNama">-</div>
                                 </div>
 
-                                <div class="col-md-6">
+                                <!-- JABATAN -->
+                                <div class="col-md-4">
                                     <div class="text-muted">Jabatan</div>
                                     <div class="fw-semibold" id="infoJabatan">-</div>
+                                </div>
+
+                                <!-- GAPOK -->
+                                <div class="col-md-4">
+                                    <div class="text-muted">Gaji Pokok</div>
+                                    <div class="fw-bold text-success fs-6" id="infoGapok">
+                                        Rp 0
+                                    </div>
                                 </div>
 
                             </div>
@@ -71,20 +78,30 @@
                         </button>
                     </div>
 
-                    <div id="tunjanganContainer" class="d-flex flex-column gap-3">
+                    <!-- CONTAINER -->
+                    <div id="tunjanganContainer" class="d-flex flex-column gap-3"></div>
 
-                        <!-- ROW TEMPLATE -->
-                        <div class="card border">
+                    <!-- TEMPLATE (HIDDEN) -->
+                    <div id="tunjanganTemplate" class="d-none">
+                        <div class="card border tunjangan-item">
                             <div class="card-body py-3">
                                 <div class="row g-3 align-items-end">
 
-                                    <!-- JENIS TUNJANGAN -->
-                                    <div class="col-md-8">
+                                    <!-- SELECT -->
+                                    <div class="col-md-4">
                                         <label class="form-label">Tunjangan</label>
-                                        <select name="tunjangan_id[]" class="form-select">
+                                        <select name="tunjangan_id[]" class="form-select tunjangan-select">
                                             <option value="">-- Pilih Tunjangan --</option>
-                                            <!-- loop tunjangan -->
                                         </select>
+                                    </div>
+
+                                    <!-- INPUT DINAMIS -->
+                                    <div class="col-md-4 extra-input"></div>
+
+                                    <!-- NOMINAL -->
+                                    <div class="col-md-3">
+                                        <label class="form-label">Nominal</label>
+                                        <input type="text" class="form-control nominal-preview" readonly>
                                     </div>
 
                                     <!-- REMOVE -->
@@ -97,7 +114,6 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
 
                     <input type="hidden" id="tunjanganPegawaiId">

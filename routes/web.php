@@ -185,6 +185,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/tunjangan/by-pegawai/{nik}',[TunjanganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.tunjanganPegawai.getByPegawai');
         Route::post('/tunjangan/distribusi',[TunjanganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.tunjangan.distribusi');
         Route::post('/tunjangan/preview-distribusi',[TunjanganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.tunjangan.previewDistribusi');
+        Route::get('/tunjanganPegawai/getJabatan', [tunjanganPegawaiController::class, 'getJabatan'])->name('masterData.keuangan.tunjanganPegawai.getJabatan');
+        Route::get('/tunjanganPegawai/getProfesi', [tunjanganPegawaiController::class, 'getProfesi'])->name('masterData.keuangan.tunjanganPegawai.getProfesi');
+        Route::get('/tunjanganPegawai/getGapokById/{nik}', [tunjanganPegawaiController::class, 'getGapokById'])->name('masterData.keuangan.tunjanganPegawai.getGapokById');
 
         Route::get('/jabatan', [jabatanController::class, 'index'])->name('masterData.keuangan.jabatan');
         Route::get('/jabatan/getJabatanTable', [jabatanController::class, 'jabatanTable'])->name('masterData.keuangan.jabatan.getJabatanTable');

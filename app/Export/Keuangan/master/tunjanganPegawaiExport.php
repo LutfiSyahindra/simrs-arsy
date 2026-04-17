@@ -51,7 +51,9 @@ class tunjanganPegawaiExport implements FromCollection, WithHeadings, WithStyles
             'Jabatan',
             'Status Kerja',
             'Masa Kerja',
-            'Tunjangan_id'
+            'Tunjangan_id',
+            'refrensi_id',
+            'qty'    
         ];
     }
 
@@ -81,6 +83,8 @@ class tunjanganPegawaiExport implements FromCollection, WithHeadings, WithStyles
             'D' => 20,
             'E' => 20,
             'F' => 20,
+            'G' => 20,
+            'H' => 20,
         ];
     }
 

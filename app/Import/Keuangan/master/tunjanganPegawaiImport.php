@@ -25,6 +25,8 @@ class tunjanganPegawaiImport implements ToCollection
             $data = [
                 'nik' => $row[0] ?? null,
                 'tunjangan_id' => $row[5] ?? null,
+                'referensi_id' => $row[6] ?? null,
+                'qty' => $row[7] ?? null,
             ];
 
             $this->service->prosesImportTunjanganPegawai($data);

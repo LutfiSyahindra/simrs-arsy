@@ -40,12 +40,26 @@
                 transform: translateY(0);
             }
         }
+
+        .hover-row:hover {
+            background: #f1f5f9;
+            transition: 0.2s;
+        }
+
+        .copy-row:hover {
+            background: #dcfce7;
+            cursor: pointer;
+        }
     </style>
 @endpush
 
 @section("content")
     @include("simrs.masterData.Keuangan.tunjanganPegawai.modalMain")
-    @include("simrs.masterData.Keuangan.tunjanganPegawai.modalExcell")
+    @include("simrs.masterData.Keuangan.tunjanganPegawai.modalExcell", [
+        "tunjangan" => $tunjangan,
+        "jabatan" => $jabatan,
+        "profesi" => $profesi,
+    ])
     @include("simrs.masterData.Keuangan.tunjanganPegawai.modalCopy")
     <nav class="page-breadcrumb">
         <ol class="breadcrumb">
@@ -88,10 +102,10 @@
                                     placeholder="Cari...">
                             </div>
 
-                            <!-- DISTRIBUSI -->
+                            {{-- <!-- DISTRIBUSI -->
                             <button id="btnDistribusi" class="btn btn-outline-success btn-sm">
                                 <i class="mdi mdi-account-multiple-plus"></i>
-                            </button>
+                            </button> --}}
 
                             <!-- IMPORT -->
                             <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal"
@@ -105,10 +119,10 @@
                                 <i class="mdi mdi-plus"></i>
                             </button>
 
-                            <!-- BULK SAVE -->
+                            {{-- <!-- BULK SAVE -->
                             <button id="bulkSaveBtn" class="btn btn-primary btn-sm" disabled>
                                 <i class="mdi mdi-content-save-all"></i>
-                            </button>
+                            </button> --}}
 
                         </div>
 

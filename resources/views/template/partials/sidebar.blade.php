@@ -66,15 +66,7 @@
                                 <a href="{{ route("masterData.keuangan.profesi") }}" class="nav-link">Profesi</a>
                             </li>
                             <li class="nav-item">
-                                <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji
-                                    Pokok</a>
-                            </li>
-                            <li class="nav-item">
                                 <a href="{{ route("masterData.keuangan.tunjangan") }}" class="nav-link">Jenis Tunjangan</a>
-                            </li>
-                            <li class="nav-item">
-                                <a href="{{ route("masterData.keuangan.tunjanganPegawai") }}" class="nav-link">Tunjangan
-                                    Pegawai</a>
                             </li>
                         </ul>
                     </div>
@@ -162,6 +154,14 @@
                     <ul class="nav sub-menu">
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji
+                                Pokok</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route("masterData.keuangan.tunjanganPegawai") }}" class="nav-link">Tunjangan
+                                Pegawai</a>
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Premi</a>

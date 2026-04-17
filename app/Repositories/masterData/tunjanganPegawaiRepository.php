@@ -2,6 +2,9 @@
 
 namespace App\Repositories\masterData;
 
+use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\jabatanModel;
+use App\Models\dbSimrs\profesiModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
 
 class tunjanganPegawaiRepository
@@ -16,12 +19,11 @@ class tunjanganPegawaiRepository
                 'id',
                 'nik',
                 'tunjangan_id',
+                'referensi_id',
+                'qty',
                 'nominal'
             ])
-            ->with([
-                'jenisTunjangan:id,kode,nama',
-                'gapok:nik,nama,jbtn,stts_kerja,masa_kerja'
-            ])
+            ->with(['jenisTunjangan', 'jabatan', 'profesi', 'gapok'])
             ->get();
     }
 
@@ -75,5 +77,23 @@ class tunjanganPegawaiRepository
     public function insertBulk(array $data)
     {
         return tunjanganPegawaiModel::insert($data);
+    }
+
+    public function getJabatan(){
+        return jabatanModel::select('id', 'nama', 'tunjangan', 'kode')->get();
+    }
+
+    public function getProfesi(){
+        return profesiModel::select('id', 'nama', 'tunjangan', 'kode')->get();
+    }
+
+    public function getGapokById($nik){
+        return gapokModel::select(
+                'nik',
+                'gaji_pokok',
+                'mulai_kontrak'
+            )
+            ->where('nik', $nik)
+            ->first();
     }
 }

@@ -213,7 +213,7 @@ class masterGapokService
     {
         $this->resetCounter();
 
-        $pegawais = pegawaiModel::where('stts_aktif', 'AKTIF')->get();
+        $pegawais = pegawaiModel::where('stts_aktif', 'AKTIF')->orWhere('stts_aktif', 'KELUAR')->get();
 
         foreach ($pegawais as $pegawai) {
 
@@ -229,6 +229,7 @@ class masterGapokService
                     'stts_kerja' => $pegawai->stts_kerja,
                     'mulai_kontrak' => $pegawai->mulai_kontrak,
                     'masa_kerja' => $masaKerja,
+                    'stts_aktif' => $pegawai->stts_aktif,
                     'gaji_pokok' => $existing->gaji_pokok ?? 0 // 🔥 tidak overwrite
                 ]
             );

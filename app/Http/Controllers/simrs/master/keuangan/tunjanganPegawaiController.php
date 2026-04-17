@@ -5,7 +5,9 @@ namespace App\Http\Controllers\simrs\master\keuangan;
 use App\Http\Controllers\Controller;
 use App\Import\Keuangan\master\tunjanganPegawaiImport;
 use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\jabatanModel;
 use App\Models\dbSimrs\jnsTunjanganModel;
+use App\Models\dbSimrs\profesiModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
 use App\Services\masterData\tunjanganPegawaiService;
 use Illuminate\Http\Request;
@@ -26,12 +28,17 @@ class tunjanganPegawaiController extends Controller
      */
     public function index()
     {
-        return view("simrs.masterData.Keuangan.tunjanganPegawai.tunjanganPegawai");
+        $tunjangan = jnsTunjanganModel::select('kode','nama')->get();
+        $jabatan   = jabatanModel::select('kode','nama')->get();
+        $profesi   = profesiModel::select('kode','nama')->get();
+
+        return view('simrs.masterData.Keuangan.tunjanganPegawai.tunjanganPegawai', compact('tunjangan','jabatan','profesi'));
     }
 
     public function guideJenisTunjangan()
     {
-        return response()->json($this->tunjanganPegawaiService->guideJenisTunjangan());
+        $tunjangan = $this->tunjanganPegawaiService->guideJenisTunjangan();
+        return response()->json($tunjangan);
     }
 
     public function getPegawai()
@@ -95,32 +102,51 @@ class tunjanganPegawaiController extends Controller
     public function store(Request $request)
     {
         try {
+            Log::info($request->all());
 
-            // VALIDASI
+            // ================= VALIDASI =================
             $validated = $request->validate([
                 'nik' => 'required',
 
                 'tunjangan_id' => 'required|array|min:1',
-                'tunjangan_id.*' => 'required|exists:master_tunjangan,id',
+                'tunjangan_id.*' => 'nullable|exists:master_tunjangan,id',
 
+                'referensi_id' => 'nullable|array',
+                'qty' => 'nullable|array',
+                'nominal' => 'required|array',
             ], [
                 'nik.required' => 'Pegawai wajib dipilih',
-
                 'tunjangan_id.required' => 'Tunjangan wajib diisi',
-                'tunjangan_id.*.required' => 'Tunjangan tidak boleh kosong',
-                'tunjangan_id.*.exists' => 'Tunjangan tidak valid',
             ]);
 
-            // VALIDASI TAMBAHAN (ANTI DUPLICATE)
-            if (count($validated['tunjangan_id']) !== count(array_unique($validated['tunjangan_id']))) {
+            // ================= BERSIHKAN DATA =================
+            $data = [];
+
+            foreach ($request->tunjangan_id as $i => $tunjanganId) {
+
+                if (!$tunjanganId) continue; // 🔥 skip NULL
+
+                $data[] = [
+                    'nik' => $request->nik,
+                    'tunjangan_id' => $tunjanganId,
+                    'referensi_id' => $request->referensi_id[$i] ?? null,
+                    'qty' => $request->qty[$i] ?? null,
+                    'nominal' => $request->nominal[$i] ?? 0,
+                ];
+            }
+
+            // ================= ANTI DUPLICATE =================
+            $ids = array_column($data, 'tunjangan_id');
+
+            if (count($ids) !== count(array_unique($ids))) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Tunjangan tidak boleh duplikat'
                 ], 422);
             }
 
-            // KIRIM KE SERVICE
-            $result = $this->tunjanganPegawaiService->create($validated);
+            // ================= KIRIM KE SERVICE =================
+            $result = $this->tunjanganPegawaiService->create($data);
 
             return response()->json([
                 'status' => true,
@@ -148,16 +174,126 @@ class tunjanganPegawaiController extends Controller
     {
         try {
 
-            $request->validate([
-                'nominal' => 'required|numeric|min:0'
-            ]);
+        Log::info([
+            'request' => $request->all(),
+        ]);
 
-            $this->tunjanganPegawaiService->updateNominal($id, $request->nominal);
+            $data = [];
+
+            // ================= AMBIL DATA LAMA =================
+            $row = $this->tunjanganPegawaiService->findById($id);
+
+            if (!$row) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Data tidak ditemukan'
+                ], 404);
+            }
+
+            // ================= UPDATE FIELD =================
+
+            if ($request->has('nominal')) {
+                $request->validate([
+                    'nominal' => 'numeric|min:0'
+                ]);
+                $data['nominal'] = $request->nominal;
+            }
+
+            if ($request->has('referensi_id')) {
+                $data['referensi_id'] = $request->referensi_id;
+            }
+
+            if ($request->has('qty')) {
+                $request->validate([
+                    'qty' => 'integer|min:0|max:3'
+                ]);
+                $data['qty'] = $request->qty;
+            }
+
+            // ================= HITUNG ULANG NOMINAL =================
+
+            $jenis = $row->jenisTunjangan->tipe;
+            $gapok = $row->gapok->gapok ?? 0;
+
+            $nominalBaru = $row->nominal;
+
+            switch ($jenis) {
+
+                case 'jabatan':
+                    if ($request->has('referensi_id')) {
+                        $jabatan = $this->tunjanganPegawaiService
+                            ->getJabatanById($request->referensi_id);
+
+                        $nominalBaru = $jabatan->tunjangan ?? 0;
+                    }
+                    break;
+
+                case 'profesi':
+                    if ($request->has('referensi_id')) {
+                        $profesi = $this->tunjanganPegawaiService
+                            ->getProfesiById($request->referensi_id);
+
+                        $nominalBaru = $profesi->tunjangan ?? 0;
+                    }
+                    break;
+
+                    case 'anak':
+
+                    $qty = (int) $request->qty;
+                    $qty = min($qty, 3);
+
+                    $gapok = (int) ($row->gapok->gaji_pokok ?? 0);
+                    $persen = (int) ($row->jenisTunjangan->nilai ?? 0);
+
+                    $nominalBaru = $qty * ($gapok * $persen / 100);
+
+                    Log::info([
+                        'DEBUG_ANAK' => [
+                            'qty' => $qty,
+                            'gapok' => $gapok,
+                            'persen' => $persen,
+                            'hasil' => $nominalBaru
+                        ]
+                    ]);
+
+                    $data['qty'] = $qty;
+                    $data['nominal'] = $nominalBaru;
+
+                    break;
+
+                case 'pasangan':
+                    $persen = $row->jenisTunjangan->nilai ?? 0;
+                    $nominalBaru = $gapok * $persen / 100;
+                    break;
+
+                case 'masa_kerja':
+                    $masaKerja = $row->masa_kerja ?? 0;
+                    $tarif = $row->jenisTunjangan->nilai ?? 0;
+
+                    $nominalBaru = $masaKerja * $tarif;
+                    break;
+            }
+
+            // 🔥 override nominal kalau bukan manual
+            if (!$request->has('nominal')) {
+                $data['nominal'] = $nominalBaru;
+            }
+
+            // ================= UPDATE =================
+            $this->tunjanganPegawaiService->updateInline($id, $data);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Berhasil update'
+                'message' => 'Berhasil update',
+                'nominal' => $data['nominal'] ?? $row->nominal
             ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors()
+            ], 422);
 
         } catch (\Throwable $e) {
 
@@ -314,5 +450,26 @@ class tunjanganPegawaiController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function getJabatan()
+    {
+        return response()->json(
+            $this->tunjanganPegawaiService->getListJabatan()
+        );
+    }
+
+    public function getGapokById($nik)
+    {
+        return response()->json(
+            $this->tunjanganPegawaiService->getGapokById($nik)
+        );
+    }
+
+    public function getProfesi()
+    {
+        return response()->json(
+            $this->tunjanganPegawaiService->getListProfesi()
+        );
     }
 }

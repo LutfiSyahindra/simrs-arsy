@@ -5,8 +5,17 @@
         const container = $("#tunjanganContainer");
 
         let tunjanganList = [];
+        let jabatanList = [];
         let changedData = {};
         let targetNik = null;
+        let gapok = 0;
+        let masaKerja = 0;
+        let mulaiKontrak = null;
+        let profesiList = [];
+        let masaKerjaDetail = {
+            tahun: 0,
+            bulan: 0
+        };
 
         // --- Setup CSRF untuk semua AJAX request
         $.ajaxSetup({
@@ -77,7 +86,12 @@
             let options = `<option value="">-- Pilih Tunjangan --</option>`;
 
             tunjanganList.forEach(t => {
-                options += `<option value="${t.id}">${t.kode} - ${t.nama}</option>`;
+                options += `
+                <option value="${t.id}" 
+                    data-tipe="${t.tipe}" 
+                    data-nilai="${t.nilai}">
+                    ${t.kode} - ${t.nama}
+                </option>`;
             });
 
             return `
@@ -85,11 +99,23 @@
                 <div class="card-body py-3">
                     <div class="row g-3 align-items-end">
 
-                        <div class="col-md-10">
+                        <!-- 🔥 HIDDEN -->
+                        <input type="hidden" name="referensi_id[]" class="referensi-id">
+                        <input type="hidden" name="qty[]" class="qty-input">
+                        <input type="hidden" name="nominal[]" class="nominal-hidden">
+
+                        <div class="col-md-4">
                             <label class="form-label">Tunjangan</label>
                             <select name="tunjangan_id[]" class="form-select select2-tunjangan">
                                 ${options}
                             </select>
+                        </div>
+
+                        <div class="col-md-4 extra-input"></div>
+
+                        <div class="col-md-3">
+                            <label class="form-label">Nominal</label>
+                            <input type="text" class="form-control nominal-preview" readonly>
                         </div>
 
                         <div class="col-md-1 text-end">
@@ -138,30 +164,278 @@
             });
         }
 
-        $("#tunjanganContainer").on("change", ".select2-tunjangan", function() {
 
-            let selectedValues = [];
-            let duplicate = false;
+        container.on('change', '.select2-tunjangan', function() {
 
-            $(".select2-tunjangan").each(function() {
-                let val = $(this).val();
+            let selected = $(this).find(':selected');
 
-                if (!val) return;
+            let tipe = selected.data('tipe');
+            let nilai = parseFloat(selected.data('nilai')) || 0;
 
-                if (selectedValues.includes(val)) {
-                    duplicate = true;
-                }
+            let row = $(this).closest('.tunjangan-item');
+            let extra = row.find('.extra-input');
+            let preview = row.find('.nominal-preview');
 
-                selectedValues.push(val);
-            });
+            extra.html('');
+            preview.val('');
 
-            // 🔥 ALERT DI SINI
-            if (duplicate) {
-                Swal.fire("Tunjangan sudah dipilih!", "", "warning");
+            switch (tipe) {
+
+                case 'jabatan':
+
+                    let options = `<option value="">-- Pilih Jabatan --</option>`;
+
+                    jabatanList.forEach(j => {
+                        options += `
+                        <option value="${j.id}" data-nominal="${j.tunjangan}">
+                            ${j.kode} - ${j.nama}
+                        </option>`;
+                    });
+
+                    extra.html(`
+                        <select class="form-select select2-jabatan">
+                            ${options}
+                        </select>
+                    `);
+
+                    initSelect2(row.find('.select2-jabatan'), modal, 'Pilih Jabatan');
+
+                    break;
+
+                case 'profesi':
+
+                    let optionsProfesi = `<option value="">-- Pilih Profesi --</option>`;
+
+                    profesiList.forEach(p => {
+                        optionsProfesi += `
+                        <option value="${p.id}" data-nominal="${p.tunjangan}">
+                            ${p.kode} - ${p.nama}
+                        </option>`;
+                    });
+
+                    extra.html(`
+                        <select class="form-select select2-profesi">
+                            ${optionsProfesi}
+                        </select>
+                    `);
+
+                    initSelect2(row.find('.select2-profesi'), modal, 'Pilih Profesi');
+
+                    break;
+
+                case 'anak':
+                    extra.html(`
+                        <input type="number" class="form-control jumlah-anak" 
+                        placeholder="Jumlah anak">
+                    `);
+
+                    // reset
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+
+                    break;
+
+                case 'pasangan':
+
+                    extra.html(`<input type="text" class="form-control" value="1 pasangan" readonly>`);
+
+                    let totalPasangan = gapok * nilai / 100;
+
+                    preview.val(formatRupiah(totalPasangan));
+                    row.find('.nominal-hidden').val(totalPasangan);
+
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+
+                    break;
+
+                case 'masa_kerja':
+
+                    let mk = masaKerjaDetail || {
+                        tahun: 0,
+                        bulan: 0
+                    };
+
+                    if (mk.tahun < 1) {
+
+                        extra.html(`
+                            <div class="text-danger small">
+                                ❌ Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                                Tidak mendapatkan tunjangan masa kerja
+                            </div>
+                        `);
+
+                        preview.val(formatRupiah(0));
+                        row.find('.nominal-hidden').val(0);
+
+                    } else {
+
+                        let totalMK = mk.tahun * nilai;
+
+                        extra.html(`
+                            <div class="small text-muted">
+                                Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                                Tarif: ${formatRupiah(nilai)} / tahun
+                            </div>
+                        `);
+
+                        preview.val(formatRupiah(totalMK));
+                        row.find('.nominal-hidden').val(totalMK);
+                    }
+
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+
+                    break;
+
+                    preview.val(formatRupiah(totalMK));
+
+                    // 🔥 simpan ke hidden kalau ada
+                    row.find('.nominal-hidden').val(totalMK);
+
+                    break;
+
+                case 'manual':
+
+                    extra.html(`
+                            <input type="number" class="form-control nominal-manual" 
+                            placeholder="Nominal">
+                        `);
+
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+
+                    break;
             }
 
             refreshTunjanganOptions();
         });
+
+        container.on('input', '.jumlah-anak', function() {
+
+            let row = $(this).closest('.tunjangan-item');
+            let jumlah = parseInt($(this).val()) || 0;
+
+            let selected = row.find('.select2-tunjangan option:selected');
+            let persen = parseFloat(selected.data('nilai')) || 0;
+
+            if (jumlah > 3) {
+                jumlah = 3;
+                $(this).val(3);
+            }
+
+            let total = jumlah * (gapok * persen / 100);
+
+            row.find('.nominal-preview').val(formatRupiah(total));
+            row.find('.nominal-hidden').val(total);
+
+            // 🔥 SET QTY
+            row.find('.qty-input').val(jumlah);
+
+        });
+
+        container.on('input', '.nominal-manual', function() {
+
+            let val = $(this).val() || 0;
+
+            let row = $(this).closest('.tunjangan-item');
+
+            row.find('.nominal-preview').val(formatRupiah(val));
+        });
+
+        container.on('change select2:select', '.select2-jabatan', function() {
+
+            let selected = $(this).find(':selected');
+            let nominal = parseFloat(selected.data('nominal')) || 0;
+
+            let row = $(this).closest('.tunjangan-item');
+
+            row.find('.nominal-preview').val(formatRupiah(nominal));
+            row.find('.nominal-hidden').val(nominal);
+
+            // 🔥 SET REFERENSI
+            row.find('.referensi-id').val(selected.val());
+            row.find('.qty-input').val('');
+
+        });
+
+        container.on('change select2:select', '.select2-profesi', function() {
+
+            let selected = $(this).find(':selected');
+            let nominal = parseFloat(selected.data('nominal')) || 0;
+
+            let row = $(this).closest('.tunjangan-item');
+
+            row.find('.nominal-preview').val(formatRupiah(nominal));
+            row.find('.nominal-hidden').val(nominal);
+
+            // 🔥 SET REFERENSI
+            row.find('.referensi-id').val(selected.val());
+            row.find('.qty-input').val('');
+
+        });
+
+        function formatRupiah(angka) {
+            return 'Rp ' + new Intl.NumberFormat('id-ID', {
+                maximumFractionDigits: 0
+            }).format(angka || 0);
+        }
+
+        // dummy (nanti dari backend)
+        function loadJabatan() {
+            return $.ajax({
+                url: "{{ route("masterData.keuangan.tunjanganPegawai.getJabatan") }}",
+                method: 'GET',
+                success: function(res) {
+                    jabatanList = res; // 🔥 DATA MASUK KE SINI
+                }
+            });
+        }
+
+        function loadProfesi() {
+            return $.ajax({
+                url: "{{ route("masterData.keuangan.tunjanganPegawai.getProfesi") }}",
+                method: 'GET',
+                success: function(res) {
+                    profesiList = res; // 🔥 DATA MASUK KE SINI
+                }
+            });
+        }
+
+        function hitungMasaKerjaDetail(tanggalMasuk) {
+
+            if (!tanggalMasuk) return {
+                tahun: 0,
+                bulan: 0
+            };
+
+            let start = new Date(tanggalMasuk);
+            let now = new Date();
+
+            let tahun = now.getFullYear() - start.getFullYear();
+            let bulan = now.getMonth() - start.getMonth();
+
+            if (bulan < 0 || (bulan === 0 && now.getDate() < start.getDate())) {
+                tahun--;
+                bulan += 12;
+            }
+
+            return {
+                tahun,
+                bulan
+            };
+        }
+
+        async function initMasterData() {
+            await loadTunjangan();
+            await loadJabatan();
+            await loadProfesi();
+
+        }
+
+        $(document).ready(async function() {
+            await initMasterData();
+        })
 
         // MODAL OPEN
         modal.on('shown.bs.modal', async function() {
@@ -178,6 +452,8 @@
             // =====================
             await loadPegawai('#pegawaiSelect');
             await loadTunjangan();
+            await loadJabatan();
+            await loadProfesi();
 
             // =====================
             // INIT SELECT2 PEGAWAI
@@ -254,7 +530,7 @@
             refreshTunjanganOptions();
         });
 
-        // PILIH PEGAWAI
+
         $("#pegawaiSelect").on('change', function() {
 
             let selected = $(this).find(':selected');
@@ -268,6 +544,7 @@
             let nama = selected.data('nama') || '-';
             let jbtn = selected.data('jbtn') || '-';
             let status = selected.data('status') || '-';
+            let gaji_pokok = selected.data('gapok') || '-';
 
             let statusBadge = '';
 
@@ -288,7 +565,34 @@
             $("#pegawaiInfo").removeClass('d-none');
             $("#infoNama").text(nama);
             $("#infoJabatan").text(jbtn);
+            $("#infoGapok").text('-'); // default dulu
             $("#infoStatus").html(statusBadge);
+
+            // 🔥 AMBIL GAPOK
+            $.get(`/simrs/masterData/keuangan/tunjanganPegawai/getGapokById/${nik}`, function(res) {
+
+                gapok = parseFloat(res.gaji_pokok) || 0;
+
+                let mk = hitungMasaKerjaDetail(res.mulai_kontrak);
+
+                $("#infoGapok").text(formatRupiah(gapok));
+
+                masaKerja = mk.tahun;
+                masaKerjaDetail = mk;
+                mulaiKontrak = res.mulai_kontrak;
+
+                // 🔥 FORM LAMA
+                $('.select2-tunjangan').each(function() {
+                    $(this).trigger('change');
+                });
+
+                // 🔥 INLINE (INI YANG KURANG)
+                $('.select-tunjangan').each(function() {
+                    $(this).trigger('change');
+                });
+
+            });
+
         });
 
         // DATATABLE
@@ -365,9 +669,13 @@
             let tr = $(this).closest('tr');
             let row = tunjanganPegawaiTable.row(tr);
 
+            // 🔥 safety
+            let data = row.data();
+            if (!data) return;
+
             if (row.child.isShown()) {
 
-                // tutup
+                // ================= TUTUP =================
                 row.child.hide();
                 tr.removeClass('shown');
 
@@ -375,8 +683,13 @@
 
             } else {
 
-                // buka
-                row.child(format(row.data())).show();
+                // ================= BUKA =================
+                row.child(`
+                    <div class="expand-wrapper">
+                        ${format(data)}
+                    </div>
+                `).show();
+
                 tr.addClass('shown');
 
                 $(this).html('<i class="mdi mdi-chevron-down"></i>');
@@ -532,7 +845,7 @@
 
                             willClose: () => {
 
-                                $('#gapokModalExcell').modal('hide');
+                                $('#tunjanganPegawaiModalExcell').modal('hide');
 
                                 // reset dropify
                                 $('#myDropify').val('');
@@ -686,14 +999,211 @@
         });
 
         // Inline editing untuk nominal tunjangan
+
+        function updateTotal(wrapper) {
+
+            let total = 0;
+
+            wrapper.find('.input-nominal').each(function() {
+                total += parseInt($(this).val()) || 0;
+            });
+
+            // 🔥 update expand
+            wrapper.find('.total-pegawai')
+                .text(total.toLocaleString('id-ID'));
+
+            // 🔥 update row utama datatable
+            let tr = wrapper.closest('tr').prev();
+            let row = tunjanganPegawaiTable.row(tr);
+
+            let data = row.data();
+
+            data.total = '<span class="fw-bold text-primary">' +
+                total.toLocaleString('id-ID') +
+                '</span>';
+
+            row.data(data).draw(false);
+        }
+
+        function loadTunjanganDropdown(el) {
+            el.html(`<option value="">-- Pilih Tunjangan --</option>`);
+
+            tunjanganList.forEach(t => {
+                el.append(`
+                    <option value="${t.id}" 
+                        data-tipe="${t.tipe}" 
+                        data-nilai="${t.nilai}">
+                        ${t.kode} - ${t.nama}
+                    </option>
+                `);
+            });
+        }
+
+        $('#tableTunjanganPegawai').on('change', '.select-tunjangan', function() {
+
+            let selected = $(this).find(':selected');
+
+            let tipe = selected.data('tipe');
+            let nilai = parseFloat(selected.data('nilai')) || 0; // 🔥 FIX
+
+            let row = $(this).closest('.new-row');
+            let extra = row.find('.extra-input');
+            let preview = row.find('.input-nominal'); // 🔥 FIX
+
+            extra.html('');
+
+            switch (tipe) {
+
+                case 'jabatan':
+
+                    let optJabatan = `<option value="">-- Pilih Jabatan --</option>`;
+
+                    jabatanList.forEach(j => {
+                        optJabatan += `
+                    <option value="${j.id}" data-nominal="${j.tunjangan}">
+                        ${j.nama}
+                    </option>`;
+                    });
+
+                    extra.html(
+                        `<select class="form-select form-select-sm input-ref">${optJabatan}</select>`
+                    );
+                    break;
+
+                case 'profesi':
+
+                    let optProfesi = `<option value="">-- Pilih Profesi --</option>`;
+
+                    profesiList.forEach(p => {
+                        optProfesi += `
+                    <option value="${p.id}" data-nominal="${p.tunjangan}">
+                        ${p.nama}
+                    </option>`;
+                    });
+
+                    extra.html(
+                        `<select class="form-select form-select-sm input-ref">${optProfesi}</select>`
+                    );
+                    break;
+
+                case 'masa_kerja':
+
+                    let mk = masaKerjaDetail || {
+                        tahun: 0,
+                        bulan: 0
+                    };
+
+                    if (mk.tahun < 1) {
+
+                        extra.html(`
+                    <div class="text-danger small">
+                        ❌ Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                        Tidak mendapatkan tunjangan masa kerja
+                    </div>
+                `);
+
+                        preview.val(0);
+
+                    } else {
+
+                        let totalMK = mk.tahun * nilai;
+
+                        extra.html(`
+                    <div class="small text-muted">
+                        Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                        Tarif: ${formatRupiah(nilai)} / tahun
+                    </div>
+                `);
+
+                        preview.val(totalMK);
+                    }
+
+                    break;
+
+                case 'anak':
+                    extra.html(`
+                        <input type="number" class="form-control input-qty" 
+                        placeholder="Jumlah anak">
+                    `);
+
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+                    break;
+
+                case 'pasangan':
+
+                    let totalPasangan = gapok * nilai / 100;
+                    preview.val(totalPasangan);
+
+                    break;
+
+                case 'manual':
+                    extra.html(`
+                <input type="number" class="form-control form-control-sm input-nominal-manual" placeholder="Nominal">
+            `);
+                    break;
+            }
+        });
+
+        $('#tableTunjanganPegawai').on('click', '.btn-add-tunjangan', function() {
+
+            let btn = $(this);
+            let nik = btn.data('nik');
+
+            let wrapper = btn.closest('.expand-wrapper');
+            let list = wrapper.find('.list-group').first();
+
+            // ❌ cegah double row
+            if (list.find('.new-row').length > 0) return;
+
+            // 🔥 FUNCTION RENDER
+            function renderRow() {
+
+                let row = $(createNewRow(nik));
+
+                list.prepend(row);
+
+                loadTunjanganDropdown(row.find('.select-tunjangan'));
+            }
+
+            // 🔥 kalau belum ada data → ambil dulu
+            if (!mulaiKontrak && nik) {
+
+                $.get(`/simrs/masterData/keuangan/tunjanganPegawai/getGapokById/${nik}`, function(res) {
+
+                    gapok = parseFloat(res.gaji_pokok) || 0;
+
+                    mulaiKontrak = res.mulai_kontrak;
+
+                    let mk = hitungMasaKerjaDetail(mulaiKontrak);
+
+                    masaKerja = mk.tahun;
+                    masaKerjaDetail = mk;
+
+                    console.log('AUTO LOAD MK:', masaKerjaDetail);
+
+                    renderRow(); // 🔥 render setelah data siap
+                });
+
+            } else {
+                // 🔥 langsung render
+                renderRow();
+            }
+
+        });
+
         $('#tableTunjanganPegawai').on('click', '.btn-save', function() {
 
             let btn = $(this);
             let id = btn.data('id');
-            let input = btn.closest('.d-flex').find('.input-nominal');
-            let nominal = input.val();
 
-            if (!nominal || nominal < 0) {
+            let rowItem = btn.closest('.list-group-item');
+            let wrapper = btn.closest('.expand-wrapper');
+
+            let input = rowItem.find('.input-nominal');
+            let nominal = parseInt(input.val()) || 0;
+
+            if (nominal < 0) {
                 Swal.fire("Nominal tidak valid", "", "warning");
                 return;
             }
@@ -708,36 +1218,25 @@
 
                 beforeSend: function() {
                     btn.html('<span class="spinner-border spinner-border-sm"></span>');
+                    btn.prop('disabled', true);
                 },
 
                 success: function(res) {
 
                     btn.html('<i class="mdi mdi-check"></i>');
+                    btn.prop('disabled', false);
 
-                    let wrapper = btn.parents('.expand-wrapper');
+                    // 🔥 update nominal dari backend (kalau ada recalculation)
+                    if (res.nominal !== undefined) {
+                        input.val(res.nominal);
+                    }
 
-                    let totalEl = wrapper.find('.total-pegawai');
+                    // 🔥 update total pakai function
+                    updateTotal(wrapper);
 
-                    let total = 0;
-
-                    wrapper.find('.input-nominal').each(function() {
-                        total += parseInt($(this).val()) || 0;
-                    });
-
-                    // update expandable
-                    totalEl.text(total.toLocaleString('id-ID'));
-
-                    // 🔥 update row utama
-                    let tr = btn.closest('tr').prev();
-                    let row = tunjanganPegawaiTable.row(tr);
-
-                    let data = row.data();
-
-                    data.total = '<span class="fw-bold text-primary">' +
-                        total.toLocaleString('id-ID') +
-                        '</span>';
-
-                    row.data(data).draw(false);
+                    // reset state
+                    input.data('old', input.val());
+                    input.removeClass('border-warning');
 
                     Swal.fire({
                         icon: 'success',
@@ -752,10 +1251,12 @@
 
                 error: function() {
                     btn.html('<i class="mdi mdi-check"></i>');
+                    btn.prop('disabled', false);
 
                     Swal.fire("Gagal update", "", "error");
                 }
             });
+
         });
 
         $('#tableTunjanganPegawai').on('input', '.input-nominal', function() {
@@ -775,6 +1276,111 @@
 
             // aktifkan tombol kalau ada perubahan
             $('#bulkSaveBtn').prop('disabled', Object.keys(changedData).length === 0);
+        });
+
+        $('#tableTunjanganPegawai').on('change', '.input-ref', function() {
+
+            let select = $(this);
+            let id = select.data('id'); // 🔥 kalau null = new row
+            let value = select.val();
+
+            let wrapper = select.closest('.expand-wrapper');
+            let rowItem = select.closest('.list-group-item');
+
+            // =========================
+            // 🔥 CASE 1: NEW ROW
+            // =========================
+            if (!id) {
+
+                let nominal = select.find(':selected').data('nominal') || 0;
+
+                rowItem.find('.input-nominal').val(nominal);
+
+                return;
+            }
+
+            // =========================
+            // 🔥 CASE 2: EXISTING
+            // =========================
+            $.ajax({
+                url: `/simrs/masterData/keuangan/tunjangan/update-inline/${id}`,
+                method: 'PUT',
+                data: {
+                    referensi_id: value,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+
+                success: function(res) {
+
+                    if (res.nominal) {
+                        rowItem.find('.input-nominal').val(res.nominal);
+                    }
+
+                    updateTotal(wrapper);
+                }
+            });
+
+        });
+
+        $('#tableTunjanganPegawai').on('input', '.input-qty', function() {
+
+            let input = $(this);
+
+            let row = input.closest('.list-group-item, .new-row');
+            let wrapper = input.closest('.expand-wrapper');
+
+            let nominalInput = row.find('.input-nominal');
+
+            let qty = parseInt(input.val()) || 0;
+
+            let id = input.data('id');
+
+            // 🔥 DETEKSI INLINE PALING AMAN
+            let isInline = !id; // ⬅️ INI KUNCI
+
+            console.log('CHECK:', {
+                id,
+                isInline
+            });
+
+            // =========================
+            // 🔥 INLINE (TAMBAH BARU)
+            // =========================
+            if (isInline) {
+
+                let selected = row.find('.select-tunjangan option:selected');
+                let persen = parseFloat(selected.data('nilai')) || 0;
+
+                let total = qty * (gapok * persen / 100);
+
+                nominalInput.val(total);
+
+                updateTotal(wrapper);
+
+                return;
+            }
+
+            // =========================
+            // 🔥 EXISTING (DATA LAMA)
+            // =========================
+            $.ajax({
+                url: `/simrs/masterData/keuangan/tunjangan/update-inline/${id}`,
+                method: 'PUT',
+                data: {
+                    qty: qty,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+
+                success: function(res) {
+
+                    if (res.nominal !== undefined) {
+                        nominalInput.val(parseFloat(res.nominal) || 0);
+                    }
+
+                    updateTotal(wrapper);
+                }
+            });
+
         });
 
         $('#bulkSaveBtn').click(function() {
@@ -1002,7 +1608,6 @@
             if (!nik) return;
 
             $.get(`/simrs/masterData/keuangan/tunjangan/by-pegawai/${nik}`, function(res) {
-                console.log(res);
 
                 let select = $('#tunjanganSelect');
 
@@ -1178,12 +1783,6 @@
             let tujuan = $('#pegawaiTujuan').val();
             let tunjangan = $('#tunjanganSelect').val();
 
-            console.log({
-                sumber,
-                tujuan,
-                tunjangan
-            });
-
             // =========================
             // VALIDASI
             // =========================
@@ -1273,6 +1872,8 @@
             });
 
         });
+
+
 
     });
 </script>

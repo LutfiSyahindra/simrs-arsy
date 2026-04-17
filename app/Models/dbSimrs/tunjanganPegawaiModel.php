@@ -10,7 +10,7 @@ class tunjanganPegawaiModel extends Model
     use HasFactory;
 
     protected $table = 'tunjangan_pegawai';
-    protected $fillable = ['nik', 'tunjangan_id', 'nominal'];
+    protected $fillable = ['nik', 'tunjangan_id', 'nominal', 'referensi_id', 'qty'];
 
     // ✅ BENAR (default id)
     public function jenisTunjangan()
@@ -23,4 +23,15 @@ class tunjanganPegawaiModel extends Model
     {
         return $this->belongsTo(gapokModel::class, 'nik', 'nik');
     }
+
+    public function jabatan()
+    {
+        return $this->belongsTo(jabatanModel::class, 'referensi_id');
+    }
+
+    public function profesi()
+    {
+        return $this->belongsTo(profesiModel::class, 'referensi_id');
+    }
+
 }
