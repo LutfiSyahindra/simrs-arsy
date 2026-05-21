@@ -82,12 +82,17 @@ class premiRepository
                 )
                 ->when(
                     $penjamin === 'bpjs',
-                    fn ($w) => $w->where('pj.png_jawab', 'like', '%BPJS%')
+                    fn ($w) => $w->where('pj.png_jawab', 'like', '%BPJS KESEHATAN%')
+                )
+                ->when(
+                    $penjamin === 'bpjstk',
+                    fn ($w) => $w->where('pj.png_jawab', 'like', '%BPJS KETENAGAKERJAAN%')
                 )
                 ->when(
                     $penjamin === 'asuransi',
                     fn ($w) => $w
-                        ->where('pj.png_jawab', 'not like', '%BPJS%')
+                        ->where('pj.png_jawab', 'not like', '%BPJS KESEHATAN%')
+                        ->where('pj.png_jawab', 'not like', '%BPJS KETENAGAKERJAAN%')
                         ->where('pj.png_jawab', 'not like', '%UMUM%')
                 );
         });
@@ -112,7 +117,7 @@ class premiRepository
             fn ($w) => $this->filterStatusRawat($w, $alias, $filter['status_rawat'])
         )
         ->when(
-            in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+            in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi', 'bpjstk']),
             fn ($w) => $this->filterPenjamin($w, $alias, $filter['penjamin'])
         );
     }
@@ -738,7 +743,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, $alias, $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, $alias, $filter['penjamin'])
                 );
         }
@@ -960,7 +965,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
                 );
         }

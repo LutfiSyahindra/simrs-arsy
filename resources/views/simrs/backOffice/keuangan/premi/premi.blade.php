@@ -125,8 +125,8 @@
         }
 
         /* ===============================
-                               PREMIUM DASHBOARD POLISH
-                            ================================ */
+                                   PREMIUM DASHBOARD POLISH
+                                ================================ */
         body {
             background: #f5f7fb;
         }
@@ -388,6 +388,7 @@
                                     <option value="">Penjamin</option>
                                     <option value="umum">Umum</option>
                                     <option value="bpjs">BPJS</option>
+                                    <option value="bpjstk">BPJS Ketenaga Kerjaan</option>
                                     <option value="asuransi">Asuransi</option>
                                 </select>
                             </div>
