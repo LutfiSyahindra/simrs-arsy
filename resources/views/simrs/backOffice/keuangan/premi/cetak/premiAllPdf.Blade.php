@@ -134,6 +134,9 @@
     </head>
 
     <body>
+        @php
+            $jenisPdf = strtolower(str_replace(" ", "_", $jenis ?? ""));
+        @endphp
 
         <!-- ================= HEADER ================= -->
         <div class="header">
@@ -159,7 +162,13 @@
                 <tr>
                     <td width="10%">Premi</td>
                     <td width="2%">:</td>
-                    <td width="28%" class="text-bold">{{ strtoupper($jenis) }}</td>
+                    <td width="28%" class="text-bold">
+                        @if (($jenis ?? null) === "rs" || ($jenis ?? null) === "rumah_sakit")
+                            RUMAH SAKIT
+                        @else
+                            {{ strtoupper($jenis) }}
+                        @endif
+                    </td>
 
                     <td width="10%">Penjamin</td>
                     <td width="2%">:</td>
@@ -182,7 +191,13 @@
 
         <table class="data">
             <thead>
-                @if ($view_mode === "grouped")
+                @if (($jenis ?? null) === "rs" || ($jenis ?? null) === "rumah_sakit")
+                    <tr>
+                        <th width="5%">No</th>
+                        <th class="text-center">Tanggal</th>
+                        <th class="text-right">Premi RS (Rp)</th>
+                    </tr>
+                @elseif ($view_mode === "grouped")
                     <tr>
                         <th width="5%">No</th>
 
@@ -209,7 +224,17 @@
 
             <tbody>
                 @foreach ($data as $i => $row)
-                    @if ($view_mode === "grouped")
+                    @if (($jenis ?? null) === "rs" || ($jenis ?? null) === "rumah_sakit")
+                        <tr>
+                            <td class="text-center">{{ $i + 1 }}</td>
+                            <td class="text-center">
+                                {{ isset($row["tanggal"]) ? \Carbon\Carbon::parse($row["tanggal"])->format("d-m-Y") : "-" }}
+                            </td>
+                            <td class="text-right">
+                                {{ number_format($row["premi"], 0, ",", ".") }}
+                            </td>
+                        </tr>
+                    @elseif ($view_mode === "grouped")
                         <tr>
                             <td class="text-center">{{ $i + 1 }}</td>
                             <td>{{ $row["nama"] }}</td>

@@ -30,19 +30,52 @@
 
                 <!-- TAB FILTER -->
                 <ul class="nav nav-tabs mb-3" id="tabDetailPremi">
-                    <li class="nav-item"><button class="nav-link active" data-sumber="">Semua</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RAWAT">Rawat (Semua)</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RAWAT"
-                            data-layanan="Rawat Jalan">RJ</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RAWAT"
-                            data-layanan="Rawat Jalan dr dan Paramedis">RJ (Dr & Pr)</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RAWAT"
-                            data-layanan="Rawat Inap">RI</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RAWAT"
-                            data-layanan="Rawat Inap dr dan Paramedis">RI (Dr & Pr)</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="OPERASI">Operasi</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="LAB">Lab</button></li>
-                    <li class="nav-item"><button class="nav-link" data-sumber="RADIOLOGI">Radiologi</button></li>
+                    <li class="nav-item">
+                        <button type="button" class="nav-link active" data-sumber="">Semua</button>
+                    </li>
+
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-sumber="RAWAT">Rawat (Semua)</button>
+                    </li>
+
+                    <li class="nav-item tab-rs">
+                        <button type="button" class="nav-link" data-sumber="RAWAT_JALAN">Rawat Jalan</button>
+                    </li>
+                    <li class="nav-item tab-rs">
+                        <button type="button" class="nav-link" data-sumber="RAWAT_INAP">Rawat Inap</button>
+                    </li>
+
+                    <li class="nav-item tab-layanan">
+                        <button type="button" class="nav-link" data-sumber="RAWAT"
+                            data-layanan="Rawat Jalan">RJ</button>
+                    </li>
+
+                    <li class="nav-item tab-layanan">
+                        <button type="button" class="nav-link" data-sumber="RAWAT"
+                            data-layanan="Rawat Jalan dr dan Paramedis">RJ (Dr & Pr)</button>
+                    </li>
+
+                    <li class="nav-item tab-layanan">
+                        <button type="button" class="nav-link" data-sumber="RAWAT"
+                            data-layanan="Rawat Inap">RI</button>
+                    </li>
+
+                    <li class="nav-item tab-layanan">
+                        <button type="button" class="nav-link" data-sumber="RAWAT"
+                            data-layanan="Rawat Inap dr dan Paramedis">RI (Dr & Pr)</button>
+                    </li>
+
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-sumber="OPERASI">Operasi</button>
+                    </li>
+
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-sumber="LAB">Lab</button>
+                    </li>
+
+                    <li class="nav-item">
+                        <button type="button" class="nav-link" data-sumber="RADIOLOGI">Radiologi</button>
+                    </li>
                 </ul>
 
                 <!-- RINGKASAN -->

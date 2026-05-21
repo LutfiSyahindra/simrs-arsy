@@ -5,11 +5,15 @@
         <meta charset="utf-8">
 
         <style>
+            @page {
+                margin: 24px 28px;
+            }
+
             body {
                 font-family: Arial, Helvetica, sans-serif;
                 font-size: 11px;
-                color: #222;
-                line-height: 1.4;
+                color: #1f2937;
+                line-height: 1.45;
             }
 
             .text-center {
@@ -25,110 +29,135 @@
             }
 
             .text-muted {
-                color: #666;
-            }
-
-            .mt-10 {
-                margin-top: 10px;
+                color: #6b7280;
             }
 
             .mt-20 {
                 margin-top: 20px;
             }
 
-            .mt-30 {
-                margin-top: 30px;
-            }
-
-            /* HEADER */
             .header {
-                border-bottom: 2px solid #000;
-                padding-bottom: 10px;
+                border-bottom: 3px solid #2563eb;
+                padding-bottom: 12px;
             }
 
-            .header-table {
+            .header-table,
+            .info-table,
+            table.data,
+            .footer-table {
                 width: 100%;
                 border-collapse: collapse;
             }
 
-            .header-table td {
+            .header-table td,
+            .info-table td {
                 border: none;
                 vertical-align: middle;
+            }
+
+            .logo {
+                width: 66px;
             }
 
             .rs-name {
                 font-size: 18px;
                 font-weight: bold;
+                color: #0f172a;
+                letter-spacing: .3px;
             }
 
             .report-title {
-                font-size: 13px;
+                display: inline-block;
+                margin-top: 4px;
+                padding: 4px 9px;
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
+                font-size: 12px;
                 font-weight: bold;
             }
 
-            /* INFO */
             .info-box {
-                border: 1px solid #ccc;
-                padding: 8px;
+                margin-top: 18px;
+                border: 1px solid #dbe3ef;
+                background: #f8fafc;
+                padding: 10px;
             }
 
-            .info-table {
-                width: 100%;
-                border-collapse: collapse;
+            .info-label {
+                color: #64748b;
+                font-size: 10px;
             }
 
-            .info-table td {
-                border: none;
-                padding: 3px 4px;
-            }
-
-            /* DATA */
-            table.data {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 8px;
-            }
-
-            table.data th {
-                border-bottom: 1px solid #000;
-                padding: 6px 4px;
+            .info-value {
                 font-weight: bold;
-            }
-
-            table.data td {
-                border-bottom: 1px solid #e0e0e0;
-                padding: 5px 4px;
+                color: #111827;
             }
 
             .section-title {
-                background: #f0f0f0;
-                border-left: 5px solid #000;
-                padding: 6px 8px;
+                margin-top: 20px;
+                padding: 7px 9px;
+                background: #eef2ff;
+                color: #1e3a8a;
+                border-left: 5px solid #2563eb;
                 font-weight: bold;
-                margin-top: 25px;
+                text-transform: uppercase;
             }
 
-            .subtotal {
+            table.data {
+                margin-top: 8px;
+                border: 1px solid #dbe3ef;
+            }
+
+            table.data th {
+                background: #1e40af;
+                color: #fff;
+                padding: 7px 5px;
+                font-size: 10px;
+                border: 1px solid #1e3a8a;
+            }
+
+            table.data td {
+                padding: 6px 5px;
+                border: 1px solid #e5e7eb;
+                vertical-align: top;
+            }
+
+            table.data tbody tr:nth-child(even) td {
+                background: #f8fafc;
+            }
+
+            .subtotal td {
+                background: #eff6ff !important;
                 font-weight: bold;
-                border-top: 1px solid #000;
-                background: #fafafa;
+                color: #1e3a8a;
+                border-top: 2px solid #93c5fd !important;
             }
 
             .grand-total {
-                margin-top: 30px;
+                margin-top: 24px;
                 padding: 12px;
-                border: 2px solid #000;
+                border: 2px solid #2563eb;
+                background: #eff6ff;
+                color: #0f172a;
                 font-size: 14px;
                 font-weight: bold;
             }
 
             .footer {
-                margin-top: 50px;
+                margin-top: 42px;
             }
 
-            .logo {
-                width: 65px;
-                opacity: 0.95;
+            .signature-line {
+                margin-top: 42px;
+                border-top: 1px solid #111827;
+                display: inline-block;
+                min-width: 190px;
+                padding-top: 5px;
+            }
+
+            .nowrap {
+                white-space: nowrap;
             }
         </style>
     </head>
@@ -154,27 +183,30 @@
         </div>
 
         <!-- ================= INFO ================= -->
-        <div class="info-box mt-20">
+        <div class="info-box">
             <table class="info-table">
                 <tr>
-                    <td width="10%">Nama</td>
+                    <td width="12%" class="info-label">Nama</td>
                     <td width="2%">:</td>
-                    <td width="28%" class="text-bold">{{ $nama }} ({{ strtoupper($penjamin) }})</td>
+                    <td width="36%" class="info-value">
+                        {{ $nama }}
+                        @if (!empty($penjamin))
+                            ({{ strtoupper($penjamin) }})
+                        @endif
+                    </td>
 
-                    <td width="10%">Jenis</td>
+                    <td width="12%" class="info-label">Jenis</td>
                     <td width="2%">:</td>
-                    <td width="28%">{{ strtoupper($JenisParamedis) }}</td>
-                    
+                    <td width="36%" class="info-value">{{ strtoupper($JenisParamedis) }}</td>
                 </tr>
                 <tr>
-                    <td>Status</td>
+                    <td class="info-label">Status</td>
                     <td>:</td>
                     <td>{{ $status ?? "-" }}</td>
 
-                    <td>Tanggal Cetak</td>
+                    <td class="info-label">Tanggal Cetak</td>
                     <td>:</td>
                     <td>{{ now()->format("d-m-Y H:i") }}</td>
-                    
                 </tr>
             </table>
         </div>
@@ -184,7 +216,51 @@
         @endphp
 
         <!-- ================= DATA ================= -->
-        @if ($jenis !== "Kamar")
+        @if ($jenis === "Rumah Sakit")
+            {{-- ================= MODE RUMAH SAKIT ================= --}}
+            @php $grandTotal = 0; @endphp
+
+            @foreach ($data->groupBy("sumber") as $sumber => $rows)
+                @php
+                    $subTotal = $rows->sum("nilai");
+                    $grandTotal += $subTotal;
+                @endphp
+
+                <div class="section-title">
+                    {{ strtoupper(str_replace("_", " ", $sumber)) }}
+                </div>
+
+                <table class="data">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Tanggal</th>
+                            <th>No Rawat</th>
+                            <th>Sumber</th>
+                            <th>Tindakan</th>
+                            <th class="text-right">Premi RS (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $i => $row)
+                            <tr>
+                                <td>{{ $i + 1 }}</td>
+                                <td>{{ \Carbon\Carbon::parse($row->tanggal)->format("d-m-Y") }}</td>
+                                <td>{{ $row->no_rawat ?? "-" }}</td>
+                                <td>{{ $row->sumber ?? "-" }}</td>
+                                <td>{{ $row->tindakan ?? "-" }}</td>
+                                <td class="text-right">{{ number_format($row->nilai, 0, ",", ".") }}</td>
+                            </tr>
+                        @endforeach
+
+                        <tr class="subtotal">
+                            <td colspan="5" class="text-right">Subtotal {{ strtoupper($sumber) }}</td>
+                            <td class="text-right">{{ number_format($subTotal, 0, ",", ".") }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            @endforeach
+        @elseif ($jenis !== "Kamar")
             {{-- ================= MODE UMUM ================= --}}
             @php $grandTotal = 0; @endphp
 
@@ -242,7 +318,8 @@
                     @foreach ($data as $i => $row)
                         <tr>
                             <td class="text-center">{{ $i + 1 }}</td>
-                            <td class="text-center">{{ \Carbon\Carbon::parse($row->tanggal)->format("d-m-Y") }}</td>
+                            <td class="text-center">{{ \Carbon\Carbon::parse($row->tanggal)->format("d-m-Y") }}
+                            </td>
                             <td class="text-center">
                                 {{ $row->tgl_keluar ?? "-" }}
                             </td>
@@ -263,13 +340,13 @@
 
         <!-- ================= FOOTER ================= -->
         <div class="footer">
-            <table width="100%">
+            <table class="footer-table">
                 <tr>
                     <td width="60%"></td>
                     <td width="40%" class="text-center">
-                        Lamongan, {{ now()->format("d F Y") }}<br><br>
-                        <strong>Mengetahui</strong><br><br><br>
-                        <strong>__________________________</strong>
+                        Lamongan, {{ now()->format("d F Y") }}<br>
+                        <strong>Mengetahui</strong><br>
+                        <span class="signature-line">Nama & Tanda Tangan</span>
                     </td>
                 </tr>
             </table>

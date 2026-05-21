@@ -42,8 +42,10 @@ class premiController extends Controller
         } elseif (in_array($jenis, ['kamar_inap', 'kamar'])) {
             $jenisFinal = 'Kamar';
             $kodeKey    = 'kd_kamar';
-        }
-            else {
+        } elseif (in_array($jenis, ['rs', 'rumah_sakit', 'rumah sakit'])) {
+            $jenisFinal = 'Rumah Sakit';
+            $kodeKey    = 'tanggal';
+        } else {
             abort(422, 'Jenis premi tidak dikenali');
         }
 
@@ -51,6 +53,7 @@ class premiController extends Controller
         $filter = [
             'jenis'        => $jenisFinal,
             $kodeKey       => $request->kode,
+            'kode'         => $request->kode,
             'status_bayar' => $request->status_bayar,
             'status_rawat' => $request->status_rawat,
             'penjamin'     => $request->penjamin,
@@ -72,12 +75,12 @@ class premiController extends Controller
         );
 
         return [
-            'data'        => $data,
-            'total_premi' => $totalPremi,
-            'jenis'       => $jenisFinal,
-            'kode'        => $request->kode,
-            'tgl_awal'    => $request->tgl_awal,
-            'tgl_akhir'   => $request->tgl_akhir,
+            'data'         => $data,
+            'total_premi'  => $totalPremi,
+            'jenis'        => $jenisFinal,
+            'kode'         => $request->kode,
+            'tgl_awal'     => $request->tgl_awal,
+            'tgl_akhir'    => $request->tgl_akhir,
             'penjamin'     => $request->penjamin,
         ];
     }
@@ -86,11 +89,11 @@ class premiController extends Controller
     {
         // ================= AMBIL FILTER =================
         $filter = [
-            'status_bayar' => $request->status_bayar,   // piutang | lunas_non_piutang | belum_closing_kasir
-            'penjamin'     => $request->penjamin,       // umum | bpjs | asuransi
-            'status_rawat' => $request->status_rawat,   // rj | ri
-            'jenis'        => $request->jenis ?? 'dokter', // 🔑 dokter | paramedis
-            'view_mode'         => $request->view_mode, // detail | grouped
+            'status_bayar' => $request->status_bayar,
+            'penjamin'     => $request->penjamin,
+            'status_rawat' => $request->status_rawat,
+            'jenis'        => $request->jenis ?? 'dokter', // dokter | paramedis | kamar_inap | rs
+            'view_mode'    => $request->view_mode,
         ];
 
         // ================= PANGGIL SERVICE =================
@@ -99,13 +102,6 @@ class premiController extends Controller
             $request->tgl_akhir,
             $filter
         );
-
-        Log::info(['data'        => $data,
-            'tgl_awal'    => $request->tgl_awal,
-            'tgl_akhir'   => $request->tgl_akhir,
-            'penjamin'    => $request->penjamin,
-            'jenis'       => $request->jenis,
-            'view_mode'   => $request->view_mode]);
 
         return DataTables::of($data)
             ->addIndexColumn()
@@ -117,32 +113,20 @@ class premiController extends Controller
 
             // ===== KOLOM ACTION =====
             ->addColumn('actions', function ($row) {
-                $mode = strtolower($row['jenis']) === 'kamar' ? 'kamar' : 'umum';
-                return '
-                <div class="btn-group btn-group-sm" role="group">
+            $jenis = strtolower($row['jenis']);
 
-                    <button class="btn btn-outline-primary"
-                        title="Lihat Detail"
-                        onclick="detailPremi(
-                            \'' . $row['kode'] . '\',
-                            \'' . $row['jenis'] . '\',
-                            \'' . e($row['nama']) . '\',
-                            \'' . $mode . '\',
-                        )">
-                        <i class="mdi mdi-eye"></i>
-                    </button>
+            if ($jenis === 'kamar') {
+                $mode = 'kamar';
+            } elseif ($jenis === 'rumah sakit') {
+                $mode = 'rs';
+            } else {
+                $mode = 'umum';
+            }
 
-                    <button class="btn btn-outline-danger"
-                        title="Export PDF"
-                        onclick="exportPremi(
-                            \'' . $row['kode'] . '\',
-                            \'' . $row['jenis'] . '\',
-                            \'' . e($row['nama']) . '\',
-                            \'pdf\'
-                        )">
-                        <i class="mdi mdi-file-pdf-box"></i>
-                    </button>
+            $excelButton = '';
 
+            if ($jenis !== 'rumah sakit') {
+                $excelButton = '
                     <button class="btn btn-outline-success"
                         title="Export Excel"
                         onclick="exportPremiExcell(
@@ -153,10 +137,39 @@ class premiController extends Controller
                         )">
                         <i class="mdi mdi-file-excel-box"></i>
                     </button>
-
-                </div>
                 ';
-            })
+            }
+
+            return '
+            <div class="btn-group btn-group-sm" role="group">
+
+                <button class="btn btn-outline-primary"
+                    title="Lihat Detail"
+                    onclick="detailPremi(
+                        \'' . $row['kode'] . '\',
+                        \'' . $row['jenis'] . '\',
+                        \'' . e($row['nama']) . '\',
+                        \'' . $mode . '\'
+                    )">
+                    <i class="mdi mdi-eye"></i>
+                </button>
+
+                <button class="btn btn-outline-danger"
+                    title="Export PDF"
+                    onclick="exportPremi(
+                        \'' . $row['kode'] . '\',
+                        \'' . $row['jenis'] . '\',
+                        \'' . e($row['nama']) . '\',
+                        \'pdf\'
+                    )">
+                    <i class="mdi mdi-file-pdf-box"></i>
+                </button>
+
+                ' . $excelButton . '
+
+            </div>
+            ';
+        })
 
             ->rawColumns(['actions'])
             ->make(true);
@@ -588,24 +601,143 @@ class premiController extends Controller
         ]);
     }
 
+    public function getPremiRsChart(Request $request)
+    {
+        $tglAwal  = $request->tgl_awal;
+        $tglAkhir = $request->tgl_akhir;
+
+        $filter = [
+            'status_bayar' => $request->status_bayar,
+            'status_rawat' => $request->status_rawat,
+            'penjamin'     => $request->penjamin,
+        ];
+
+        $data = $this->premiService
+            ->getPremiRsChart($tglAwal, $tglAkhir, $filter);
+
+        return response()->json([
+            'labels' => $data->pluck('tanggal'),
+            'series' => $data->pluck('total'),
+            'total'  => $data->sum('total'),
+        ]);
+    }
+
+    public function getPremiRsSummary(Request $request)
+    {
+        $tglAwal  = Carbon::parse($request->tgl_awal);
+        $tglAkhir = Carbon::parse($request->tgl_akhir);
+
+        $filter = [
+            'status_bayar' => $request->status_bayar,
+            'status_rawat' => $request->status_rawat,
+            'penjamin'     => $request->penjamin,
+        ];
+
+        // ================= PERIODE DIPILIH =================
+        $awalPeriode  = $tglAwal->copy()->startOfMonth()->toDateString();
+        $akhirPeriode = $tglAwal->copy()->endOfMonth()->toDateString();
+
+        // ================= BULAN SEBELUMNYA =================
+        $awalBulanLalu  = $tglAwal->copy()->subMonth()->startOfMonth()->toDateString();
+        $akhirBulanLalu = $tglAwal->copy()->subMonth()->endOfMonth()->toDateString();
+
+        $totalPeriode = $this->premiService
+            ->getPremiRsChart($awalPeriode, $akhirPeriode, $filter)
+            ->sum('total');
+
+        $totalBulanLalu = $this->premiService
+            ->getPremiRsChart($awalBulanLalu, $akhirBulanLalu, $filter)
+            ->sum('total');
+
+        $selisih = $totalPeriode - $totalBulanLalu;
+
+        $persen = $totalBulanLalu > 0
+            ? ($selisih / $totalBulanLalu) * 100
+            : 0;
+
+        return response()->json([
+            'total_periode' => round($totalPeriode),
+            'total_lalu'    => round($totalBulanLalu),
+            'persen'        => round($persen, 2),
+            'naik'          => $selisih > 0,
+            'selisih'       => round($selisih),
+            'selisih_abs'   => round(abs($selisih)),
+        ]);
+    }
+
+    public function getPremiRsChartOverlay(Request $request)
+    {
+        $tglAwal = Carbon::parse($request->tgl_awal);
+
+        $filter = [
+            'status_bayar' => $request->status_bayar,
+            'status_rawat' => $request->status_rawat,
+            'penjamin'     => $request->penjamin,
+        ];
+
+        // ================= BULAN INI =================
+        $awalBulanIni  = $tglAwal->copy()->startOfMonth();
+        $akhirBulanIni = $tglAwal->copy()->endOfMonth();
+
+        // ================= BULAN LALU =================
+        $awalBulanLalu  = $tglAwal->copy()->subMonth()->startOfMonth();
+        $akhirBulanLalu = $tglAwal->copy()->endOfMonth();
+
+        $akhirBulanLalu = $awalBulanLalu->copy()->endOfMonth();
+
+        $thisMonth = $this->premiService
+            ->getPremiRsChart(
+                $awalBulanIni->toDateString(),
+                $akhirBulanIni->toDateString(),
+                $filter
+            )
+            ->keyBy('tanggal');
+
+        $lastMonth = $this->premiService
+            ->getPremiRsChart(
+                $awalBulanLalu->toDateString(),
+                $akhirBulanLalu->toDateString(),
+                $filter
+            )
+            ->keyBy('tanggal');
+
+        $labels = [];
+        $seriesThis = [];
+        $seriesLast = [];
+
+        $daysInMonth = $awalBulanIni->daysInMonth;
+
+        for ($i = 1; $i <= $daysInMonth; $i++) {
+            $tglThis = $awalBulanIni->copy()->day($i)->toDateString();
+            $tglLast = $awalBulanLalu->copy()->day($i)->toDateString();
+
+            $labels[] = $tglThis;
+
+            $seriesThis[] = $thisMonth[$tglThis]->total ?? 0;
+            $seriesLast[] = $lastMonth[$tglLast]->total ?? 0;
+        }
+
+        return response()->json([
+            'labels'     => $labels,
+            'this_month' => $seriesThis,
+            'last_month' => $seriesLast,
+        ]);
+    }
+
     public function cetakPremiDetailPdf(Request $request)
     {
         $result = $this->buildPremiDetailData($request);
 
-        // Ambil nama dokter / paramedis
         if ($result['jenis'] === 'Dokter') {
 
             $dokter = DB::connection('mysql_khanza')
                 ->table('dokter')
                 ->leftJoin('spesialis', 'dokter.kd_sps', '=', 'spesialis.kd_sps')
                 ->where('dokter.kd_dokter', $request->kode)
-                ->select(
-                    'dokter.nm_dokter',
-                    'spesialis.nm_sps'
-                )
+                ->select('dokter.nm_dokter', 'spesialis.nm_sps')
                 ->first();
 
-            $nama   = $dokter->nm_dokter ?? '-';
+            $nama = $dokter->nm_dokter ?? '-';
             $status = 'Dokter ' . ($dokter->nm_sps ?? '-');
             $JenisParamedis = 'Dokter';
 
@@ -617,40 +749,45 @@ class premiController extends Controller
                 ->select('kd_kamar')
                 ->first();
 
-            $nama   = $kamar->kd_kamar ?? '-';
+            $nama = $kamar->kd_kamar ?? '-';
             $status = 'Kamar ' . ($kamar->kd_kamar ?? '-');
             $JenisParamedis = 'Kamar';
 
+        } elseif ($result['jenis'] === 'Rumah Sakit') {
+
+            $tanggal = Carbon::parse($request->kode)->translatedFormat('d F Y');
+
+            $nama = 'Rumah Sakit';
+            $status = 'Premi Rumah Sakit Tanggal ' . $tanggal;
+            $JenisParamedis = 'Rumah Sakit';
+
         } else {
+
             $paramedis = DB::connection('mysql_khanza')
                 ->table('petugas')
                 ->leftJoin('jabatan', 'petugas.kd_jbtn', '=', 'jabatan.kd_jbtn')
                 ->where('nip', $request->kode)
-                ->select(
-                    'petugas.nama',
-                    'jabatan.nm_jbtn'
-                )
+                ->select('petugas.nama', 'jabatan.nm_jbtn')
                 ->first();
 
-            $nama   = $paramedis->nama ?? '-';
+            $nama = $paramedis->nama ?? '-';
             $status = $paramedis->nm_jbtn ?? '-';
             $JenisParamedis = 'Paramedis';
         }
 
-
         return Pdf::loadView('simrs.backOffice.keuangan.premi.cetak.premiPdf', [
-            'data'        => $result['data'],
-            'total'       => $result['total_premi'],
-            'nama'        => $nama,
-            'status'      => $status,
-            'jenis'       => $result['jenis'],
+            'data'           => $result['data'],
+            'total'          => $result['total_premi'],
+            'nama'           => $nama,
+            'status'         => $status,
+            'jenis'          => $result['jenis'],
             'JenisParamedis' => $JenisParamedis,
-            'tgl_awal'    => $result['tgl_awal'],
-            'tgl_akhir'   => $result['tgl_akhir'],
-            'penjamin'     => $result['penjamin'],
+            'tgl_awal'       => $result['tgl_awal'],
+            'tgl_akhir'      => $result['tgl_akhir'],
+            'penjamin'       => $result['penjamin'],
         ])
         ->setPaper('A4', 'portrait')
-        ->stream('Detail-Premi.pdf');
+        ->stream('Detail-Premi-' . str_replace(' ', '-', $result['jenis']) . '.pdf');
     }
 
     public function cetakPremiDetailExcel(Request $request)
@@ -726,13 +863,6 @@ class premiController extends Controller
             $filter
         );
 
-        Log::info(['data'        => $data,
-            'tgl_awal'    => $request->tgl_awal,
-            'tgl_akhir'   => $request->tgl_akhir,
-            'penjamin'    => $request->penjamin,
-            'jenis'       => $request->jenis,]);
-
-
         return Pdf::loadView('simrs.backOffice.keuangan.premi.cetak.premiAllPdf', [
             'data'        => $data,
             'tgl_awal'    => $request->tgl_awal,
@@ -744,8 +874,6 @@ class premiController extends Controller
         ->setPaper('A4', 'portrait')
         ->stream('Detail-Premi.pdf');
     }
-
-
 
     /**
      * Show the form for creating a new resource.

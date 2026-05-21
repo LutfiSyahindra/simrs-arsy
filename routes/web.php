@@ -144,6 +144,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/premi/getPremiKamarChart', [premiController::class, 'getPremiKamarChart'])->name('backOffice.keuangan.premi.getPremiKamarChart');
         Route::get('/premi/getPremiKamarSummary', [premiController::class, 'getPremiKamarSummary'])->name('backOffice.keuangan.premi.getPremiKamarSummary');
         Route::get('/premi/getPremiKamarChartOverlay', [premiController::class, 'getPremiKamarChartOverlay'])->name('backOffice.keuangan.premi.getPremiKamarChartOverlay');
+        Route::get('/premi/getPremiRsChart', [premiController::class, 'getPremiRsChart'])->name('backOffice.keuangan.premi.getPremiRsChart');
+        Route::get('/premi/getPremiRsSummary', [premiController::class, 'getPremiRsSummary'])->name('backOffice.keuangan.premi.getPremiRsSummary');
+        Route::get('/premi/getPremiRsChartOverlay', [premiController::class, 'getPremiRsChartOverlay'])->name('backOffice.keuangan.premi.getPremiRsChartOverlay');
         Route::get('/premi/cetakPremiDetailPdf', [premiController::class, 'cetakPremiDetailPdf'])->name('backOffice.keuangan.premi.cetakPremiDetailPdf');
         Route::get('/premi/cetakPremiDetailExcel', [premiController::class, 'cetakPremiDetailExcel'])->name('backOffice.keuangan.premi.cetakPremiDetailExcel');
         Route::get('/premi/cetakPremiAllPdf', [premiController::class, 'cetakAllPremiPdf'])->name('backOffice.keuangan.premi.cetakPremiAllPdf');

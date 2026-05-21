@@ -566,6 +566,144 @@ class premiRepository
             ->orderBy('ki.tgl_masuk', 'asc');
     }
 
+    private function buildDetailPremiRsQuery(
+            string $tanggal,
+            string $tglAwal,
+            string $tglAkhir,
+            array $filter = []
+        ) {
+            $db = DB::connection('mysql_khanza');
+            $sources = [];
+
+            // ================= RAWAT =================
+        foreach ([
+            'rawat_jl_pr'     => ['sumber' => 'RAWAT_JALAN', 'master' => 'jns_perawatan'],
+            'rawat_jl_drpr'   => ['sumber' => 'RAWAT_JALAN', 'master' => 'jns_perawatan'],
+            'rawat_inap_pr'   => ['sumber' => 'RAWAT_INAP',  'master' => 'jns_perawatan_inap'],
+            'rawat_inap_drpr' => ['sumber' => 'RAWAT_INAP',  'master' => 'jns_perawatan_inap'],
+            'rawat_jl_dr'     => ['sumber' => 'RAWAT_JALAN', 'master' => 'jns_perawatan'],
+            'rawat_inap_dr'   => ['sumber' => 'RAWAT_INAP',  'master' => 'jns_perawatan_inap'],
+        ] as $table => $config) {
+            $sources[] = $db->table("$table as r")
+                ->leftJoin($config['master'] . ' as jp', 'jp.kd_jenis_prw', '=', 'r.kd_jenis_prw')
+                ->select([
+                    DB::raw('r.tgl_perawatan as tanggal'),
+                    'r.no_rawat',
+                    DB::raw("'" . $config['sumber'] . "' as sumber"),
+                    DB::raw('COALESCE(jp.nm_perawatan, r.kd_jenis_prw) as tindakan'),
+                    DB::raw('r.material as nilai'),
+                ])
+                ->where('r.tgl_perawatan', $tanggal)
+                ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
+                ->where('r.material', '>', 0)
+                ->when(
+                    ($filter['status_bayar'] ?? null) === 'piutang',
+                    fn ($q) => $this->filterPiutang($q, 'r')
+                )
+                ->when(
+                    ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
+                    fn ($q) => $this->filterLunasNonPiutang($q, 'r')
+                )
+                ->when(
+                    ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
+                    fn ($q) => $this->filterBelumClosingKasir($q, 'r')
+                )
+                ->when(
+                    in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']),
+                    fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
+                )
+                ->when(
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
+                );
+        }
+
+            // ================= OPERASI =================
+            $sources[] = $db->table('operasi as o')
+                ->leftJoin('paket_operasi as po', 'po.kode_paket', '=', 'o.kode_paket')
+                ->select([
+                    DB::raw('o.tgl_operasi as tanggal'),
+                    'o.no_rawat',
+                    DB::raw("'OPERASI' as sumber"),
+                    DB::raw('COALESCE(po.nm_perawatan, o.kode_paket) as tindakan'),
+                    DB::raw('o.bagian_rs as nilai'),
+                ])
+                ->where('o.tgl_operasi', $tanggal)
+                ->whereBetween('o.tgl_operasi', [$tglAwal, $tglAkhir])
+                ->where('o.bagian_rs', '>', 0)
+                ->when(($filter['status_bayar'] ?? null) === 'piutang', fn ($q) => $this->filterPiutang($q, 'o'))
+                ->when(($filter['status_bayar'] ?? null) === 'lunas_non_piutang', fn ($q) => $this->filterLunasNonPiutang($q, 'o'))
+                ->when(($filter['status_bayar'] ?? null) === 'belum_closing_kasir', fn ($q) => $this->filterBelumClosingKasir($q, 'o'))
+                ->when(in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']), fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat']))
+                ->when(in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']), fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin']));
+
+            // ================= LAB =================
+            $sources[] = $db->table('detail_periksa_lab as dpl')
+                ->join('periksa_lab as pl', function ($join) {
+                    $join->on('pl.no_rawat', '=', 'dpl.no_rawat')
+                        ->on('pl.kd_jenis_prw', '=', 'dpl.kd_jenis_prw')
+                        ->on('pl.tgl_periksa', '=', 'dpl.tgl_periksa')
+                        ->on('pl.jam', '=', 'dpl.jam');
+                })
+                ->leftJoin('jns_perawatan_lab as jpl', 'jpl.kd_jenis_prw', '=', 'dpl.kd_jenis_prw')
+                ->select([
+                    DB::raw('dpl.tgl_periksa as tanggal'),
+                    'dpl.no_rawat',
+                    DB::raw("'LAB' as sumber"),
+                    DB::raw('COALESCE(jpl.nm_perawatan, dpl.kd_jenis_prw) as tindakan'),
+                    DB::raw('dpl.bagian_rs as nilai'),
+                ])
+                ->where('dpl.tgl_periksa', $tanggal)
+                ->whereBetween('dpl.tgl_periksa', [$tglAwal, $tglAkhir])
+                ->where('dpl.bagian_rs', '>', 0)
+                ->when(($filter['status_bayar'] ?? null) === 'piutang', fn ($q) => $this->filterPiutang($q, 'pl'))
+                ->when(($filter['status_bayar'] ?? null) === 'lunas_non_piutang', fn ($q) => $this->filterLunasNonPiutang($q, 'pl'))
+                ->when(($filter['status_bayar'] ?? null) === 'belum_closing_kasir', fn ($q) => $this->filterBelumClosingKasir($q, 'pl'))
+                ->when(in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']), fn ($q) => $this->filterStatusRawat($q, 'pl', $filter['status_rawat']))
+                ->when(in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']), fn ($q) => $this->filterPenjamin($q, 'pl', $filter['penjamin']));
+
+            // ================= RADIOLOGI =================
+            $sources[] = $db->table('periksa_radiologi as pr')
+                ->leftJoin('jns_perawatan_radiologi as jpr', 'jpr.kd_jenis_prw', '=', 'pr.kd_jenis_prw')
+                ->select([
+                    DB::raw('pr.tgl_periksa as tanggal'),
+                    'pr.no_rawat',
+                    DB::raw("'RADIOLOGI' as sumber"),
+                    DB::raw('COALESCE(jpr.nm_perawatan, pr.kd_jenis_prw) as tindakan'),
+                    DB::raw('pr.bagian_rs as nilai'),
+                ])
+                ->where('pr.tgl_periksa', $tanggal)
+                ->whereBetween('pr.tgl_periksa', [$tglAwal, $tglAkhir])
+                ->where('pr.bagian_rs', '>', 0)
+                ->when(($filter['status_bayar'] ?? null) === 'piutang', fn ($q) => $this->filterPiutang($q, 'pr'))
+                ->when(($filter['status_bayar'] ?? null) === 'lunas_non_piutang', fn ($q) => $this->filterLunasNonPiutang($q, 'pr'))
+                ->when(($filter['status_bayar'] ?? null) === 'belum_closing_kasir', fn ($q) => $this->filterBelumClosingKasir($q, 'pr'))
+                ->when(in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']), fn ($q) => $this->filterStatusRawat($q, 'pr', $filter['status_rawat']))
+                ->when(in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']), fn ($q) => $this->filterPenjamin($q, 'pr', $filter['penjamin']));
+
+            $subQuery = array_shift($sources);
+
+            foreach ($sources as $q) {
+                $subQuery->unionAll($q);
+            }
+
+            return $db->query()
+                ->fromSub($subQuery, 'x')
+                ->select([
+                    'x.tanggal',
+                    'x.no_rawat',
+                    'x.sumber',
+                    'x.tindakan',
+                    'x.nilai',
+                ])
+                ->when(!empty($filter['sumber']), function ($q) use ($filter) {
+                    $q->where('x.sumber', strtoupper($filter['sumber']));
+                })
+                ->orderBy('x.tanggal', 'asc')
+                ->orderBy('x.sumber', 'asc')
+                ->orderBy('x.no_rawat', 'asc');
+    }
+
     public function getPremiDokter($tglAwal, $tglAkhir, array $filter = [])
     {
         $db = DB::connection('mysql_khanza');
@@ -941,37 +1079,6 @@ class premiRepository
             ->get();
     }
 
-    // public function getPremiKamar($tglAwal, $tglAkhir, array $filter = [])
-    // {
-    //     $db = DB::connection('mysql_khanza');
-
-    //     $query = $db->table('kamar_inap as ki')
-    //         ->select(
-    //             'ki.kd_kamar',
-    //             DB::raw('SUM(ki.ttl_biaya) as total_kamar')
-    //         )
-    //         ->whereBetween('ki.tgl_masuk', [$tglAwal, $tglAkhir]) 
-    //         ->when(
-    //             ($filter['status_bayar'] ?? null) === 'piutang',
-    //             fn ($q) => $this->filterPiutang($q, 'ki')
-    //         )
-    //         ->when(
-    //             ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
-    //             fn ($q) => $this->filterLunasNonPiutang($q, 'ki')
-    //         )
-    //         ->when(
-    //             ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
-    //             fn ($q) => $this->filterBelumClosingKasir($q, 'ki')
-    //         )
-    //         ->when(
-    //             in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
-    //             fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
-    //         )
-    //         ->groupBy('ki.kd_kamar');
-
-    //     return $query->get();
-    // }
-
     public function getPremiKamar($tglAwal, $tglAkhir, array $filter = [], $mode = 'grouped')
     {
         $db = DB::connection('mysql_khanza');
@@ -1041,13 +1148,17 @@ class premiRepository
             'rawat_jl_pr',
             'rawat_inap_pr',
             'rawat_jl_drpr',
-            'rawat_inap_drpr'
+            'rawat_inap_drpr',
+            'rawat_jl_dr',
+            'rawat_inap_dr',
         ] as $table) {
-
             $sources[] = $db->table("$table as r")
-                ->select('r.nip', 'r.tarif_tindakanpr as nilai_pr')
+                ->select(
+                    DB::raw('r.tgl_perawatan as tanggal'),
+                    DB::raw('r.material as nilai_rs')
+                )
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
-                ->where(fn ($q) => $this->validPerson($q, 'r.nip'))
+                ->where('r.material', '>', 0)
                 ->when(
                     ($filter['status_bayar'] ?? null) === 'piutang',
                     fn ($q) => $this->filterPiutang($q, 'r')
@@ -1071,41 +1182,33 @@ class premiRepository
         }
 
         // ================= OPERASI =================
-        foreach ([
-            ['asisten_operator1', 'biayaasisten_operator1'],
-            ['asisten_operator2', 'biayaasisten_operator2'],
-            ['asisten_operator3', 'biayaasisten_operator3'],
-            ['instrumen', 'biayainstrumen'],
-            ['perawaat_resusitas', 'biayaperawaat_resusitas'],
-            ['asisten_anestesi', 'biayaasisten_anestesi'],
-            ['asisten_anestesi2', 'biayaasisten_anestesi2'],
-        ] as [$nip, $biaya]) {
-
-            $sources[] = $db->table('operasi as o')
-                ->select("o.$nip as nip", "o.$biaya as nilai_pr")
-                ->whereBetween('o.tgl_operasi', [$tglAwal, $tglAkhir])
-                ->where(fn ($q) => $this->validPerson($q, "o.$nip"))
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'piutang',
-                    fn ($q) => $this->filterPiutang($q, 'o')
-                )
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
-                    fn ($q) => $this->filterLunasNonPiutang($q, 'o')
-                )
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
-                    fn ($q) => $this->filterBelumClosingKasir($q, 'o')
-                )
-                ->when(
-                    in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']),
-                    fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
-                )
-                ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
-                    fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
-                );
-        }
+        $sources[] = $db->table('operasi as o')
+            ->select(
+                DB::raw('o.tgl_operasi as tanggal'),
+                DB::raw('o.bagian_rs as nilai_rs')
+            )
+            ->whereBetween('o.tgl_operasi', [$tglAwal, $tglAkhir])
+            ->where('o.bagian_rs', '>', 0)
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'piutang',
+                fn ($q) => $this->filterPiutang($q, 'o')
+            )
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
+                fn ($q) => $this->filterLunasNonPiutang($q, 'o')
+            )
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
+                fn ($q) => $this->filterBelumClosingKasir($q, 'o')
+            )
+            ->when(
+                in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']),
+                fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
+            )
+            ->when(
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
+            );
 
         // ================= LAB =================
         $sources[] = $db->table('detail_periksa_lab as dpl')
@@ -1115,10 +1218,12 @@ class premiRepository
                     ->on('pl.tgl_periksa', '=', 'dpl.tgl_periksa')
                     ->on('pl.jam', '=', 'dpl.jam');
             })
-            ->select('pl.nip', 'dpl.bagian_laborat as nilai_pr')
-            ->where('dpl.bagian_laborat', '>', 0)
+            ->select(
+                DB::raw('dpl.tgl_periksa as tanggal'),
+                DB::raw('dpl.bagian_rs as nilai_rs')
+            )
             ->whereBetween('dpl.tgl_periksa', [$tglAwal, $tglAkhir])
-            ->where(fn ($q) => $this->validPerson($q, 'pl.nip'))
+            ->where('dpl.bagian_rs', '>', 0)
             ->when(
                 ($filter['status_bayar'] ?? null) === 'piutang',
                 fn ($q) => $this->filterPiutang($q, 'pl')
@@ -1142,9 +1247,12 @@ class premiRepository
 
         // ================= RADIOLOGI =================
         $sources[] = $db->table('periksa_radiologi as pr')
-            ->select('pr.nip', 'pr.tarif_tindakan_petugas as nilai_pr')
+            ->select(
+                DB::raw('pr.tgl_periksa as tanggal'),
+                DB::raw('pr.bagian_rs as nilai_rs')
+            )
             ->whereBetween('pr.tgl_periksa', [$tglAwal, $tglAkhir])
-            ->where(fn ($q) => $this->validPerson($q, 'pr.nip'))
+            ->where('pr.bagian_rs', '>', 0)
             ->when(
                 ($filter['status_bayar'] ?? null) === 'piutang',
                 fn ($q) => $this->filterPiutang($q, 'pr')
@@ -1168,19 +1276,19 @@ class premiRepository
 
         // ================= UNION =================
         $subQuery = array_shift($sources);
+
         foreach ($sources as $q) {
             $subQuery->unionAll($q);
         }
 
-        return $db->table('petugas as p')
-            ->leftJoinSub($subQuery, 'x', 'x.nip', '=', 'p.nip')
+        return $db->query()
+            ->fromSub($subQuery, 'x')
             ->select(
-                'p.nip',
-                'p.nama',
-                DB::raw('COALESCE(SUM(x.nilai_pr),0) as total_tindakan_pr')
+                'x.tanggal',
+                DB::raw('COALESCE(SUM(x.nilai_rs), 0) as total_rs')
             )
-            ->where(fn ($q) => $this->validPerson($q, 'p.nip'))
-            ->groupBy('p.nip', 'p.nama')
+            ->groupBy('x.tanggal')
+            ->orderBy('x.tanggal')
             ->get();
     }
 
@@ -1272,6 +1380,37 @@ class premiRepository
                 $tglAkhir,
                 $filter
             )->sum('ki.ttl_biaya');
+    }
+
+    public function getDetailPremiRs(
+            string $kode,
+            string $tglAwal,
+            string $tglAkhir,
+            array $filter = []
+        ) {
+            return $this->buildDetailPremiRsQuery(
+                $kode,
+                $tglAwal,
+                $tglAkhir,
+                $filter
+            )
+            ->get();
+    }
+
+    public function getTotalPremiRs(
+        string $tanggal,
+        string $tglAwal,
+        string $tglAkhir,
+        array $filter = []
+        ): int {
+            $tanggal = Carbon::parse($tanggal)->format('Y-m-d');
+
+            return (int) $this->buildDetailPremiRsQuery(
+                $tanggal,
+                $tglAwal,
+                $tglAkhir,
+                $filter
+            )->sum('x.nilai');
     }
 
     // ================= CHART =================
@@ -1718,8 +1857,11 @@ class premiRepository
                 ->get();
     }
 
-    public function getPremiRumahSakitChart($tglAwal, $tglAkhir, array $filter = [])
-    {
+    public function getPremiRsChart(
+        string $tglAwal,
+        string $tglAkhir,
+        array $filter = []
+        ) {
         $db = DB::connection('mysql_khanza');
         $sources = [];
 
@@ -1730,14 +1872,13 @@ class premiRepository
             'rawat_jl_drpr',
             'rawat_inap_drpr'
         ] as $table) {
-
             $sources[] = $db->table("$table as r")
                 ->select(
-                        DB::raw("DATE(r.tgl_perawatan) as tanggal"),
-                        "r.tarif_tindakanpr as nilai_pr"
-                    )
+                    DB::raw('DATE(r.tgl_perawatan) as tanggal'),
+                    DB::raw('r.material as nilai')
+                )
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
-                ->where(fn ($q) => $this->validPerson($q, 'r.nip'))
+                ->where('r.material', '>', 0)
                 ->when(
                     ($filter['status_bayar'] ?? null) === 'piutang',
                     fn ($q) => $this->filterPiutang($q, 'r')
@@ -1761,47 +1902,33 @@ class premiRepository
         }
 
         // ================= OPERASI =================
-        foreach ([
-            ['asisten_operator1', 'biayaasisten_operator1'],
-            ['asisten_operator2', 'biayaasisten_operator2'],
-            ['asisten_operator3', 'biayaasisten_operator3'],
-            ['instrumen', 'biayainstrumen'],
-            ['perawaat_resusitas', 'biayaperawaat_resusitas'],
-            ['asisten_anestesi', 'biayaasisten_anestesi'],
-            ['asisten_anestesi2', 'biayaasisten_anestesi2'],
-        ] as [$nip, $biaya]) {
-
-            $sources[] = $db->table('operasi as o')
-                ->select(
-                    DB::raw("DATE(o.tgl_operasi) as tanggal"),
-                    "o.$biaya as nilai_pr"
-                )
-                ->whereBetween('o.tgl_operasi', [
-                    $tglAwal . ' 00:00:00',
-                    $tglAkhir . ' 23:59:59'
-                ])
-                ->where(fn ($q) => $this->validPerson($q, "o.$nip"))
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'piutang',
-                    fn ($q) => $this->filterPiutang($q, 'o')
-                )
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
-                    fn ($q) => $this->filterLunasNonPiutang($q, 'o')
-                )
-                ->when(
-                    ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
-                    fn ($q) => $this->filterBelumClosingKasir($q, 'o')
-                )
-                ->when(
-                    in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']),
-                    fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
-                )
-                ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
-                    fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
-                );
-        }
+        $sources[] = $db->table('operasi as o')
+            ->select(
+                DB::raw('DATE(o.tgl_operasi) as tanggal'),
+                DB::raw('o.bagian_rs as nilai')
+            )
+            ->whereBetween('o.tgl_operasi', [$tglAwal, $tglAkhir])
+            ->where('o.bagian_rs', '>', 0)
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'piutang',
+                fn ($q) => $this->filterPiutang($q, 'o')
+            )
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'lunas_non_piutang',
+                fn ($q) => $this->filterLunasNonPiutang($q, 'o')
+            )
+            ->when(
+                ($filter['status_bayar'] ?? null) === 'belum_closing_kasir',
+                fn ($q) => $this->filterBelumClosingKasir($q, 'o')
+            )
+            ->when(
+                in_array(($filter['status_rawat'] ?? null), ['rj', 'ri']),
+                fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
+            )
+            ->when(
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
+            );
 
         // ================= LAB =================
         $sources[] = $db->table('detail_periksa_lab as dpl')
@@ -1812,12 +1939,11 @@ class premiRepository
                     ->on('pl.jam', '=', 'dpl.jam');
             })
             ->select(
-                DB::raw("DATE(dpl.tgl_periksa) as tanggal"),
-                'dpl.bagian_laborat as nilai_pr'
+                DB::raw('DATE(dpl.tgl_periksa) as tanggal'),
+                DB::raw('dpl.bagian_rs as nilai')
             )
-            ->where('dpl.bagian_laborat', '>', 0)
             ->whereBetween('dpl.tgl_periksa', [$tglAwal, $tglAkhir])
-            ->where(fn ($q) => $this->validPerson($q, 'pl.nip'))
+            ->where('dpl.bagian_rs', '>', 0)
             ->when(
                 ($filter['status_bayar'] ?? null) === 'piutang',
                 fn ($q) => $this->filterPiutang($q, 'pl')
@@ -1842,11 +1968,11 @@ class premiRepository
         // ================= RADIOLOGI =================
         $sources[] = $db->table('periksa_radiologi as pr')
             ->select(
-                DB::raw("DATE(pr.tgl_periksa) as tanggal"),
-                'pr.tarif_tindakan_petugas as nilai_pr'
+                DB::raw('DATE(pr.tgl_periksa) as tanggal'),
+                DB::raw('pr.bagian_rs as nilai')
             )
             ->whereBetween('pr.tgl_periksa', [$tglAwal, $tglAkhir])
-            ->where(fn ($q) => $this->validPerson($q, 'pr.nip'))
+            ->where('pr.bagian_rs', '>', 0)
             ->when(
                 ($filter['status_bayar'] ?? null) === 'piutang',
                 fn ($q) => $this->filterPiutang($q, 'pr')
@@ -1870,19 +1996,20 @@ class premiRepository
 
         // ================= UNION =================
         $subQuery = array_shift($sources);
+
         foreach ($sources as $q) {
             $subQuery->unionAll($q);
         }
 
         return $db->query()
-        ->fromSub($subQuery, 'x')
-        ->select(
-            'tanggal',
-            DB::raw('SUM(nilai_pr) as total')
-        )
-        ->groupBy('tanggal')
-        ->orderBy('tanggal')
-        ->get();
+            ->fromSub($subQuery, 'x')
+            ->select(
+                'x.tanggal',
+                DB::raw('SUM(x.nilai) as total')
+            )
+            ->groupBy('x.tanggal')
+            ->orderBy('x.tanggal')
+            ->get();
     }
 
     // ================ CHART =================
