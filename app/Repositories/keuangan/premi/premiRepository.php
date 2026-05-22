@@ -563,7 +563,7 @@ class premiRepository
                 fn ($q) => $this->filterBelumClosingKasir($q, 'ki')
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
             )
 
@@ -618,7 +618,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
                 );
         }
@@ -780,7 +780,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
                 );
                 
@@ -808,7 +808,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'pr', $filter['status_rawat'])
             )
             ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'pr', $filter['penjamin'])
             );
 
@@ -833,7 +833,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'pr', $filter['status_rawat'])
             )
             ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'pr', $filter['penjamin'])
             );
 
@@ -876,7 +876,7 @@ class premiRepository
             fn ($q) => $this->filterStatusRawat($q, 'pl', $filter['status_rawat'])
         )
         ->when(
-            in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+            in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
             fn ($q) => $this->filterPenjamin($q, 'pl', $filter['penjamin'])
         );
 
@@ -909,7 +909,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'pl', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'pl', $filter['penjamin'])
             );
 
@@ -1002,7 +1002,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
                 );
         }
@@ -1036,7 +1036,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'pl', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'pl', $filter['penjamin'])
             );
 
@@ -1062,7 +1062,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'pr', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'pr', $filter['penjamin'])
             );
 
@@ -1103,7 +1103,7 @@ class premiRepository
                 fn ($q) => $this->filterBelumClosingKasir($q, 'ki')
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
             );
 
@@ -1181,7 +1181,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
                 );
         }
@@ -1211,7 +1211,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'o', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'o', $filter['penjamin'])
             );
 
@@ -1246,7 +1246,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'pl', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'pl', $filter['penjamin'])
             );
 
@@ -1275,7 +1275,7 @@ class premiRepository
                 fn ($q) => $this->filterStatusRawat($q, 'pr', $filter['status_rawat'])
             )
             ->when(
-                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                 fn ($q) => $this->filterPenjamin($q, 'pr', $filter['penjamin'])
             );
 
@@ -1456,7 +1456,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, $alias, $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, $alias, $filter['penjamin'])
                 );
         }
@@ -1695,7 +1695,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
                 );
         }
@@ -1852,7 +1852,7 @@ class premiRepository
                     fn ($q) => $this->filterBelumClosingKasir($q, 'ki')
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'ki', $filter['penjamin'])
                 )
 
@@ -1901,7 +1901,7 @@ class premiRepository
                     fn ($q) => $this->filterStatusRawat($q, 'r', $filter['status_rawat'])
                 )
                 ->when(
-                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi']),
+                    in_array(($filter['penjamin'] ?? null), ['umum', 'bpjs', 'asuransi','bpjstk']),
                     fn ($q) => $this->filterPenjamin($q, 'r', $filter['penjamin'])
                 );
         }

@@ -125,8 +125,8 @@
         }
 
         /* ===============================
-                                   PREMIUM DASHBOARD POLISH
-                                ================================ */
+                                           PREMIUM DASHBOARD POLISH
+                                        ================================ */
         body {
             background: #f5f7fb;
         }
@@ -410,6 +410,20 @@
                                     </span>
                                     <input type="text" id="searchPremi" class="form-control"
                                         placeholder="Cari nama dokter / perawat...">
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-md-2">
+                                <div class="d-flex gap-2">
+                                    <button type="button" id="btnApplyFilter" class="btn btn-primary btn-sm w-100">
+                                        <i class="mdi mdi-filter-outline me-1"></i>
+                                        Terapkan
+                                    </button>
+
+                                    <button type="button" id="btnResetFilter" class="btn btn-light btn-sm"
+                                        title="Reset Filter">
+                                        <i class="mdi mdi-refresh"></i>
+                                    </button>
                                 </div>
                             </div>
 

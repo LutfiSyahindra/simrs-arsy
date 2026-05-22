@@ -842,7 +842,6 @@
             });
         }
 
-
         // ===============================
         // Grafik Premi Paramedis
         // ===============================
@@ -1693,12 +1692,56 @@
         // ===============================
         // RELOAD TABLE SAAT DATE BERUBAH
         // ===============================
-        $('#date-range').on('apply.daterangepicker', reloadAllTable);
-        $('#filterStatusBayar').on('change',
-            reloadAllTable);
-        $('#filterStatusRawat').on('change', reloadAllTable);
-        $('#filterPenjamin').on('change',
-            reloadAllTable);
+        function markFilterDirty() {
+            $('#btnApplyFilter')
+                .removeClass('btn-primary')
+                .addClass('btn-warning')
+                .html('<i class="mdi mdi-alert-circle-outline me-1"></i> Terapkan');
+        }
+
+        function markFilterClean() {
+            $('#btnApplyFilter')
+                .removeClass('btn-warning')
+                .addClass('btn-primary')
+                .html('<i class="mdi mdi-filter-outline me-1"></i> Terapkan');
+        }
+
+        $('#date-range').on('apply.daterangepicker', markFilterDirty);
+        $('#filterStatusBayar').on('change', markFilterDirty);
+        $('#filterStatusRawat').on('change', markFilterDirty);
+        $('#filterPenjamin').on('change', markFilterDirty);
+
+        $('#btnApplyFilter').on('click', function() {
+            const btn = $(this);
+
+            btn.prop('disabled', true)
+                .html('<i class="mdi mdi-loading mdi-spin me-1"></i> Memuat');
+
+            reloadAllTable();
+
+            setTimeout(function() {
+                btn.prop('disabled', false);
+                markFilterClean();
+            }, 700);
+        });
+
+        $('#btnResetFilter').on('click', function() {
+            const picker = $('#date-range').data('daterangepicker');
+
+            picker.setStartDate(moment().startOf('month'));
+            picker.setEndDate(moment());
+
+            $('#date-range').val(
+                picker.startDate.format('YYYY-MM-DD') + ' - ' +
+                picker.endDate.format('YYYY-MM-DD')
+            );
+
+            $('#filterStatusBayar').val('');
+            $('#filterStatusRawat').val('');
+            $('#filterPenjamin').val('');
+
+            markFilterDirty();
+        });
 
         $('#premiTab a[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
             const target = $(e.target).attr('href');
