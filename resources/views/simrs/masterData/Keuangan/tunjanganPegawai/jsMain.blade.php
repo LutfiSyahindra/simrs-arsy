@@ -16,6 +16,7 @@
             tahun: 0,
             bulan: 0
         };
+        let payrollCache = {};
 
         // --- Setup CSRF untuk semua AJAX request
         $.ajaxSetup({
@@ -178,6 +179,7 @@
 
             extra.html('');
             preview.val('');
+            row.find('.nominal-hidden').val('');
 
             switch (tipe) {
 
@@ -296,6 +298,7 @@
                     break;
 
                 case 'manual':
+                case 'custom':
 
                     extra.html(`
                             <input type="number" class="form-control nominal-manual" 
@@ -341,6 +344,7 @@
             let row = $(this).closest('.tunjangan-item');
 
             row.find('.nominal-preview').val(formatRupiah(val));
+            row.find('.nominal-hidden').val(val);
         });
 
         container.on('change select2:select', '.select2-jabatan', function() {
@@ -424,6 +428,58 @@
                 tahun,
                 bulan
             };
+        }
+
+        function loadPayrollForNik(nik) {
+
+            if (payrollCache[nik]) {
+                return $.Deferred().resolve(payrollCache[nik]).promise();
+            }
+
+            return $.get(`/simrs/masterData/keuangan/tunjanganPegawai/getGapokById/${nik}`)
+                .then(function(res) {
+
+                    let mk = hitungMasaKerjaDetail(res.mulai_kontrak);
+
+                    payrollCache[nik] = {
+                        gapok: parseFloat(res.gaji_pokok) || 0,
+                        mulaiKontrak: res.mulai_kontrak,
+                        masaKerja: mk.tahun,
+                        masaKerjaDetail: mk
+                    };
+
+                    return payrollCache[nik];
+                });
+        }
+
+        function setWrapperPayroll(wrapper, payroll) {
+            wrapper.data('gapok', payroll.gapok);
+            wrapper.data('masaKerjaDetail', payroll.masaKerjaDetail);
+        }
+
+        function getWrapperPayroll(wrapper) {
+            return {
+                gapok: parseFloat(wrapper.data('gapok')) || gapok || 0,
+                masaKerjaDetail: wrapper.data('masaKerjaDetail') || masaKerjaDetail || {
+                    tahun: 0,
+                    bulan: 0
+                }
+            };
+        }
+
+        function ensureMasterData() {
+
+            let requests = [];
+
+            if (!tunjanganList.length) requests.push(loadTunjangan());
+            if (!jabatanList.length) requests.push(loadJabatan());
+            if (!profesiList.length) requests.push(loadProfesi());
+
+            if (!requests.length) {
+                return $.Deferred().resolve().promise();
+            }
+
+            return $.when.apply($, requests);
         }
 
         async function initMasterData() {
@@ -633,6 +689,8 @@
         });
 
         function format(row) {
+            let nik = row.nik || row.id;
+
             return `
                 <div class="p-3 bg-light rounded-3">
 
@@ -647,16 +705,23 @@
                             </small>
                         </div>
 
-                        <div class="text-end">
-                            <small class="text-muted d-block">Total</small>
-                            <span class="fw-bold text-primary fs-4 total-pegawai">
-                                ${row.total}
-                            </span>
+                        <div class="d-flex align-items-center gap-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-add-tunjangan"
+                                data-nik="${nik}">
+                                <i class="mdi mdi-plus"></i> Tambah
+                            </button>
+
+                            <div class="text-end">
+                                <small class="text-muted d-block">Total</small>
+                                <span class="fw-bold text-primary fs-4 total-pegawai">
+                                    ${row.total}
+                                </span>
+                            </div>
                         </div>
 
                     </div>
 
-                    <div class="list-group list-group-flush">
+                    <div class="tunjangan-detail-body">
                         ${row.tunjangan}
                     </div>
 
@@ -685,7 +750,7 @@
 
                 // ================= BUKA =================
                 row.child(`
-                    <div class="expand-wrapper">
+                    <div class="expand-wrapper" data-nik="${data.nik || data.id}">
                         ${format(data)}
                     </div>
                 `).show();
@@ -981,6 +1046,13 @@
 
                             });
 
+                            if (xhr.responseJSON?.message) {
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: xhr.responseJSON.message
+                                });
+                            }
+
                         } else {
 
                             Swal.fire({
@@ -1000,7 +1072,7 @@
 
         // Inline editing untuk nominal tunjangan
 
-        function updateTotal(wrapper) {
+        function updateTotal(wrapper, updateMain = true) {
 
             let total = 0;
 
@@ -1012,23 +1084,87 @@
             wrapper.find('.total-pegawai')
                 .text(total.toLocaleString('id-ID'));
 
+            if (!updateMain) return;
+
             // 🔥 update row utama datatable
-            let tr = wrapper.closest('tr').prev();
+            let tr = wrapper.closest('tr').prevAll('tr:not(.child)').first();
             let row = tunjanganPegawaiTable.row(tr);
 
             let data = row.data();
+            if (!data) return;
 
             data.total = '<span class="fw-bold text-primary">' +
                 total.toLocaleString('id-ID') +
                 '</span>';
 
+            if (wrapper.find('.new-row').length > 0) {
+                row.data(data).invalidate();
+                return;
+            }
+
             row.data(data).draw(false);
         }
 
+        function markInlineChanged(rowItem) {
+
+            let changed = false;
+
+            rowItem.find('.input-ref, .input-qty, .input-nominal').each(function() {
+                let input = $(this);
+                let id = input.data('id');
+
+                if (!id) return;
+
+                let oldValue = input.data('old');
+                let currentValue = input.val();
+
+                if (String(currentValue ?? '') !== String(oldValue ?? '')) {
+                    changed = true;
+                    input.addClass('border-warning');
+                } else {
+                    input.removeClass('border-warning');
+                }
+            });
+
+            rowItem.find('.btn-save').prop('disabled', !changed);
+        }
+
+        function getUsedTunjanganIds(wrapper, exceptSelect = null) {
+
+            let ids = [];
+
+            wrapper.find('.list-group-item[data-tunjangan-id]').not('.new-row').each(function() {
+                let id = $(this).data('tunjangan-id');
+                if (id) ids.push(String(id));
+            });
+
+            wrapper.find('.new-row .select-tunjangan').each(function() {
+                if (exceptSelect && this === exceptSelect[0]) return;
+
+                let id = $(this).val();
+                if (id) ids.push(String(id));
+            });
+
+            return ids;
+        }
+
+        function getAvailableTunjangan(wrapper) {
+            let usedIds = getUsedTunjanganIds(wrapper);
+
+            return tunjanganList.filter(t => !usedIds.includes(String(t.id)));
+        }
+
         function loadTunjanganDropdown(el) {
+
+            let wrapper = el.closest('.expand-wrapper');
+            let usedIds = getUsedTunjanganIds(wrapper, el);
+            let currentValue = el.val();
+
             el.html(`<option value="">-- Pilih Tunjangan --</option>`);
 
             tunjanganList.forEach(t => {
+                if (usedIds.includes(String(t.id)) && String(t.id) !== String(currentValue)) return;
+
                 el.append(`
                     <option value="${t.id}" 
                         data-tipe="${t.tipe}" 
@@ -1037,6 +1173,49 @@
                     </option>
                 `);
             });
+
+            if (el.find('option').length === 1) {
+                el.html(`<option value="">Semua tunjangan sudah ada</option>`);
+                el.prop('disabled', true);
+            } else {
+                el.prop('disabled', false);
+            }
+        }
+
+        function createNewRow(nik) {
+            return `
+                <div class="list-group-item py-3 new-row" data-nik="${nik}">
+                    <div class="row align-items-end g-2">
+
+                        <div class="col-md-4">
+                            <label class="form-label small text-muted">Tunjangan</label>
+                            <select class="form-select form-select-sm select-tunjangan"></select>
+                        </div>
+
+                        <div class="col-md-3 extra-input"></div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">Nominal</label>
+                            <input type="number"
+                                class="form-control form-control-sm text-end fw-semibold input-nominal"
+                                value="0"
+                                min="0"
+                                readonly>
+                        </div>
+
+                        <div class="col-md-2 text-end">
+                            <button type="button" class="btn btn-success btn-sm btn-save-new" title="Simpan">
+                                <i class="mdi mdi-check"></i>
+                            </button>
+
+                            <button type="button" class="btn btn-light btn-sm btn-cancel-new" title="Batal">
+                                <i class="mdi mdi-close"></i>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            `;
         }
 
         $('#tableTunjanganPegawai').on('change', '.select-tunjangan', function() {
@@ -1192,6 +1371,243 @@
 
         });
 
+        $('#tableTunjanganPegawai').off('change', '.select-tunjangan');
+        $('#tableTunjanganPegawai').on('change', '.select-tunjangan', function() {
+
+            let selected = $(this).find(':selected');
+            let tipe = selected.data('tipe');
+            let nilai = parseFloat(selected.data('nilai')) || 0;
+
+            let row = $(this).closest('.new-row');
+            let wrapper = row.closest('.expand-wrapper');
+            let payroll = getWrapperPayroll(wrapper);
+            let extra = row.find('.extra-input');
+            let preview = row.find('.input-nominal');
+
+            extra.html('');
+            preview.val(0).prop('readonly', true);
+
+            switch (tipe) {
+
+                case 'jabatan':
+                    let optJabatan = `<option value="">-- Pilih Jabatan --</option>`;
+
+                    jabatanList.forEach(j => {
+                        optJabatan += `
+                            <option value="${j.id}" data-nominal="${j.tunjangan}">
+                                ${j.nama}
+                            </option>`;
+                    });
+
+                    extra.html(
+                        `<select class="form-select form-select-sm input-ref">${optJabatan}</select>`
+                    );
+                    break;
+
+                case 'profesi':
+                    let optProfesi = `<option value="">-- Pilih Profesi --</option>`;
+
+                    profesiList.forEach(p => {
+                        optProfesi += `
+                            <option value="${p.id}" data-nominal="${p.tunjangan}">
+                                ${p.nama}
+                            </option>`;
+                    });
+
+                    extra.html(
+                        `<select class="form-select form-select-sm input-ref">${optProfesi}</select>`
+                    );
+                    break;
+
+                case 'masa_kerja':
+                    let mk = payroll.masaKerjaDetail || {
+                        tahun: 0,
+                        bulan: 0
+                    };
+
+                    if (mk.tahun < 1) {
+                        extra.html(`
+                            <div class="text-danger small">
+                                Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                                Tidak mendapatkan tunjangan masa kerja
+                            </div>
+                        `);
+
+                        preview.val(0);
+                    } else {
+                        let totalMK = mk.tahun * nilai;
+
+                        extra.html(`
+                            <div class="small text-muted">
+                                Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                                Tarif: ${formatRupiah(nilai)} / tahun
+                            </div>
+                        `);
+
+                        preview.val(totalMK);
+                    }
+                    break;
+
+                case 'anak':
+                    extra.html(`
+                        <input type="number" class="form-control form-control-sm input-qty"
+                            placeholder="Jumlah anak" min="0" max="3">
+                    `);
+                    break;
+
+                case 'pasangan':
+                    let totalPasangan = payroll.gapok * nilai / 100;
+                    preview.val(totalPasangan);
+                    break;
+
+                case 'manual':
+                case 'custom':
+                    extra.html(`
+                        <div class="small text-muted">
+                            Isi nominal pada kolom nominal
+                        </div>
+                    `);
+                    preview.val('').prop('readonly', false);
+                    break;
+            }
+
+            updateTotal(wrapper);
+        });
+
+        $('#tableTunjanganPegawai').off('click', '.btn-add-tunjangan');
+        $('#tableTunjanganPegawai').on('click', '.btn-add-tunjangan', function() {
+
+            let btn = $(this);
+            let nik = btn.data('nik');
+            let wrapper = btn.closest('.expand-wrapper');
+            let list = wrapper.find('.tunjangan-detail-list').first();
+
+            if (list.find('.new-row').length > 0) return;
+
+            function renderRow() {
+
+                if (getAvailableTunjangan(wrapper).length === 0) {
+                    Swal.fire("Semua tunjangan sudah ada", "", "info");
+                    return;
+                }
+
+                let row = $(createNewRow(nik));
+
+                list.prepend(row);
+                loadTunjanganDropdown(row.find('.select-tunjangan'));
+            }
+
+            btn.prop('disabled', true);
+
+            $.when(ensureMasterData(), loadPayrollForNik(nik))
+                .done(function(masterRes, payroll) {
+                    setWrapperPayroll(wrapper, payroll);
+                    renderRow();
+                })
+                .fail(function() {
+                    Swal.fire("Gagal memuat data pegawai", "", "error");
+                })
+                .always(function() {
+                    btn.prop('disabled', false);
+                });
+
+        });
+
+        $('#tableTunjanganPegawai').on('click', '.btn-cancel-new', function() {
+            let row = $(this).closest('.new-row');
+            let wrapper = row.closest('.expand-wrapper');
+
+            row.remove();
+            updateTotal(wrapper);
+        });
+
+        $('#tableTunjanganPegawai').on('click', '.btn-save-new', function() {
+
+            let btn = $(this);
+            let row = btn.closest('.new-row');
+            let wrapper = row.closest('.expand-wrapper');
+            let selected = row.find('.select-tunjangan option:selected');
+
+            let nik = row.data('nik') || wrapper.data('nik');
+            let tunjanganId = row.find('.select-tunjangan').val();
+            let tipe = selected.data('tipe');
+            let referensiId = row.find('.input-ref').val() || '';
+            let qty = row.find('.input-qty').val() || '';
+            let nominal = parseInt(row.find('.input-nominal').val()) || 0;
+
+            if (!nik) {
+                Swal.fire("Pegawai tidak ditemukan", "", "warning");
+                return;
+            }
+
+            if (!tunjanganId) {
+                Swal.fire("Pilih tunjangan terlebih dahulu", "", "warning");
+                return;
+            }
+
+            if ((tipe === 'jabatan' || tipe === 'profesi') && !referensiId) {
+                Swal.fire("Pilih referensi terlebih dahulu", "", "warning");
+                return;
+            }
+
+            if (tipe === 'anak') {
+                qty = Math.min(parseInt(qty) || 0, 3);
+
+                if (qty < 1) {
+                    Swal.fire("Jumlah anak wajib diisi", "", "warning");
+                    return;
+                }
+            }
+
+            if ((tipe === 'manual' || tipe === 'custom') && nominal < 1) {
+                Swal.fire("Nominal wajib diisi", "", "warning");
+                return;
+            }
+
+            $.ajax({
+                url: "{{ route("masterData.keuangan.tunjanganPegawai.store") }}",
+                method: 'POST',
+                data: {
+                    nik: nik,
+                    tunjangan_id: [tunjanganId],
+                    referensi_id: [referensiId],
+                    qty: [qty],
+                    nominal: [nominal],
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+
+                beforeSend: function() {
+                    btn.prop('disabled', true);
+                    btn.html('<span class="spinner-border spinner-border-sm"></span>');
+                },
+
+                success: function(res) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: res.message || 'Tunjangan berhasil ditambahkan',
+                        toast: true,
+                        position: 'top-end',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+
+                    tunjanganPegawaiTable.ajax.reload(null, false);
+                },
+
+                error: function(xhr) {
+                    btn.prop('disabled', false);
+                    btn.html('<i class="mdi mdi-check"></i>');
+
+                    Swal.fire(
+                        "Gagal menyimpan",
+                        xhr.responseJSON?.message || 'Terjadi kesalahan',
+                        "error"
+                    );
+                }
+            });
+
+        });
+
         $('#tableTunjanganPegawai').on('click', '.btn-save', function() {
 
             let btn = $(this);
@@ -1199,11 +1615,34 @@
 
             let rowItem = btn.closest('.list-group-item');
             let wrapper = btn.closest('.expand-wrapper');
+            let nominalInput = rowItem.find('.input-nominal');
+            let data = {
+                _token: $('meta[name="csrf-token"]').attr('content')
+            };
 
-            let input = rowItem.find('.input-nominal');
-            let nominal = parseInt(input.val()) || 0;
+            let refInput = rowItem.find('.input-ref[data-id]');
+            if (refInput.length) {
+                data.referensi_id = refInput.val();
 
-            if (nominal < 0) {
+                if (!data.referensi_id) {
+                    Swal.fire("Pilih referensi terlebih dahulu", "", "warning");
+                    return;
+                }
+            }
+
+            let qtyInput = rowItem.find('.input-qty[data-id]');
+            if (qtyInput.length) {
+                let qty = Math.min(parseInt(qtyInput.val()) || 0, 3);
+
+                qtyInput.val(qty);
+                data.qty = qty;
+            }
+
+            if (!refInput.length && !qtyInput.length) {
+                data.nominal = parseInt(nominalInput.val()) || 0;
+            }
+
+            if (parseInt(nominalInput.val()) < 0) {
                 Swal.fire("Nominal tidak valid", "", "warning");
                 return;
             }
@@ -1211,10 +1650,7 @@
             $.ajax({
                 url: `/simrs/masterData/keuangan/tunjangan/update-inline/${id}`,
                 method: 'PUT',
-                data: {
-                    nominal: nominal,
-                    _token: $('meta[name="csrf-token"]').attr('content')
-                },
+                data: data,
 
                 beforeSend: function() {
                     btn.html('<span class="spinner-border spinner-border-sm"></span>');
@@ -1223,20 +1659,25 @@
 
                 success: function(res) {
 
-                    btn.html('<i class="mdi mdi-check"></i>');
+                    btn.html('<i class="mdi mdi-content-save"></i>');
                     btn.prop('disabled', false);
 
                     // 🔥 update nominal dari backend (kalau ada recalculation)
                     if (res.nominal !== undefined) {
-                        input.val(res.nominal);
+                        nominalInput.val(res.nominal);
                     }
 
                     // 🔥 update total pakai function
                     updateTotal(wrapper);
 
                     // reset state
-                    input.data('old', input.val());
-                    input.removeClass('border-warning');
+                    rowItem.find('.input-ref, .input-qty, .input-nominal').each(function() {
+                        let input = $(this);
+                        input.data('old', input.val());
+                        input.removeClass('border-warning');
+                    });
+
+                    btn.prop('disabled', true);
 
                     Swal.fire({
                         icon: 'success',
@@ -1250,7 +1691,7 @@
                 },
 
                 error: function() {
-                    btn.html('<i class="mdi mdi-check"></i>');
+                    btn.html('<i class="mdi mdi-content-save"></i>');
                     btn.prop('disabled', false);
 
                     Swal.fire("Gagal update", "", "error");
@@ -1263,27 +1704,20 @@
 
             let input = $(this);
             let id = input.data('id');
-            let value = input.val();
-            let old = input.data('old');
 
-            if (value != old) {
-                changedData[id] = value; // simpan perubahan
-                input.addClass('border-warning'); // tanda berubah
-            } else {
-                delete changedData[id];
-                input.removeClass('border-warning');
+            if (!id) {
+                updateTotal(input.closest('.expand-wrapper'));
+                return;
             }
 
-            // aktifkan tombol kalau ada perubahan
-            $('#bulkSaveBtn').prop('disabled', Object.keys(changedData).length === 0);
+            markInlineChanged(input.closest('.list-group-item'));
+            updateTotal(input.closest('.expand-wrapper'), false);
         });
 
         $('#tableTunjanganPegawai').on('change', '.input-ref', function() {
 
             let select = $(this);
             let id = select.data('id'); // 🔥 kalau null = new row
-            let value = select.val();
-
             let wrapper = select.closest('.expand-wrapper');
             let rowItem = select.closest('.list-group-item');
 
@@ -1295,6 +1729,7 @@
                 let nominal = select.find(':selected').data('nominal') || 0;
 
                 rowItem.find('.input-nominal').val(nominal);
+                updateTotal(wrapper);
 
                 return;
             }
@@ -1302,23 +1737,7 @@
             // =========================
             // 🔥 CASE 2: EXISTING
             // =========================
-            $.ajax({
-                url: `/simrs/masterData/keuangan/tunjangan/update-inline/${id}`,
-                method: 'PUT',
-                data: {
-                    referensi_id: value,
-                    _token: $('meta[name="csrf-token"]').attr('content')
-                },
-
-                success: function(res) {
-
-                    if (res.nominal) {
-                        rowItem.find('.input-nominal').val(res.nominal);
-                    }
-
-                    updateTotal(wrapper);
-                }
-            });
+            markInlineChanged(rowItem);
 
         });
 
@@ -1332,16 +1751,13 @@
             let nominalInput = row.find('.input-nominal');
 
             let qty = parseInt(input.val()) || 0;
+            qty = Math.min(qty, 3);
+            input.val(qty);
 
             let id = input.data('id');
 
             // 🔥 DETEKSI INLINE PALING AMAN
             let isInline = !id; // ⬅️ INI KUNCI
-
-            console.log('CHECK:', {
-                id,
-                isInline
-            });
 
             // =========================
             // 🔥 INLINE (TAMBAH BARU)
@@ -1350,8 +1766,9 @@
 
                 let selected = row.find('.select-tunjangan option:selected');
                 let persen = parseFloat(selected.data('nilai')) || 0;
+                let payroll = getWrapperPayroll(wrapper);
 
-                let total = qty * (gapok * persen / 100);
+                let total = qty * (payroll.gapok * persen / 100);
 
                 nominalInput.val(total);
 
@@ -1363,23 +1780,7 @@
             // =========================
             // 🔥 EXISTING (DATA LAMA)
             // =========================
-            $.ajax({
-                url: `/simrs/masterData/keuangan/tunjangan/update-inline/${id}`,
-                method: 'PUT',
-                data: {
-                    qty: qty,
-                    _token: $('meta[name="csrf-token"]').attr('content')
-                },
-
-                success: function(res) {
-
-                    if (res.nominal !== undefined) {
-                        nominalInput.val(parseFloat(res.nominal) || 0);
-                    }
-
-                    updateTotal(wrapper);
-                }
-            });
+            markInlineChanged(row);
 
         });
 

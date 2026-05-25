@@ -55,13 +55,6 @@ class tunjanganPegawaiService
                     default => '<span class="badge bg-secondary">-</span>',
                 };
 
-                // 🔥 HEADER + BUTTON TAMBAH
-                $header = "
-                    <div class='d-flex justify-content-between align-items-center mb-2'>
-                        <small class='text-muted fw-semibold'>TUNJANGAN</small>
-                    </div>
-                ";
-
                 // 🔥 LIST
                 $tunjanganList = $items->map(function ($t) use ($jabatanList, $profesiList) {
 
@@ -76,7 +69,9 @@ class tunjanganPegawaiService
                             })->implode('');
 
                             $inputDetail = "
-                                <select class='form-select form-select-sm input-ref' data-id='{$t->id}'>
+                                <select class='form-select form-select-sm input-ref'
+                                    data-id='{$t->id}'
+                                    data-old='{$t->referensi_id}'>
                                     {$options}
                                 </select>
                             ";
@@ -89,7 +84,9 @@ class tunjanganPegawaiService
                             })->implode('');
 
                             $inputDetail = "
-                                <select class='form-select form-select-sm input-ref' data-id='{$t->id}'>
+                                <select class='form-select form-select-sm input-ref'
+                                    data-id='{$t->id}'
+                                    data-old='{$t->referensi_id}'>
                                     {$options}
                                 </select>
                             ";
@@ -102,6 +99,7 @@ class tunjanganPegawaiService
                                         class='form-control form-control-sm input-qty'
                                         value='".($t->qty ?? 0)."'
                                         data-id='{$t->id}'
+                                        data-old='".($t->qty ?? 0)."'
                                         min='0' max='3'
                                         style='width:80px;' />
                                     <span class='text-muted small'>maks 3 anak</span>
@@ -116,10 +114,19 @@ class tunjanganPegawaiService
                         case 'masa_kerja':
                             $inputDetail = "<span class='text-muted small'>otomatis berdasarkan masa kerja</span>";
                             break;
+
+                        case 'custom':
+                        case 'manual':
+                            $inputDetail = "<span class='text-muted small'>nominal manual</span>";
+                            break;
                     }
 
+                    $nominalDisabled = in_array($t->jenisTunjangan->tipe, ['custom', 'manual'])
+                        ? ''
+                        : 'disabled';
+
                     return "
-                        <div class='list-group-item py-3'>
+                        <div class='list-group-item py-3' data-tunjangan-id='{$t->tunjangan_id}'>
 
                             <div class='row align-items-center g-2'>
 
@@ -152,8 +159,15 @@ class tunjanganPegawaiService
                                                 class='form-control form-control-sm text-end fw-semibold input-nominal'
                                                 value='{$t->nominal}'
                                                 data-id='{$t->id}'
-                                                style='width:140px;' disabled />
+                                                data-old='{$t->nominal}'
+                                                style='width:140px;' {$nominalDisabled} />
                                         </div>
+
+                                        <button class='btn btn-success btn-sm btn-save'
+                                            data-id='{$t->id}'
+                                            disabled>
+                                            <i class='mdi mdi-content-save'></i>
+                                        </button>
 
                                         <button class='btn btn-danger btn-sm btn-delete'
                                             data-id='{$t->id}'>
@@ -174,13 +188,15 @@ class tunjanganPegawaiService
 
                 return [
                     'id' => $first->nik,
+                    'nik' => $first->nik,
                     'nama' => $first->gapok->nama ?? '-',
                     'jabatan' => '<span class="fw-semibold">' . ($first->gapok->jbtn ?? '-') . '</span>',
                     'status' => $status,
+                    'tunjangan_ids' => $items->pluck('tunjangan_id')->values()->all(),
 
                     // 🔥 FIX DI SINI (GABUNG HEADER + LIST)
-                    'tunjangan' => $header . "
-                        <div class='list-group list-group-flush'>
+                    'tunjangan' => "
+                        <div class='list-group list-group-flush tunjangan-detail-list'>
                             {$tunjanganList}
                         </div>
                     ",

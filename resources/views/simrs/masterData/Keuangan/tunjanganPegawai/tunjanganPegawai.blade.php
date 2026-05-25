@@ -102,11 +102,6 @@
                                     placeholder="Cari...">
                             </div>
 
-                            {{-- <!-- DISTRIBUSI -->
-                            <button id="btnDistribusi" class="btn btn-outline-success btn-sm">
-                                <i class="mdi mdi-account-multiple-plus"></i>
-                            </button> --}}
-
                             <!-- IMPORT -->
                             <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal"
                                 data-bs-target="#tunjanganPegawaiModalExcell">
@@ -118,12 +113,6 @@
                                 data-bs-toggle="modal" data-bs-target="#tunjanganPegawaiModal">
                                 <i class="mdi mdi-plus"></i>
                             </button>
-
-                            {{-- <!-- BULK SAVE -->
-                            <button id="bulkSaveBtn" class="btn btn-primary btn-sm" disabled>
-                                <i class="mdi mdi-content-save-all"></i>
-                            </button> --}}
-
                         </div>
 
                     </div>
@@ -133,7 +122,7 @@
 
                             <thead>
                                 <tr>
-                                    <th width="30"></th> <!-- 🔥 tombol expand -->
+                                    <th width="30"></th>
                                     <th>No</th>
                                     <th>Nama Pegawai</th>
                                     <th>Jabatan</th>

@@ -106,14 +106,17 @@ class tunjanganPegawaiController extends Controller
 
             // ================= VALIDASI =================
             $validated = $request->validate([
-                'nik' => 'required',
+                'nik' => 'required|exists:gaji_pokok,nik',
 
                 'tunjangan_id' => 'required|array|min:1',
                 'tunjangan_id.*' => 'nullable|exists:master_tunjangan,id',
 
                 'referensi_id' => 'nullable|array',
+                'referensi_id.*' => 'nullable',
                 'qty' => 'nullable|array',
+                'qty.*' => 'nullable|integer|min:0|max:3',
                 'nominal' => 'required|array',
+                'nominal.*' => 'nullable|numeric|min:0',
             ], [
                 'nik.required' => 'Pegawai wajib dipilih',
                 'tunjangan_id.required' => 'Tunjangan wajib diisi',
@@ -131,17 +134,51 @@ class tunjanganPegawaiController extends Controller
                     'tunjangan_id' => $tunjanganId,
                     'referensi_id' => $request->referensi_id[$i] ?? null,
                     'qty' => $request->qty[$i] ?? null,
-                    'nominal' => $request->nominal[$i] ?? 0,
+                    'nominal' => is_numeric($request->nominal[$i] ?? null)
+                        ? $request->nominal[$i]
+                        : 0,
                 ];
             }
 
             // ================= ANTI DUPLICATE =================
             $ids = array_column($data, 'tunjangan_id');
 
+            if (count($ids) === 0) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tunjangan wajib diisi',
+                    'errors' => [
+                        'tunjangan_id' => ['Tunjangan wajib diisi']
+                    ]
+                ], 422);
+            }
+
             if (count($ids) !== count(array_unique($ids))) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Tunjangan tidak boleh duplikat'
+                    'message' => 'Tunjangan tidak boleh duplikat',
+                    'errors' => [
+                        'tunjangan_id' => ['Tunjangan tidak boleh duplikat']
+                    ]
+                ], 422);
+            }
+
+            $existingIds = tunjanganPegawaiModel::where('nik', $request->nik)
+                ->whereIn('tunjangan_id', $ids)
+                ->pluck('tunjangan_id')
+                ->toArray();
+
+            if (!empty($existingIds)) {
+                $existingNames = jnsTunjanganModel::whereIn('id', $existingIds)
+                    ->pluck('nama')
+                    ->implode(', ');
+
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Tunjangan sudah ada untuk pegawai ini: ' . $existingNames,
+                    'errors' => [
+                        'tunjangan_id' => ['Tunjangan sudah ada untuk pegawai ini: ' . $existingNames]
+                    ]
                 ], 422);
             }
 
