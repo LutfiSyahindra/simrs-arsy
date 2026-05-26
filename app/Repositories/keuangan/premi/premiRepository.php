@@ -122,6 +122,21 @@ class premiRepository
         );
     }
 
+    private function masterPerawatanTable(string $rawatTable): string
+    {
+        return str_contains($rawatTable, 'inap')
+            ? 'jns_perawatan_inap'
+            : 'jns_perawatan';
+    }
+
+    private function excludeAdmKategori($q, string $alias = 'jp')
+    {
+        return $q->where(function ($w) use ($alias) {
+            $w->whereNull("$alias.kd_kategori")
+                ->orWhere("$alias.kd_kategori", '!=', 'ADM');
+        });
+    }
+
     private function buildDetailPremiDokterQuery(
             string $kdDokter,
             string $tglAwal,
@@ -146,6 +161,7 @@ class premiRepository
                     DB::raw("'Rawat Jalan' as layanan"),
                 ])
                 ->where('r.kd_dokter', $kdDokter)
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
                 ->tap(fn ($q) => $this->applyAllFilter($q, 'r', $filter));
 
@@ -164,6 +180,7 @@ class premiRepository
                     DB::raw("'Rawat Inap' as layanan"),
                 ])
                 ->where('r.kd_dokter', $kdDokter)
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
                 ->tap(fn ($q) => $this->applyAllFilter($q, 'r', $filter));
             
@@ -182,6 +199,7 @@ class premiRepository
                     DB::raw("'Rawat Jalan dr dan Paramedis' as layanan"),
                 ])
                 ->where('r.kd_dokter', $kdDokter)
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->where('r.tarif_tindakandr', '>', 0)
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
                 ->tap(fn ($q) => $this->applyAllFilter($q, 'r', $filter));
@@ -201,6 +219,7 @@ class premiRepository
                     DB::raw("'Rawat Inap dr dan Paramedis' as layanan"),
                 ])
                 ->where('r.kd_dokter', $kdDokter)
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->where('r.tarif_tindakandr', '>', 0)
                 ->whereBetween('r.tgl_perawatan', [$tglAwal, $tglAkhir])
                 ->tap(fn ($q) => $this->applyAllFilter($q, 'r', $filter));
@@ -722,9 +741,13 @@ class premiRepository
             'rawat_inap_drpr'
         ] as $table) {
             $alias = 'r'; // alias dinamis
+            $masterTable = $this->masterPerawatanTable($table);
+
             $sources[] = $db->table("$table as $alias")
+                ->join("$masterTable as jp", 'jp.kd_jenis_prw', '=', "$alias.kd_jenis_prw")
                 ->select("$alias.kd_dokter", "$alias.tarif_tindakandr as nilai_dr")
                 ->whereBetween("$alias.tgl_perawatan", [$tglAwal, $tglAkhir])
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->where(fn ($q) => $this->validPerson($q, "$alias.kd_dokter"))
                 ->when(
                     ($filter['status_bayar'] ?? null) === 'piutang',
@@ -1432,12 +1455,16 @@ class premiRepository
             'rawat_inap_drpr'
         ] as $table) {
             $alias = 'r'; // alias dinamis
+            $masterTable = $this->masterPerawatanTable($table);
+
             $sources[] = $db->table("$table as $alias")
+                ->join("$masterTable as jp", 'jp.kd_jenis_prw', '=', "$alias.kd_jenis_prw")
                 ->select(
                     DB::raw("DATE($alias.tgl_perawatan) as tanggal"),
                     "$alias.tarif_tindakandr as nilai_dr"
                 )
                 ->whereBetween("$alias.tgl_perawatan", [$tglAwal, $tglAkhir])
+                ->tap(fn ($q) => $this->excludeAdmKategori($q))
                 ->where(fn ($q) => $this->validPerson($q, "$alias.kd_dokter"))
                 ->when(
                     ($filter['status_bayar'] ?? null) === 'piutang',

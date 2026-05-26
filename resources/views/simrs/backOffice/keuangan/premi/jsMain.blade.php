@@ -147,6 +147,7 @@
                 <th>No</th>
                 <th>Tanggal</th>
                 <th>Sumber</th>
+                <th>Tindakan</th>
                 <th class="text-end">Premi RS (Rp)</th>
             `;
             } else {
@@ -540,6 +541,14 @@
                 },
                 {
                     data: 'sumber'
+                },
+                {
+                    data: 'tindakan',
+                    render: function(data) {
+                        const text = data || '-';
+                        const safeText = $('<div>').text(text).html();
+                        return `<span title="${safeText}">${safeText}</span>`;
+                    }
                 },
                 {
                     data: 'nilai',
