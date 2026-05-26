@@ -262,7 +262,7 @@
 
                         extra.html(`
                             <div class="text-danger small">
-                                ❌ Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                                ❌ Masa kerja ${mk.tahun} Tahun<br>
                                 Tidak mendapatkan tunjangan masa kerja
                             </div>
                         `);
@@ -276,7 +276,7 @@
 
                         extra.html(`
                             <div class="small text-muted">
-                                Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                                Masa Kerja: <b>${mk.tahun} Tahun</b><br>
                                 Tarif: ${formatRupiah(nilai)} / tahun
                             </div>
                         `);
@@ -408,10 +408,12 @@
 
         function hitungMasaKerjaDetail(tanggalMasuk) {
 
-            if (!tanggalMasuk) return {
-                tahun: 0,
-                bulan: 0
-            };
+            if (!tanggalMasuk) {
+                return {
+                    tahun: 0,
+                    bulan: 0
+                };
+            }
 
             let start = new Date(tanggalMasuk);
             let now = new Date();
@@ -424,8 +426,11 @@
                 bulan += 12;
             }
 
+            // Tambah 1 tahun jika masih ada sisa bulan
+            let tahunFinal = bulan > 0 ? tahun + 1 : tahun;
+
             return {
-                tahun,
+                tahun: tahunFinal,
                 bulan
             };
         }
@@ -1276,7 +1281,7 @@
 
                         extra.html(`
                     <div class="text-danger small">
-                        ❌ Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                        ❌ Masa kerja ${mk.tahun} Tahun<br>
                         Tidak mendapatkan tunjangan masa kerja
                     </div>
                 `);
@@ -1289,7 +1294,7 @@
 
                         extra.html(`
                     <div class="small text-muted">
-                        Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                        Masa Kerja: <b>${mk.tahun} Tahun</b><br>
                         Tarif: ${formatRupiah(nilai)} / tahun
                     </div>
                 `);
@@ -1428,7 +1433,7 @@
                     if (mk.tahun < 1) {
                         extra.html(`
                             <div class="text-danger small">
-                                Masa kerja ${mk.tahun} Tahun ${mk.bulan} Bulan<br>
+                                Masa kerja ${mk.tahun} Tahun<br>
                                 Tidak mendapatkan tunjangan masa kerja
                             </div>
                         `);
@@ -1439,7 +1444,7 @@
 
                         extra.html(`
                             <div class="small text-muted">
-                                Masa Kerja: <b>${mk.tahun} Tahun ${mk.bulan} Bulan</b><br>
+                                Masa Kerja: <b>${mk.tahun} Tahun</b><br>
                                 Tarif: ${formatRupiah(nilai)} / tahun
                             </div>
                         `);

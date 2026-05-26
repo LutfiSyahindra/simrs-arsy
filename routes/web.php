@@ -2,6 +2,7 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
 use App\Http\Controllers\simrs\master\keuangan\jabatanController;
@@ -150,6 +151,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/premi/cetakPremiDetailPdf', [premiController::class, 'cetakPremiDetailPdf'])->name('backOffice.keuangan.premi.cetakPremiDetailPdf');
         Route::get('/premi/cetakPremiDetailExcel', [premiController::class, 'cetakPremiDetailExcel'])->name('backOffice.keuangan.premi.cetakPremiDetailExcel');
         Route::get('/premi/cetakPremiAllPdf', [premiController::class, 'cetakAllPremiPdf'])->name('backOffice.keuangan.premi.cetakPremiAllPdf');
+
+        Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
+        Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');
+        Route::get('/penggajian/getPenggajianDetail', [penggajianController::class, 'getPenggajianDetail'])->name('backOffice.keuangan.penggajian.getPenggajianDetail');
+        Route::post('/penggajian/generateGajiTahap1', [penggajianController::class, 'generateGajiTahap1'])->name('backOffice.keuangan.penggajian.generateGajiTahap1');
+        Route::get('/penggajian/getSummaryGajiTahap1', [penggajianController::class, 'getSummaryGajiTahap1'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap1');
+        Route::get('/penggajian/gajitahap1/{id}/detail', [PenggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
+        Route::get('/penggajian/gajitahap1/{id}/export-pdf', [PenggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
+        
     });
 
     Route::prefix('simrs/masterData/keuangan')->group(function () {

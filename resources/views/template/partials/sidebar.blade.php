@@ -166,6 +166,9 @@
                         <li class="nav-item">
                             <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Premi</a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route("backOffice.keuangan.penggajian") }}" class="nav-link">Penggajian</a>
+                        </li>
                     </ul>
                 </div>
             </li>
