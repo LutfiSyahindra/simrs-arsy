@@ -410,28 +410,18 @@
 
             if (!tanggalMasuk) {
                 return {
-                    tahun: 0,
-                    bulan: 0
+                    tahun: 0
                 };
             }
 
             let start = new Date(tanggalMasuk);
             let now = new Date();
 
+            // Hitung hanya selisih tahun
             let tahun = now.getFullYear() - start.getFullYear();
-            let bulan = now.getMonth() - start.getMonth();
-
-            if (bulan < 0 || (bulan === 0 && now.getDate() < start.getDate())) {
-                tahun--;
-                bulan += 12;
-            }
-
-            // Tambah 1 tahun jika masih ada sisa bulan
-            let tahunFinal = bulan > 0 ? tahun + 1 : tahun;
 
             return {
-                tahun: tahunFinal,
-                bulan
+                tahun: tahun
             };
         }
 
