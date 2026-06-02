@@ -8,6 +8,7 @@ use App\Http\Controllers\simrs\master\keuangan\gapokController;
 use App\Http\Controllers\simrs\master\keuangan\jabatanController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
+use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
@@ -217,6 +218,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/profesi/{id}/edit', [profesiController::class, 'edit'])->name('masterData.keuangan.profesi.edit');
         Route::put('/profesi/{id}/update', [profesiController::class, 'update'])->name('masterData.keuangan.profesi.update');
         Route::delete('/profesi/{id}/delete', [profesiController::class, 'destroy'])->name('masterData.keuangan.profesi.delete');
+
+        Route ::get('/skor', [skorController::class, 'skor'])->name('masterData.keuangan.skor');
+        Route::get('/skor/getSkorTable', [skorController::class, 'skorTable'])->name('masterData.keuangan.skor.getSkorTable');
+        Route::get('/skor/generateKode', [skorController::class, 'generateKodeSkor'])->name('masterData.keuangan.skor.generateKode');
+        Route::post('/skor/store', [skorController::class, 'store'])->name('masterData.keuangan.skor.store');
+        Route::get('/skor/{id}/edit', [skorController::class, 'edit'])->name('masterData.keuangan.skor.edit');
+        Route::put('/skor/{id}/update', [skorController::class, 'update'])->name('masterData.keuangan.skor.update');
+        Route::delete('/skor/{id}/delete', [skorController::class, 'destroy'])->name('masterData.keuangan.skor.delete');
     });
 });
 
