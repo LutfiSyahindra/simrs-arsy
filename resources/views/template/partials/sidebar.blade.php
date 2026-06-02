@@ -74,6 +74,22 @@
                         </ul>
                     </div>
                 </li>
+
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="collapse" href="#mapping_data" role="button" aria-expanded="false"
+                        aria-controls="mapping_data">
+                        <i class="link-icon" data-feather="map"></i>
+                        <span class="link-title">Mapping</span>
+                        <i class="link-arrow" data-feather="chevron-down"></i>
+                    </a>
+                    <div class="collapse" id="mapping_data">
+                        <ul class="nav sub-menu">
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.mapping") }}" class="nav-link">Mapping Data</a>
+                            </li>
+                        </ul>
+                    </div>
+                </li>
             @endcan
 
             {{-- Display --}}
@@ -158,14 +174,14 @@
                         <li class="nav-item">
                             <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Dashboard</a>
                         </li>
-                        <li class="nav-item">
+                        {{-- <li class="nav-item">
                             <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji
                                 Pokok</a>
-                        </li>
-                        <li class="nav-item">
+                        </li> --}}
+                        {{-- <li class="nav-item">
                             <a href="{{ route("masterData.keuangan.tunjanganPegawai") }}" class="nav-link">Tunjangan
                                 Pegawai</a>
-                        </li>
+                        </li> --}}
                         <li class="nav-item">
                             <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Premi</a>
                         </li>

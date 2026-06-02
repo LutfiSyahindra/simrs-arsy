@@ -6,7 +6,7 @@
     @include("template.AddOn.sweetAlert")
     @include("template.AddOn.select2")
     @include("template.AddOn.dropify")
-    @include("simrs.masterData.Keuangan.partials.masterFinanceStyle")
+    @include("simrs.partials.masterFinanceStyle")
 @endpush
 
 @section("content")
@@ -62,9 +62,8 @@
                                     <span>Tambah</span>
                                 </button>
 
-                                <button type="button" id="btnSyncGapok"
-                                    class="btn master-action-btn master-action-warning" aria-label="Sinkronkan data"
-                                    title="Sinkronkan data">
+                                <button type="button" id="btnSyncGapok" class="btn master-action-btn master-action-warning"
+                                    aria-label="Sinkronkan data" title="Sinkronkan data">
                                     <i class="mdi mdi-sync"></i>
                                 </button>
                             </div>

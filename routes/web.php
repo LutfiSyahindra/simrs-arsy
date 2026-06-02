@@ -10,6 +10,8 @@ use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
+use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
+use App\Http\Controllers\simrs\master\mapping\masppingController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
@@ -226,6 +228,22 @@ Route::middleware('auth')->group(function () {
         Route::get('/skor/{id}/edit', [skorController::class, 'edit'])->name('masterData.keuangan.skor.edit');
         Route::put('/skor/{id}/update', [skorController::class, 'update'])->name('masterData.keuangan.skor.update');
         Route::delete('/skor/{id}/delete', [skorController::class, 'destroy'])->name('masterData.keuangan.skor.delete');
+    });
+
+    Route::prefix('simrs/masterData/mapping')->group(function () {
+        Route::get('/mapping', [masppingController::class, 'mapping'])->name('masterData.mapping');
+
+        Route::get('/mappingSkor', [mappingSkorController::class, 'mappingSkor'])->name('masterData.mapping.mappingSkor.mappingSkor');
+        Route::get('/mappingSkor/getSkorTable', [mappingSkorController::class, 'skorTable'])->name('masterData.mapping.mappingSkor.getSkorTable');
+        Route::get('/mappingSkor/getPegawai', [mappingSkorController::class, 'getPegawai'])->name('masterData.mapping.mappingSkor.getPegawai');
+        Route::get('/mappingSkor/guideSkor', [mappingSkorController::class, 'guideSkor'])->name('masterData.mapping.mappingSkor.guideSkor');
+        Route::get('/mappingSkor/by-pegawai/{nik}', [mappingSkorController::class, 'getByPegawai'])->name('masterData.mapping.mappingSkor.getByPegawai');
+        Route::get('/mappingSkor/getGapokById/{nik}', [mappingSkorController::class, 'getGapokById'])->name('masterData.mapping.mappingSkor.getGapokById');
+        Route::get('/mappingSkor/generateKode', [mappingSkorController::class, 'generateKodeSkor'])->name('masterData.mapping.mappingSkor.generateKode');
+        Route::post('/mappingSkor/store', [mappingSkorController::class, 'store'])->name('masterData.mapping.mappingSkor.store');
+        Route::get('/mappingSkor/{id}/edit', [mappingSkorController::class, 'edit'])->name('masterData.mapping.mappingSkor.edit');
+        Route::put('/mappingSkor/{id}/update', [mappingSkorController::class, 'update'])->name('masterData.mapping.mappingSkor.update');
+        Route::delete('/mappingSkor/{id}/delete', [mappingSkorController::class, 'destroy'])->name('masterData.mapping.mappingSkor.delete');
     });
 });
 

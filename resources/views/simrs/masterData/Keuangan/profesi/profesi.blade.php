@@ -6,7 +6,7 @@
     @include("template.AddOn.sweetAlert")
     @include("template.AddOn.select2")
     @include("template.AddOn.dropify")
-    @include("simrs.masterData.Keuangan.partials.masterFinanceStyle")
+    @include("simrs.partials.masterFinanceStyle")
 @endpush
 
 @section("content")
