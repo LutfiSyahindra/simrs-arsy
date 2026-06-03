@@ -65,6 +65,10 @@
                             return `<span class="badge bg-secondary">Casual</span>`;
                         }
 
+                        if (data === 'Mitra') {
+                            return `<span class="badge bg-danger">Mitra</span>`;
+                        }
+
                         return `<span class="badge bg-secondary">-</span>`;
                     }
                 },

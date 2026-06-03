@@ -53,6 +53,7 @@
                                 <option value="FT">Kontrak</option>
                                 <option value="T">Tetap</option>
                                 <option value="PT">Part Time</option>
+                                <option value="MT">Mitra</option>
                             </select>
                             <input type="hidden" name="stts_kerja" id="stts_kerja">
                             <div class="invalid-feedback" id="error-stts_kerja"></div>

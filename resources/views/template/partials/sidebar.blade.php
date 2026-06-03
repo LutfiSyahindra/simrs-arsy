@@ -71,6 +71,9 @@
                             <li class="nav-item">
                                 <a href="{{ route("masterData.keuangan.skor") }}" class="nav-link">Master Skor</a>
                             </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.unit") }}" class="nav-link">Master Unit</a>
+                            </li>
                         </ul>
                     </div>
                 </li>

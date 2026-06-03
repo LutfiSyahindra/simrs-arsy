@@ -31,6 +31,7 @@ class masterGapokService
             'T' => 'Tetap',
             'FT' => 'Kontrak',
             'PT' => 'Casual',
+            'MT' => 'Mitra',
             default => '-'
         };
     }
@@ -40,6 +41,7 @@ class masterGapokService
         return match ($masaKerja) {
             'FT>1' => 'Kontrak > 1 Tahun',
             'PT' => 'Pegawai Tetap',
+            'MT' => 'Mitra',
             '<1' => '< 1 Tahun',
             default => $masaKerja . ' Tahun'
         };

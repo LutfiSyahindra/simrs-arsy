@@ -10,6 +10,7 @@ use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
+use App\Http\Controllers\simrs\master\keuangan\unitController;
 use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
 use App\Http\Controllers\simrs\master\mapping\masppingController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
@@ -228,6 +229,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/skor/{id}/edit', [skorController::class, 'edit'])->name('masterData.keuangan.skor.edit');
         Route::put('/skor/{id}/update', [skorController::class, 'update'])->name('masterData.keuangan.skor.update');
         Route::delete('/skor/{id}/delete', [skorController::class, 'destroy'])->name('masterData.keuangan.skor.delete');
+
+        Route::get('/unit', [unitController::class, 'unit'])->name('masterData.keuangan.unit');
+        Route::get('/unit/getUnitTable', [unitController::class, 'unitTable'])->name('masterData.keuangan.unit.getUnitTable');
+        Route::get('/unit/generateKode', [unitController::class, 'generateKodeUnit'])->name('masterData.keuangan.unit.generateKode');
+        Route::post('/unit/store', [unitController::class, 'store'])->name('masterData.keuangan.unit.store');
+        Route::get('/unit/{id}/edit', [unitController::class, 'edit'])->name('masterData.keuangan.unit.edit');
+        Route::put('/unit/{id}/update', [unitController::class, 'update'])->name('masterData.keuangan.unit.update');
+        Route::delete('/unit/{id}/delete', [unitController::class, 'destroy'])->name('masterData.keuangan.unit.delete');
     });
 
     Route::prefix('simrs/masterData/mapping')->group(function () {
