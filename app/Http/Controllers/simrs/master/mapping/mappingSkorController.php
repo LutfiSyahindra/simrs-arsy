@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\simrs\master\mapping;
 
 use App\Http\Controllers\Controller;
+use App\Import\Mapping\skoringPegawaiImport;
 use App\Services\mappingData\skorPegawaiService;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Yajra\DataTables\Facades\DataTables;
 
 class mappingSkorController extends Controller
@@ -20,7 +22,15 @@ class mappingSkorController extends Controller
      */
     public function mappingSkor()
     {
-        return view("simrs.masterData.mapping.mappingSkor.mappingSkor");
+        $guide = $this->skorPegawaiService->guideSkor()->map(function ($item) {
+            return [
+                'kd_skor' => $item['kd_skor'],
+                'jenis' => $item['jenis'],
+                'keterangan' => $item['keterangan'],
+                'bobot_skor' => $item['bobot_skor'],
+            ];
+        });
+        return view("simrs.masterData.mapping.mappingSkor.mappingSkor", compact('guide'));
     }
 
     public function skorTable()
@@ -45,6 +55,7 @@ class mappingSkorController extends Controller
         return response()->json($this->skorPegawaiService->getPegawai());
     }
 
+
     public function guideSkor()
     {
         return response()->json($this->skorPegawaiService->guideSkor());
@@ -56,6 +67,43 @@ class mappingSkorController extends Controller
             'kode' => null
         ]);
     }
+
+    public function exportTemplate()
+    {
+        return $this->skorPegawaiService->exportTemplate();
+    }
+
+    public function importMappingSkor(Request $request)
+    {
+        try {
+
+            $request->validate([
+                'file' => 'required|mimes:xls,xlsx|max:5120'
+            ]);
+
+            // reset counter di service
+            $this->skorPegawaiService->resetCounter();
+
+            Excel::import(
+                new skoringPegawaiImport($this->skorPegawaiService),
+                $request->file('file')
+            );
+
+            return response()->json([
+                'success' => true,
+                'added' => $this->skorPegawaiService->getAdded(),
+                'skipped' => $this->skorPegawaiService->getSkipped()
+            ]);
+
+        } catch (\Throwable $e) {
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 
     /**
      * Show the form for creating a new resource.

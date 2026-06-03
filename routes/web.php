@@ -244,6 +244,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingSkor/{id}/edit', [mappingSkorController::class, 'edit'])->name('masterData.mapping.mappingSkor.edit');
         Route::put('/mappingSkor/{id}/update', [mappingSkorController::class, 'update'])->name('masterData.mapping.mappingSkor.update');
         Route::delete('/mappingSkor/{id}/delete', [mappingSkorController::class, 'destroy'])->name('masterData.mapping.mappingSkor.delete');
+        Route::get('/mappingSkor/exportTemplate', [mappingSkorController::class, 'exportTemplate'])->name('masterData.mapping.mappingSkor.exportTemplate');
+        Route::post('/mappingSkor/import', [mappingSkorController::class, 'importMappingSkor'])->name('masterData.mapping.mappingSkor.importMappingSkor');
     });
 });
 

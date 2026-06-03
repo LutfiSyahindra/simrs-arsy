@@ -639,7 +639,8 @@
 
                             Swal.fire({
                                 icon: 'warning',
-                                title: xhr.responseJSON.message || 'Data belum lengkap',
+                                title: xhr.responseJSON.message ||
+                                    'Data belum lengkap',
                                 text: Object.values(errors)[0]?.[0] || ''
                             });
                             return;
@@ -648,7 +649,8 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Terjadi Kesalahan',
-                            text: xhr.responseJSON?.message || 'Server error'
+                            text: xhr.responseJSON?.message ||
+                                'Server error'
                         });
                     }
                 });
@@ -728,9 +730,8 @@
             `);
 
             $.ajax({
-                url: mode === 'edit'
-                    ? routeWithParam(updateSkorUrl, ':id', id)
-                    : storeSkorUrl,
+                url: mode === 'edit' ?
+                    routeWithParam(updateSkorUrl, ':id', id) : storeSkorUrl,
                 method: mode === 'edit' ? 'PUT' : 'POST',
                 data: mode === 'edit' ? {
                     skor_id: skorId
@@ -756,7 +757,9 @@
                     Swal.fire({
                         icon: xhr.status === 422 ? 'warning' : 'error',
                         title: xhr.responseJSON?.message || 'Gagal menyimpan skor',
-                        text: Object.values(xhr.responseJSON?.errors || {})[0]?.[0] || ''
+                        text: Object.values(xhr.responseJSON?.errors || {})[0]?.[
+                            0
+                        ] || ''
                     });
                 },
                 complete: function() {
@@ -799,18 +802,183 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: response.message || 'Data tidak dapat dihapus'
+                            text: response.message ||
+                                'Data tidak dapat dihapus'
                         });
                     },
                     error: function(xhr) {
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: xhr.responseJSON?.message || 'Terjadi kesalahan saat menghapus skor.'
+                            text: xhr.responseJSON?.message ||
+                                'Terjadi kesalahan saat menghapus skor.'
                         });
                     }
                 });
             });
+        });
+
+        $('#downloadTemplateBtn').on('click', function() {
+            window.location.href =
+                "{{ route("masterData.mapping.mappingSkor.exportTemplate") }}";
+        })
+
+        // --- Upload Excell
+        $('#submitFormExcell').on('click', function() {
+
+            let btn = $(this);
+            let fileInput = $('#myDropify')[0];
+            let file = fileInput.files[0];
+
+            // Validasi file
+            if (!file) {
+
+                $('#myDropify').addClass('shake border-danger');
+
+                setTimeout(() => {
+                    $('#myDropify').removeClass('shake border-danger');
+                }, 600);
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Peringatan',
+                    text: 'Silakan pilih file Excel terlebih dahulu!'
+                });
+
+                return;
+            }
+
+            // Validasi ekstensi file
+            let allowed = ['xls', 'xlsx'];
+            let ext = file.name.split('.').pop().toLowerCase();
+
+            if (!allowed.includes(ext)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Format Salah',
+                    text: 'File harus berformat Excel (.xls atau .xlsx)'
+                });
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append('file', file);
+
+            // Disable tombol upload
+            btn.prop('disabled', true);
+
+            Swal.fire({
+                title: 'Mengupload File...',
+                html: `
+                <div class="progress" style="height:20px;">
+                    <div id="uploadProgressBar"
+                        class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                        role="progressbar"
+                        style="width:0%">0%</div>
+                </div>
+                <p class="mt-2 text-muted small">
+                    Sistem sedang memproses data Excel...
+                </p>
+            `,
+                allowOutsideClick: false,
+                showConfirmButton: false
+            });
+
+            $.ajax({
+
+                url: "{{ route("masterData.mapping.mappingSkor.importMappingSkor") }}",
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+
+                xhr: function() {
+
+                    let xhr = new window.XMLHttpRequest();
+
+                    xhr.upload.addEventListener("progress", function(evt) {
+
+                        if (evt.lengthComputable) {
+
+                            let percent = Math.round((evt.loaded / evt.total) *
+                                100);
+
+                            $('#uploadProgressBar')
+                                .css('width', percent + '%')
+                                .text(percent + '%');
+
+                        }
+
+                    }, false);
+
+                    return xhr;
+
+                },
+
+                success: function(response) {
+
+                    Swal.close();
+                    btn.prop('disabled', false);
+
+                    if (response.success) {
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Import Berhasil',
+                            html: `
+                            <div class="text-start">
+                                <p><b>${response.added}</b> data berhasil ditambahkan.</p>
+                                <p><b>${response.skipped}</b> data dilewati.</p>
+                            </div>
+                        `,
+                            timer: 2500,
+                            showConfirmButton: false,
+
+                            willClose: () => {
+
+                                $('#skoringPegawaiModalExcell').modal('hide');
+
+                                // reset dropify
+                                $('#myDropify').val('');
+
+                                // reload DataTable
+                                if (typeof skorTable !==
+                                    'undefined') {
+                                    skorTable.ajax.reload(null,
+                                        false);
+                                }
+
+                            }
+                        });
+
+                    } else {
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Import Gagal',
+                            text: response.message ||
+                                'Terjadi kesalahan saat import data'
+                        });
+
+                    }
+
+                },
+
+                error: function(xhr) {
+
+                    btn.prop('disabled', false);
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Upload Gagal',
+                        text: xhr.responseJSON?.message ||
+                            'Terjadi kesalahan pada server'
+                    });
+
+                }
+
+            });
+
         });
     });
 </script>

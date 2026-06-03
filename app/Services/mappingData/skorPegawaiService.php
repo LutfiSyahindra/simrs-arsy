@@ -2,8 +2,15 @@
 
 namespace App\Services\mappingData;
 
+use App\Export\Mapping\skoringPegawaiExport;
+use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\skorModel;
+use App\Models\dbSimrs\skorPegawaiModel;
 use App\Repositories\mappingData\skorPegawaiRepository;
+use Exception;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class skorPegawaiService
 {
@@ -16,6 +23,9 @@ class skorPegawaiService
     {
         $this->skorPegawaiRepository = $skorPegawaiRepository;
     }
+
+    protected $added = 0;
+    protected $skipped = 0;
 
     public function skorPegawaiTable()
     {
@@ -148,4 +158,82 @@ class skorPegawaiService
     {
         return $this->skorPegawaiRepository->delete($id);
     }
+
+    public function exportTemplate()
+    {
+        try {
+            $fileName = 'Template_Skoring_Pegawai.xlsx';
+            return Excel::download(new skoringPegawaiExport, $fileName);
+        } catch (Exception $e) {
+            Log::error('Gagal export template Skoring Pegawai: ' . $e->getMessage());
+            return [
+                'status' => false,
+                'message' => 'Gagal membuat template: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    public function prosesImportSkoringPegawai($data)
+    {
+        $nik = trim($data['nik'] ?? '');
+        $kode = strtoupper(trim($data['skor_id'] ?? ''));
+        $kode = preg_replace('/[^A-Z0-9]/', '', $kode);
+
+        if ($kode === '') {
+            $this->skipped++;
+            return;
+        }
+
+        // CEK PEGAWAI
+        $gapok = gapokModel::where('nik', $nik)->first();
+        if (!$gapok) {
+            $this->skipped++;
+            return;
+        }
+
+        // CEK MASTER SKOR
+        $jnsSkor = skorModel::where('kd_skor', $kode)->first();
+        if (!$jnsSkor) {
+            $this->skipped++;
+            return;
+        }
+
+        // SKIP JIKA NIK SUDAH PUNYA KODE/SKOR YANG SAMA
+        $sudahAda = skorPegawaiModel::where('nik', $nik)
+            ->where('skor_id', $jnsSkor->id)
+            ->exists();
+
+        if ($sudahAda) {
+            $this->skipped++;
+            return;
+        }
+
+        // SIMPAN BARU
+        skorPegawaiModel::create([
+            'nik' => $nik,
+            'skor_id' => $jnsSkor->id,
+            'bobot_skor' => $jnsSkor->bobot_skor,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->added++;
+    }
+
+    public function resetCounter()
+    {
+        $this->added = 0;
+        $this->skipped = 0;
+    }
+
+    public function getAdded()
+    {
+        return $this->added;
+    }
+
+    public function getSkipped()
+    {
+        return $this->skipped;
+    }
+
 }

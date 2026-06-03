@@ -151,6 +151,7 @@
 @section("content")
     <div class="finance-master-page">
         @include("simrs.masterData.mapping.mappingSkor.modalMain")
+        @include("simrs.masterData.mapping.mappingSkor.modalExcell", ["guide" => $guide])
         <nav class="page-breadcrumb">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="#">Skoring Pegawai</a></li>
@@ -186,11 +187,11 @@
                                         placeholder="Cari skoring pegawai...">
                                 </div>
 
-                                {{-- <button type="button" class="btn master-action-btn master-action-success"
+                                <button type="button" class="btn master-action-btn master-action-success"
                                     data-bs-toggle="modal" data-bs-target="#skoringPegawaiModalExcell"
                                     aria-label="Import Excel" title="Import Excel">
                                     <i class="mdi mdi-file-excel"></i>
-                                </button> --}}
+                                </button>
 
                                 <button type="button" id="btnTambahSkor"
                                     class="btn master-action-btn master-action-primary" data-bs-toggle="modal"

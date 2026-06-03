@@ -1,16 +1,16 @@
 @push("style")
     <style>
-        .gapok-excel-modal .modal-content {
+        .skoring-excel-modal .modal-content {
             background: #f8fafc;
         }
 
-        .gapok-excel-hero {
+        .skoring-excel-hero {
             background:
                 linear-gradient(135deg, rgba(15, 23, 42, .96), rgba(30, 64, 175, .9)),
                 linear-gradient(45deg, rgba(20, 184, 166, .18), rgba(249, 115, 22, .14));
         }
 
-        .gapok-excel-icon {
+        .skoring-excel-icon {
             width: 52px;
             height: 52px;
             border-radius: 8px;
@@ -21,25 +21,25 @@
             flex: 0 0 auto;
         }
 
-        .gapok-excel-icon svg {
+        .skoring-excel-icon svg {
             width: 28px;
             height: 28px;
         }
 
-        .gapok-meta-grid {
+        .skoring-meta-grid {
             display: grid;
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
         }
 
-        .gapok-meta-item {
+        .skoring-meta-item {
             border: 1px solid rgba(255, 255, 255, .18);
             background: rgba(255, 255, 255, .1);
             border-radius: 8px;
             padding: 10px 12px;
         }
 
-        .gapok-step {
+        .skoring-step {
             display: grid;
             grid-template-columns: 40px minmax(0, 1fr);
             gap: 10px;
@@ -51,7 +51,7 @@
             padding: 14px;
         }
 
-        .gapok-step-number {
+        .skoring-step-number {
             width: 40px;
             height: 40px;
             border-radius: 8px;
@@ -60,34 +60,34 @@
             font-weight: 800;
         }
 
-        .gapok-step.is-template .gapok-step-number {
+        .skoring-step.is-template .skoring-step-number {
             background: #e0f2fe;
             color: #0369a1;
         }
 
-        .gapok-step.is-fill .gapok-step-number {
+        .skoring-step.is-fill .skoring-step-number {
             background: #fef3c7;
             color: #92400e;
         }
 
-        .gapok-step.is-upload .gapok-step-number {
+        .skoring-step.is-upload .skoring-step-number {
             background: #dcfce7;
             color: #166534;
         }
 
-        .gapok-action-panel,
-        .gapok-info-panel {
+        .skoring-action-panel,
+        .skoring-info-panel {
             border: 1px solid #e5e7eb;
             border-radius: 8px;
             background: #fff;
             box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
         }
 
-        .gapok-template-panel {
+        .skoring-template-panel {
             background: linear-gradient(135deg, #fff, #f0fdfa);
         }
 
-        .gapok-excel-modal .dropify-wrapper {
+        .skoring-excel-modal .dropify-wrapper {
             min-height: 188px;
             height: 188px;
             border: 2px dashed #60a5fa;
@@ -96,27 +96,27 @@
             transition: border-color .2s ease, background .2s ease;
         }
 
-        .gapok-excel-modal .dropify-wrapper:hover {
+        .skoring-excel-modal .dropify-wrapper:hover {
             border-color: #2563eb;
             background: #dbeafe;
         }
 
-        .gapok-excel-modal .dropify-wrapper .dropify-message p {
+        .skoring-excel-modal .dropify-wrapper .dropify-message p {
             font-size: 15px;
             color: #1f2937;
             font-weight: 700;
         }
 
-        .gapok-excel-modal .dropify-wrapper .dropify-message span.file-icon {
+        .skoring-excel-modal .dropify-wrapper .dropify-message span.file-icon {
             color: #2563eb;
         }
 
-        .gapok-rule-list {
+        .skoring-rule-list {
             display: grid;
             gap: 10px;
         }
 
-        .gapok-rule-item {
+        .skoring-rule-item {
             display: grid;
             grid-template-columns: 32px minmax(0, 1fr);
             gap: 10px;
@@ -127,7 +127,7 @@
             padding: 12px;
         }
 
-        .gapok-rule-icon {
+        .skoring-rule-icon {
             width: 32px;
             height: 32px;
             border-radius: 8px;
@@ -137,103 +137,92 @@
             color: #047857;
         }
 
-        .gapok-note-grid {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .gapok-note-item {
+        .skoring-reference-table {
+            max-height: 370px;
+            overflow: auto;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
+            background: #fff;
+        }
+
+        .skoring-reference-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
             background: #f8fafc;
-            padding: 14px;
         }
 
-        .gapok-note-icon {
-            width: 34px;
-            height: 34px;
+        .skoring-code-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 68px;
             border-radius: 8px;
-            display: grid;
-            place-items: center;
-            margin-bottom: 10px;
+            background: #eef2ff;
+            color: #3730a3;
+            font-weight: 800;
+            padding: 4px 8px;
         }
 
-        .gapok-note-add {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .gapok-note-update {
-            background: #e0f2fe;
-            color: #0369a1;
-        }
-
-        .gapok-note-skip {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .gapok-example-table th,
-        .gapok-example-table td {
+        .skoring-example-table th,
+        .skoring-example-table td {
             white-space: nowrap;
         }
 
-        .gapok-required-cell {
+        .skoring-required-cell {
             background: #fff7ed !important;
             color: #9a3412;
             font-weight: 800;
         }
 
-        .gapok-soft-badge {
+        .skoring-soft-badge {
             background: #ecfdf5;
             color: #047857;
             border: 1px solid #bbf7d0;
         }
 
         @media (max-width: 767.98px) {
-            .gapok-excel-modal .modal-body {
+            .skoring-excel-modal .modal-body {
                 padding-left: 18px !important;
                 padding-right: 18px !important;
             }
 
-            .gapok-meta-grid,
-            .gapok-note-grid {
+            .skoring-meta-grid {
                 grid-template-columns: 1fr;
             }
 
-            .gapok-excel-hero .d-flex,
-            .gapok-action-panel .d-flex,
-            .gapok-excel-footer {
+            .skoring-excel-hero .d-flex,
+            .skoring-action-panel .d-flex,
+            .skoring-excel-footer {
                 align-items: stretch !important;
                 flex-direction: column;
             }
 
-            .gapok-excel-footer .btn {
+            .skoring-excel-footer .btn {
                 width: 100%;
             }
         }
     </style>
 @endpush
 
-<!-- Modal Upload Excel Gaji Pokok -->
-<div class="modal fade gapok-excel-modal" id="gapokModalExcell" tabindex="-1">
+<!-- Modal Upload Excel Skoring Pegawai -->
+<div class="modal fade skoring-excel-modal" id="skoringPegawaiModalExcell" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
 
             <!-- HEADER -->
-            <div class="gapok-excel-hero px-4 px-md-5 py-4 text-white">
+            <div class="skoring-excel-hero px-4 px-md-5 py-4 text-white">
                 <div class="d-flex justify-content-between align-items-start gap-3">
                     <div class="d-flex align-items-start gap-3">
-                        <div class="gapok-excel-icon">
+                        <div class="skoring-excel-icon">
                             <i data-feather="file-text"></i>
                         </div>
 
                         <div>
                             <div class="text-uppercase small fw-semibold opacity-75 mb-1">Import Excel</div>
-                            <h4 class="fw-bold mb-1">Upload Gaji Pokok</h4>
+                            <h4 class="fw-bold mb-1">Upload Skoring Pegawai</h4>
                             <p class="mb-0 opacity-75">
-                                Masukkan data gaji pokok pegawai dengan format template resmi sistem.
+                                Masukkan data skoring pegawai dengan format template resmi sistem.
                             </p>
                         </div>
                     </div>
@@ -242,32 +231,32 @@
                         aria-label="Tutup"></button>
                 </div>
 
-                <div class="gapok-meta-grid mt-4">
-                    <div class="gapok-meta-item">
+                <div class="skoring-meta-grid mt-4">
+                    <div class="skoring-meta-item">
                         <div class="small opacity-75">Format file</div>
                         <div class="fw-bold">XLS / XLSX</div>
                     </div>
-                    <div class="gapok-meta-item">
+                    <div class="skoring-meta-item">
                         <div class="small opacity-75">Ukuran maksimal</div>
                         <div class="fw-bold">5 MB</div>
                     </div>
-                    <div class="gapok-meta-item">
+                    <div class="skoring-meta-item">
                         <div class="small opacity-75">Kolom wajib</div>
-                        <div class="fw-bold">NIK & Gaji Pokok</div>
+                        <div class="fw-bold">NIK & Skoring_kode</div>
                     </div>
                 </div>
             </div>
 
             <div class="modal-body px-5 py-4">
 
-                <form id="gapokExcellForm" enctype="multipart/form-data">
+                <form id="skoringPegawaiExcellForm" enctype="multipart/form-data">
                     @csrf
 
                     <!-- STEP -->
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
-                            <div class="gapok-step is-template">
-                                <div class="gapok-step-number">1</div>
+                            <div class="skoring-step is-template">
+                                <div class="skoring-step-number">1</div>
                                 <div>
                                     <div class="fw-bold">Download Template</div>
                                     <small class="text-muted">Gunakan file resmi agar struktur kolom tetap valid.</small>
@@ -276,21 +265,21 @@
                         </div>
 
                         <div class="col-md-4">
-                            <div class="gapok-step is-fill">
-                                <div class="gapok-step-number">2</div>
+                            <div class="skoring-step is-fill">
+                                <div class="skoring-step-number">2</div>
                                 <div>
-                                    <div class="fw-bold">Isi Gaji Pokok</div>
-                                    <small class="text-muted">Lengkapi nominal gaji pada baris pegawai yang valid.</small>
+                                    <div class="fw-bold">Isi Data Skoring</div>
+                                    <small class="text-muted">Satu baris mewakili satu kode skor untuk satu pegawai.</small>
                                 </div>
                             </div>
                         </div>
 
                         <div class="col-md-4">
-                            <div class="gapok-step is-upload">
-                                <div class="gapok-step-number">3</div>
+                            <div class="skoring-step is-upload">
+                                <div class="skoring-step-number">3</div>
                                 <div>
                                     <div class="fw-bold">Upload File</div>
-                                    <small class="text-muted">Sistem membaca NIK lalu menyimpan nominal gaji pokok.</small>
+                                    <small class="text-muted">Sistem membaca kode skor lalu mengonversinya ke ID.</small>
                                 </div>
                             </div>
                         </div>
@@ -299,11 +288,11 @@
                     <!-- DOWNLOAD + UPLOAD -->
                     <div class="row g-3 mb-4">
                         <div class="col-lg-5">
-                            <div class="gapok-action-panel gapok-template-panel h-100 p-4">
+                            <div class="skoring-action-panel skoring-template-panel h-100 p-4">
                                 <div class="d-flex align-items-start justify-content-between gap-3">
                                     <div>
                                         <div class="d-flex align-items-center gap-2 mb-2">
-                                            <span class="badge gapok-soft-badge">
+                                            <span class="badge skoring-soft-badge">
                                                 Disarankan
                                             </span>
                                             <span class="small text-muted">Template terbaru</span>
@@ -311,7 +300,7 @@
 
                                         <h6 class="fw-bold mb-1">Gunakan Template Resmi</h6>
                                         <p class="small text-muted mb-3">
-                                            Jangan mengubah nama kolom. Isi hanya NIK pegawai dan nominal gaji pokok.
+                                            Jangan mengubah nama kolom. Isi hanya data pegawai dan kode skor yang tersedia.
                                         </p>
                                     </div>
                                 </div>
@@ -325,7 +314,7 @@
                         </div>
 
                         <div class="col-lg-7">
-                            <div class="gapok-action-panel h-100 p-4">
+                            <div class="skoring-action-panel h-100 p-4">
                                 <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
                                     <div>
                                         <h6 class="fw-bold mb-1">Upload File Excel</h6>
@@ -353,118 +342,120 @@
 
                         <!-- PANDUAN -->
                         <div class="col-lg-5">
-                            <div class="gapok-info-panel h-100 p-4">
+                            <div class="skoring-info-panel h-100 p-4">
 
                                 <div class="d-flex align-items-center gap-2 mb-3">
                                     <i data-feather="check-circle" class="text-success"></i>
                                     <h6 class="fw-bold mb-0 text-dark">Panduan Pengisian</h6>
                                 </div>
 
-                                <div class="gapok-rule-list">
-                                    <div class="gapok-rule-item">
-                                        <div class="gapok-rule-icon">
+                                <div class="skoring-rule-list">
+                                    <div class="skoring-rule-item">
+                                        <div class="skoring-rule-icon">
                                             <i data-feather="users"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-semibold">Pastikan NIK terdaftar</div>
+                                            <div class="fw-semibold">Pegawai dengan banyak skor</div>
                                             <small class="text-muted">
-                                                Sistem mencocokkan pegawai berdasarkan NIK pada file Excel.
+                                                Buat beberapa baris dengan NIK yang sama.
                                             </small>
                                         </div>
                                     </div>
 
-                                    <div class="gapok-rule-item">
-                                        <div class="gapok-rule-icon">
-                                            <i data-feather="dollar-sign"></i>
+                                    <div class="skoring-rule-item">
+                                        <div class="skoring-rule-icon">
+                                            <i data-feather="hash"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-semibold">Isi nominal Gaji Pokok</div>
+                                            <div class="fw-semibold">Isi kolom Skoring_kode</div>
                                             <small class="text-muted">
-                                                Gunakan angka nominal tanpa simbol mata uang.
+                                                Gunakan kode seperti SKR001 atau SKR002, bukan ID database.
                                             </small>
                                         </div>
                                     </div>
 
-                                    <div class="gapok-rule-item">
-                                        <div class="gapok-rule-icon">
-                                            <i data-feather="columns"></i>
+                                    <div class="skoring-rule-item">
+                                        <div class="skoring-rule-icon">
+                                            <i data-feather="alert-triangle"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-semibold">Jangan ubah struktur kolom</div>
+                                            <div class="fw-semibold">Kode kosong dilewati</div>
                                             <small class="text-muted">
-                                                Nama dan urutan kolom template harus tetap sesuai sistem.
+                                                Baris tanpa Skoring_kode tidak akan ikut diimport.
                                             </small>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div class="alert alert-warning small mb-0 mt-3">
-                                    <strong>Penting:</strong> file di atas 5 MB atau selain .xls/.xlsx akan ditolak.
+                                    <strong>Penting:</strong> pastikan kode skor tersedia pada tabel referensi di samping
+                                    sebelum upload.
                                 </div>
 
                             </div>
                         </div>
 
-                        <!-- CATATAN -->
+                        <!-- REFERENSI -->
                         <div class="col-lg-7">
-                            <div class="gapok-info-panel h-100 p-4">
-                                <div class="d-flex align-items-center gap-2 mb-3">
-                                    <i data-feather="list" class="text-primary"></i>
-                                    <h6 class="fw-bold mb-0 text-dark">Status Import</h6>
+                            <div class="skoring-info-panel h-100 p-4">
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i data-feather="list" class="text-primary"></i>
+                                        <h6 class="fw-bold mb-0 text-dark">Referensi Skoring</h6>
+                                    </div>
+                                    <span class="badge bg-light text-secondary border">
+                                        {{ count($guide) }} kode
+                                    </span>
                                 </div>
 
-                                <div class="gapok-note-grid">
-                                    <div class="gapok-note-item">
-                                        <div class="gapok-note-icon gapok-note-add">
-                                            <i data-feather="plus"></i>
-                                        </div>
-                                        <div class="fw-bold">Ditambahkan</div>
-                                        <small class="text-muted">
-                                            Data gaji baru akan dibuat saat NIK valid dan belum memiliki gaji pokok.
-                                        </small>
-                                    </div>
-
-                                    <div class="gapok-note-item">
-                                        <div class="gapok-note-icon gapok-note-update">
-                                            <i data-feather="refresh-cw"></i>
-                                        </div>
-                                        <div class="fw-bold">Diperbarui</div>
-                                        <small class="text-muted">
-                                            Nominal lama akan diperbarui jika pegawai sudah memiliki gaji pokok.
-                                        </small>
-                                    </div>
-
-                                    <div class="gapok-note-item">
-                                        <div class="gapok-note-icon gapok-note-skip">
-                                            <i data-feather="alert-triangle"></i>
-                                        </div>
-                                        <div class="fw-bold">Dilewati</div>
-                                        <small class="text-muted">
-                                            Baris dengan NIK tidak valid atau nominal kosong tidak ikut diproses.
-                                        </small>
-                                    </div>
+                                <div class="skoring-reference-table">
+                                    <table class="table table-sm table-hover align-middle text-center mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Kode</th>
+                                                <th>Jenis</th>
+                                                <th class="text-start">Keterangan</th>
+                                                <th>Bobot</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse ($guide as $s)
+                                                <tr>
+                                                    <td>
+                                                        <span class="skoring-code-pill">{{ $s["kd_skor"] }}</span>
+                                                    </td>
+                                                    <td>{{ $s["jenis"] }}</td>
+                                                    <td class="text-start">{{ $s["keterangan"] }}</td>
+                                                    <td class="fw-bold text-success">{{ $s["bobot_skor"] }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="4" class="text-muted py-4">
+                                                        Referensi skoring belum tersedia.
+                                                    </td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
                                 </div>
 
-                                <div class="alert alert-info small mb-0 mt-3">
-                                    Hasil import akan menampilkan jumlah data ditambahkan, diperbarui, dan dilewati.
-                                </div>
                             </div>
                         </div>
 
                     </div>
 
                     <!-- CONTOH -->
-                    <div class="gapok-info-panel p-4 mb-4">
+                    <div class="skoring-info-panel p-4 mb-4">
                         <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
                             <div class="d-flex align-items-center gap-2">
                                 <i data-feather="grid" class="text-success"></i>
                                 <h6 class="fw-bold mb-0 text-dark">Contoh Isi Excel</h6>
                             </div>
-                            <span class="small text-muted">Isi nominal gaji pokok sesuai template.</span>
+                            <span class="small text-muted">Ulangi NIK untuk setiap skor tambahan.</span>
                         </div>
 
                         <div class="table-responsive">
-                            <table class="table table-bordered table-sm text-center align-middle mb-0 gapok-example-table">
+                            <table class="table table-bordered table-sm text-center align-middle mb-0 skoring-example-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th>NIK</th>
@@ -472,25 +463,33 @@
                                         <th>Jabatan</th>
                                         <th>Status</th>
                                         <th>Masa Kerja</th>
-                                        <th>Gaji Pokok</th>
+                                        <th>Skoring_kode</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr>
                                         <td>123456</td>
                                         <td>Ahmad</td>
-                                        <td>Perawat</td>
+                                        <td>Kepala</td>
                                         <td>T</td>
                                         <td>10 Tahun</td>
-                                        <td class="gapok-required-cell">3500000</td>
+                                        <td class="skoring-required-cell">SKR001</td>
                                     </tr>
                                     <tr>
-                                        <td>123457</td>
-                                        <td>Siti</td>
-                                        <td>Bidan</td>
-                                        <td>FT</td>
-                                        <td>3 Tahun</td>
-                                        <td class="gapok-required-cell">2750000</td>
+                                        <td>123456</td>
+                                        <td>Ahmad</td>
+                                        <td>Kepala</td>
+                                        <td>T</td>
+                                        <td>10 Tahun</td>
+                                        <td class="skoring-required-cell">SKR002</td>
+                                    </tr>
+                                    <tr>
+                                        <td>123456</td>
+                                        <td>Ahmad</td>
+                                        <td>Kepala</td>
+                                        <td>T</td>
+                                        <td>10 Tahun</td>
+                                        <td class="skoring-required-cell">SKR003</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -498,7 +497,7 @@
                     </div>
 
                     <!-- FOOTER -->
-                    <div class="gapok-excel-footer d-flex justify-content-between gap-2">
+                    <div class="skoring-excel-footer d-flex justify-content-between gap-2">
                         <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">
                             Tutup
                         </button>
