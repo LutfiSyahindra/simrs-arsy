@@ -427,7 +427,8 @@
                                             <span>Status</span>
                                             <span>Unit</span>
                                         </div>
-                                        <a href="{{ route("masterData.keuangan.unit") }}" class="mapping-card-action">
+                                        <a href="{{ route("masterData.mapping.mappingUnit.mappingUnit") }}"
+                                            class="mapping-card-action">
                                             <span>Buka mapping</span>
                                             <i class="mdi mdi-arrow-right"></i>
                                         </a>

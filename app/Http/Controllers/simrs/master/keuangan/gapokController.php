@@ -173,7 +173,7 @@ class gapokController extends Controller
                 'nik' => 'required|string|max:50|unique:gaji_pokok,nik',
                 'nama' => 'required|string|max:100',
                 'jbtn' => 'required|string|max:100',
-                'stts_kerja' => 'required|in:T,FT,PT',
+                'stts_kerja' => 'required|in:T,FT,PT,MT',
                 'mulai_kontrak' => 'required|date',
                 'masa_kerja' => 'required',
                 'gaji_pokok' => 'required|numeric|min:0',
@@ -249,7 +249,7 @@ class gapokController extends Controller
                 ],
                 'nama' => 'required|string|max:100',
                 'jbtn' => 'required|string|max:100',
-                'stts_kerja' => 'required|in:T,FT,PT',
+                'stts_kerja' => 'required|in:T,FT,PT,MT',
                 'mulai_kontrak' => 'required|date',
                 'gaji_pokok' => 'required|numeric|min:0',
             ], [

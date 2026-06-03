@@ -12,6 +12,7 @@ use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\keuangan\unitController;
 use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
+use App\Http\Controllers\simrs\master\mapping\mappingUnitController;
 use App\Http\Controllers\simrs\master\mapping\masppingController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
@@ -255,6 +256,20 @@ Route::middleware('auth')->group(function () {
         Route::delete('/mappingSkor/{id}/delete', [mappingSkorController::class, 'destroy'])->name('masterData.mapping.mappingSkor.delete');
         Route::get('/mappingSkor/exportTemplate', [mappingSkorController::class, 'exportTemplate'])->name('masterData.mapping.mappingSkor.exportTemplate');
         Route::post('/mappingSkor/import', [mappingSkorController::class, 'importMappingSkor'])->name('masterData.mapping.mappingSkor.importMappingSkor');
+
+        Route::get('/mappingUnit', [mappingUnitController::class, 'mappingUnit'])->name('masterData.mapping.mappingUnit.mappingUnit');
+        Route::get('/mappingUnit/getUnitTable', [mappingUnitController::class, 'unitTable'])->name('masterData.mapping.mappingUnit.getUnitTable');
+        Route::get('/mappingUnit/getPegawai', [mappingUnitController::class, 'getPegawai'])->name('masterData.mapping.mappingUnit.getPegawai');
+        Route::get('/mappingUnit/guideUnit', [mappingUnitController::class, 'guideUnit'])->name('masterData.mapping.mappingUnit.guideUnit');
+        Route::get('/mappingUnit/by-pegawai/{nik}', [mappingUnitController::class, 'getByPegawaiUnit'])->name('masterData.mapping.mappingUnit.getByPegawaiUnit');
+        Route::get('/mappingUnit/getGapokById/{nik}', [mappingUnitController::class, 'getGapokById'])->name('masterData.mapping.mappingUnit.getGapokById');
+        Route::get('/mappingUnit/generateKode', [mappingUnitController::class, 'generateKodeUnit'])->name('masterData.mapping.mappingUnit.generateKode');
+        Route::post('/mappingUnit/store', [mappingUnitController::class, 'storeUnit'])->name('masterData.mapping.mappingUnit.store');
+        Route::get('/mappingUnit/{id}/edit', [mappingUnitController::class, 'editUnit'])->name('masterData.mapping.mappingUnit.edit');
+        Route::put('/mappingUnit/{id}/update', [mappingUnitController::class, 'updateUnit'])->name('masterData.mapping.mappingUnit.update');
+        Route::delete('/mappingUnit/{id}/delete', [mappingUnitController::class, 'destroyUnit'])->name('masterData.mapping.mappingUnit.delete');
+        Route::get('/mappingUnit/exportTemplate', [mappingUnitController::class, 'exportTemplateUnit'])->name('masterData.mapping.mappingUnit.exportTemplate');
+        Route::post('/mappingUnit/import', [mappingUnitController::class, 'importMappingUnit'])->name('masterData.mapping.mappingUnit.importMappingUnit');
     });
 });
 
