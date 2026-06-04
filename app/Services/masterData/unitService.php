@@ -78,4 +78,15 @@ class unitService
             'keterangan' => $data['keterangan'] ?? ($data['nama'] ?? null),
         ]);
     }
+
+    public function delete($id)
+    {
+        $unit = $this->unitRepository->getModel()->where('id', $id)->first();
+
+        if (!$unit) {
+            return false;
+        }
+
+        return $unit->delete();
+    }
 }

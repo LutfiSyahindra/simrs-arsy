@@ -74,6 +74,10 @@
                             <li class="nav-item">
                                 <a href="{{ route("masterData.keuangan.unit") }}" class="nav-link">Master Unit</a>
                             </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.jnsTindakan") }}" class="nav-link">Master Jenis
+                                    Tindakan</a>
+                            </li>
                         </ul>
                     </div>
                 </li>

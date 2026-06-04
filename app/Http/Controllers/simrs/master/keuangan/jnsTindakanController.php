@@ -3,35 +3,35 @@
 namespace App\Http\Controllers\simrs\master\keuangan;
 
 use App\Http\Controllers\Controller;
-use App\Services\masterData\unitService;
+use App\Services\masterData\jnsTindakanService;
 use Illuminate\Http\Request;
-use Yajra\DataTables\Facades\DataTables;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
-class unitController extends Controller
+class jnsTindakanController extends Controller
 {
-    protected $unitService;
-    public function __construct(unitService $unitService)
+    protected $jnsTindakanService;
+    public function __construct(jnsTindakanService $jnsTindakanService)
     {
-        $this->unitService = $unitService;
+        $this->jnsTindakanService = $jnsTindakanService;
     }
     /**
      * Display a listing of the resource.
      */
-    public function unit()
+    public function jnsTindakan()
     {
-        return view('simrs.masterData.Keuangan.unit.unit');
+        return view('simrs.masterData.Keuangan.jenisTindakan.jnsTindakan');
     }
 
-
-    public function generateKodeUnit()
+    public function generateKodeJnsTindakan()
     {
-        return response()->json($this->unitService->generateKodeUnit());
+        return response()->json($this->jnsTindakanService->generateKodeJnsTindakan());
     }
 
-    public function unitTable()
+    public function jnsTindakanTable()
     {
-        $data = $this->unitService->unitTable();
+        $data = $this->jnsTindakanService->jnsTindakanTable();
         
         return DataTables::of($data)
             ->addIndexColumn()
@@ -40,13 +40,13 @@ class unitController extends Controller
                 <div class="btn-group btn-group-sm" role="group">
                     <button class="btn btn-outline-primary"
                         title="Edit"
-                        onclick="editUnit('.$row['id'].')">
+                        onclick="editJnsTindakan('.$row['id'].')">
                         <i class="mdi mdi-eye"></i>
                     </button>
 
                     <button class="btn btn-outline-danger"
                         title="Hapus"
-                        onclick="deleteUnit('.$row['id'].')">
+                        onclick="deleteJnsTindakan('.$row['id'].')">
                         <i class="mdi mdi-trash-can"></i>
                     </button>
 
@@ -72,49 +72,33 @@ class unitController extends Controller
     public function store(Request $request)
     {
         try {
-
-            // ✅ VALIDASI ARRAY
             $validated = $request->validate([
-                'kode' => 'required|array|min:1',
-                'kode.*' => 'required|string|max:20',
                 'jenis' => 'required|array|min:1',
                 'jenis.*' => 'required|string|max:100',
-                'nama' => 'required|array|min:1',
-                'nama.*' => 'required|string|max:100',
             ], [
-                'kode.required' => 'Kode wajib ada',
-                'kode.*.required' => 'Kode tidak boleh kosong',
-
-                'jenis.required' => 'Jenis unit wajib ada',
-                'jenis.*.required' => 'Jenis unit tidak boleh kosong',
-
-                'nama.required' => 'Nama unit wajib ada',
-                'nama.*.required' => 'Nama unit tidak boleh kosong',
+                'jenis.required' => 'Jenis Tindakan wajib ada',
+                'jenis.*.required' => 'Jenis Tindakan tidak boleh kosong',
             ]);
 
-            // ✅ KIRIM KE SERVICE (JANGAN PAKAI KODE DARI FRONTEND!)
-            $result = $this->unitService->create($request);
+            $result = $this->jnsTindakanService->create($validated['jenis']);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Jenis unit berhasil disimpan',
+                'message' => 'Jenis tindakan berhasil disimpan',
                 'data' => $result
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-
             return response()->json([
                 'status' => false,
                 'errors' => $e->errors()
             ], 422);
 
         } catch (\Throwable $e) {
-
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
-
         }
     }
 
@@ -131,72 +115,60 @@ class unitController extends Controller
      */
     public function edit(string $id)
     {
-        $dataUnit = $this->unitService->findById($id);
-        return response()->json($dataUnit);
+        $dataJnsTindakan = $this->jnsTindakanService->findById($id);
+        return response()->json($dataJnsTindakan);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, string $id)
     {
         try {
-            // ✅ VALIDASI SINGLE
             $jenis = $request->input('jenis');
-            $nama = $request->input('nama');
-
             $jenis = is_array($jenis) ? ($jenis[0] ?? null) : $jenis;
-            $nama = is_array($nama) ? ($nama[0] ?? null) : $nama;
 
             $validated = validator([
                 'jenis' => $jenis,
-                'nama' => $nama,
             ], [
-                'jenis' => 'required|string|max:100',
-                'nama' => [
+                'jenis' => [
                     'required',
                     'string',
-                    'max:150',
-                    Rule::unique('master_unit', 'keterangan')
-                        ->ignore($id)
-                        ->where(fn ($query) => $query->where('jenis', $jenis)),
+                    'max:100',
+                    Rule::unique('master_jenis_tindakan', 'jenis')->ignore($id),
                 ],
             ], [
-                'nama.required' => 'Nama unit wajib diisi',
-                'nama.unique' => 'Nama unit sudah digunakan untuk jenis unit ini',
-                'nama.max' => 'Nama unit tidak boleh lebih dari 150 karakter',
-
-                'jenis.required' => 'Jenis unit wajib diisi',
-                'jenis.string' => 'Jenis unit harus berupa teks',
-                'jenis.max' => 'Jenis unit tidak boleh lebih dari 100 karakter',
+                'jenis.required' => 'Jenis tindakan wajib diisi',
+                'jenis.string' => 'Jenis tindakan harus berupa teks',
+                'jenis.max' => 'Jenis tindakan tidak boleh lebih dari 100 karakter',
+                'jenis.unique' => 'Jenis tindakan sudah digunakan',
             ])->validate();
 
-            $result = $this->unitService->update($id, [
+            $result = $this->jnsTindakanService->update($id, [
                 'jenis' => $validated['jenis'],
-                'keterangan' => $validated['nama'],
             ]);
 
             return response()->json([
                 'status' => true,
-                'message' => 'Jenis Unit berhasil diperbarui',
+                'message' => 'Jenis Tindakan berhasil diperbarui',
                 'data' => $result
             ]);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
-
             return response()->json([
                 'status' => false,
                 'errors' => $e->errors()
             ], 422);
 
         } catch (\Throwable $e) {
-
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage()
             ], 500);
         }
     }
+
+
+    /**
+     * Update the specified resource in storage.
+     */
 
     /**
      * Remove the specified resource from storage.
@@ -205,12 +177,12 @@ class unitController extends Controller
     {
         try {
 
-            $this->unitService->delete($id);
+            $this->jnsTindakanService->delete($id);
 
             return response()->json([
                 'status' => true,
                 'success' => true,
-                'message' => 'Data Unit berhasil dihapus'
+                'message' => 'Data Jenis Tindakan berhasil dihapus'
             ]);
 
         } catch (\Throwable $e) {

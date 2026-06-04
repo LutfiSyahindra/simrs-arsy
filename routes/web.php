@@ -7,6 +7,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
 use App\Http\Controllers\simrs\master\keuangan\jabatanController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
+use App\Http\Controllers\simrs\master\keuangan\jnsTindakanController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
@@ -238,6 +239,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/unit/{id}/edit', [unitController::class, 'edit'])->name('masterData.keuangan.unit.edit');
         Route::put('/unit/{id}/update', [unitController::class, 'update'])->name('masterData.keuangan.unit.update');
         Route::delete('/unit/{id}/delete', [unitController::class, 'destroy'])->name('masterData.keuangan.unit.delete');
+
+        Route::get('/jnsTindakan', [jnsTindakanController::class, 'jnsTindakan'])->name('masterData.keuangan.jnsTindakan');
+        Route::get('/jnsTindakan/getJnsTindakanTable', [jnsTindakanController::class, 'jnsTindakanTable'])->name('masterData.keuangan.jnsTindakan.getJnsTindakanTable');
+        Route::get('/jnsTindakan/generateKode', [jnsTindakanController::class, 'generateKodeJnsTindakan'])->name('masterData.keuangan.jnsTindakan.generateKode');
+        Route::post('/jnsTindakan/store', [jnsTindakanController::class, 'store'])->name('masterData.keuangan.jnsTindakan.store');
+        Route::get('/jnsTindakan/{id}/edit', [jnsTindakanController::class, 'edit'])->name('masterData.keuangan.jnsTindakan.edit');
+        Route::put('/jnsTindakan/{id}/update', [jnsTindakanController::class, 'update'])->name('masterData.keuangan.jnsTindakan.update');
+        Route::delete('/jnsTindakan/{id}/delete', [jnsTindakanController::class, 'destroy'])->name('masterData.keuangan.jnsTindakan.delete');
     });
 
     Route::prefix('simrs/masterData/mapping')->group(function () {
