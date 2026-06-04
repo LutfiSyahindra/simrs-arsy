@@ -309,6 +309,13 @@ class tunjanganPegawaiController extends Controller
 
                     $nominalBaru = $masaKerja * $tarif;
                     break;
+
+                case 'custom':
+                    $nominalBaru = $row->jenisTunjangan->nilai ?? 0;
+                    $data['referensi_id'] = null;
+                    $data['qty'] = null;
+                    $data['nominal'] = $nominalBaru;
+                    break;
             }
 
             // 🔥 override nominal kalau bukan manual

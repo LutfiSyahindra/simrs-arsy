@@ -116,12 +116,15 @@ class tunjanganPegawaiService
                             break;
 
                         case 'custom':
+                            $inputDetail = "<span class='text-muted small'>otomatis dari master tunjangan</span>";
+                            break;
+
                         case 'manual':
                             $inputDetail = "<span class='text-muted small'>nominal manual</span>";
                             break;
                     }
 
-                    $nominalDisabled = in_array($t->jenisTunjangan->tipe, ['custom', 'manual'])
+                    $nominalDisabled = $t->jenisTunjangan->tipe === 'manual'
                         ? ''
                         : 'disabled';
 
@@ -236,73 +239,6 @@ class tunjanganPegawaiService
         $this->skipped = 0;
     }
 
-    // public function prosesImportTunjanganPegawai($data)
-    // {
-    //     // NORMALISASI
-    //     $nik = trim($data['nik'] ?? '');
-    //     $kode = strtoupper(trim($data['tunjangan_id'] ?? ''));
-
-    //     $kode = preg_replace('/[^A-Z0-9]/', '', $kode);
-
-    //     if ($kode === '') {
-    //         $this->skipped++;
-    //         return;
-    //     }
-
-    //     // CEK PEGAWAI (GAPOK)
-    //     $gapok = gapokModel::where('nik', $nik)->first();
-
-    //     if (!$gapok) {
-    //         $this->skipped++;
-    //         return;
-    //     }
-
-    //     // MAPPING KODE → TUNJANGAN
-    //     $tunjangan = jnsTunjanganModel::whereRaw(
-    //         'UPPER(REPLACE(kode," ","")) = ?',
-    //         [$kode]
-    //     )->first();
-
-    //     if (!$tunjangan) {
-    //         $this->skipped++;
-    //         return;
-    //     }
-
-    //     // HITUNG NOMINAL 🔥
-    //     $persen = $tunjangan->persentase ?? 0;
-
-    //     if ($persen <= 0) {
-    //         $this->skipped++;
-    //         return;
-    //     }
-
-    //     $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
-
-    //     // CEK EXISTING
-    //     $exists = tunjanganPegawaiModel::where('nik', $nik)
-    //         ->where('tunjangan_id', $tunjangan->id)
-    //         ->exists();
-
-    //     // SIMPAN
-    //     tunjanganPegawaiModel::updateOrCreate(
-    //         [
-    //             'nik' => $nik,
-    //             'tunjangan_id' => $tunjangan->id
-    //         ],
-    //         [
-    //             'nominal' => $nominal,
-    //             'updated_at' => now()
-    //         ]
-    //     );
-
-    //     // COUNTER
-    //     if ($exists) {
-    //         $this->skipped++;
-    //     } else {
-    //         $this->added++;
-    //     }
-    // }
-
     public function prosesImportTunjanganPegawai($data)
     {
         Log::info('Memproses data: ' . json_encode($data));
@@ -333,8 +269,15 @@ class tunjanganPegawaiService
         }
 
         $nominal = 0;
+        $shouldRound = true;
 
-        switch ($kode) {
+        if ($tunjangan->tipe === 'custom') {
+            $nominal = $tunjangan->nilai ?? 0;
+            $refId = null;
+            $qty = null;
+            $shouldRound = false;
+        } else {
+            switch ($kode) {
 
             case 'TJ001':
 
@@ -421,10 +364,12 @@ class tunjanganPegawaiService
             default:
                 $this->skipped++;
                 return;
+            }
         }
 
-        // BULATKAN
-        $nominal = round($nominal, -3);
+        if ($shouldRound) {
+            $nominal = round($nominal, -3);
+        }
 
         // SIMPAN
         tunjanganPegawaiModel::updateOrCreate(
@@ -463,6 +408,13 @@ class tunjanganPegawaiService
             $inserted = [];
 
             foreach ($data as $row) {
+                $tunjangan = jnsTunjanganModel::find($row['tunjangan_id']);
+
+                if ($tunjangan && $tunjangan->tipe === 'custom') {
+                    $row['referensi_id'] = null;
+                    $row['qty'] = null;
+                    $row['nominal'] = $tunjangan->nilai ?? 0;
+                }
 
                 $inserted[] = DB::table('tunjangan_pegawai')->insertGetId([
                     'nik' => $row['nik'],
@@ -555,15 +507,27 @@ class tunjanganPegawaiService
                     continue;
                 }
 
-                // ambil persen terbaru
                 $master = jnsTunjanganModel::find($t->tunjangan_id);
-                $persen = $master->persentase ?? 0;
 
-                $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
+                if (!$master) {
+                    $skipped++;
+                    continue;
+                }
+
+                if ($master->tipe === 'custom') {
+                    $nominal = $master->nilai ?? 0;
+                } elseif ($master->tipe === 'manual') {
+                    $nominal = $t->nominal ?? 0;
+                } else {
+                    $persen = $master->nilai ?? 0;
+                    $nominal = round($gapok->gaji_pokok * ($persen / 100), -3);
+                }
 
                 tunjanganPegawaiModel::create([
                     'nik' => $nikTujuan,
                     'tunjangan_id' => $t->tunjangan_id,
+                    'referensi_id' => in_array($master->tipe, ['jabatan', 'profesi']) ? $t->referensi_id : null,
+                    'qty' => $master->tipe === 'anak' ? $t->qty : null,
                     'nominal' => $nominal
                 ]);
 

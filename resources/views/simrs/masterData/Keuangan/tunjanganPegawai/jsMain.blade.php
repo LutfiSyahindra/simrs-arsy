@@ -297,8 +297,21 @@
 
                     break;
 
-                case 'manual':
                 case 'custom':
+                    extra.html(`
+                        <div class="small text-muted">
+                            Nominal Custom otomatis dari master jenis tunjangan
+                        </div>
+                    `);
+
+                    preview.val(formatRupiah(nilai));
+                    row.find('.nominal-hidden').val(nilai);
+                    row.find('.referensi-id').val('');
+                    row.find('.qty-input').val('');
+
+                    break;
+
+                case 'manual':
 
                     extra.html(`
                             <input type="number" class="form-control nominal-manual" 
@@ -1455,8 +1468,16 @@
                     preview.val(totalPasangan);
                     break;
 
-                case 'manual':
                 case 'custom':
+                    extra.html(`
+                        <div class="small text-muted">
+                            Nominal Custom otomatis dari master jenis tunjangan
+                        </div>
+                    `);
+                    preview.val(nilai).prop('readonly', true);
+                    break;
+
+                case 'manual':
                     extra.html(`
                         <div class="small text-muted">
                             Isi nominal pada kolom nominal
@@ -1554,7 +1575,12 @@
                 }
             }
 
-            if ((tipe === 'manual' || tipe === 'custom') && nominal < 1) {
+            if (tipe === 'custom' && nominal < 1) {
+                Swal.fire("Nominal Custom belum diisi di master jenis tunjangan", "", "warning");
+                return;
+            }
+
+            if (tipe === 'manual' && nominal < 1) {
                 Swal.fire("Nominal wajib diisi", "", "warning");
                 return;
             }
