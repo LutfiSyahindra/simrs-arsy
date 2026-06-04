@@ -411,7 +411,7 @@
                                             <span class="mapping-card-icon orange">
                                                 <i class="mdi mdi-office-building"></i>
                                             </span>
-                                            <span class="mapping-status draft">Draft</span>
+                                            <span class="mapping-status ready">Siap</span>
                                         </div>
                                         <div class="mt-3">
                                             <div class="mapping-card-title">Mapping Unit Pegawai</div>
@@ -428,6 +428,36 @@
                                             <span>Unit</span>
                                         </div>
                                         <a href="{{ route("masterData.mapping.mappingUnit.mappingUnit") }}"
+                                            class="mapping-card-action">
+                                            <span>Buka mapping</span>
+                                            <i class="mdi mdi-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="mapping-menu-card" data-search="mapping tindakan">
+                                    <div>
+                                        <div class="mapping-card-head">
+                                            <span class="mapping-card-icon cyan">
+                                                <i class="mdi mdi-medical-bag"></i>
+                                            </span>
+                                            <span class="mapping-status draft">Draft</span>
+                                        </div>
+                                        <div class="mt-3">
+                                            <div class="mapping-card-title">Mapping Tindakan</div>
+                                            <p class="mapping-card-text">
+                                                Hubungkan Tindakan dengan Kategori Tindakan.
+                                            </p>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="mapping-meta mb-3">
+                                            <span>Tindakan</span>
+                                            <span>Jenis tindakan</span>
+                                            <span>Unit</span>
+                                        </div>
+                                        <a href="{{ route("masterData.mapping.mappingTindakan") }}"
                                             class="mapping-card-action">
                                             <span>Buka mapping</span>
                                             <i class="mdi mdi-arrow-right"></i>

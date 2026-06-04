@@ -11,4 +11,9 @@ class jnsTindakanModel extends Model
 
     protected $table = 'master_jenis_tindakan';
     protected $fillable = ['kode','jenis'];
+
+    public function mappingTindakan()
+    {
+        return $this->hasMany(mappingTindakanModel::class, 'jnsTindakan_id', 'id');
+    }
 }

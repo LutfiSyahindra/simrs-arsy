@@ -13,6 +13,7 @@ use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\keuangan\unitController;
 use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
+use App\Http\Controllers\simrs\master\mapping\mappingTindakanController;
 use App\Http\Controllers\simrs\master\mapping\mappingUnitController;
 use App\Http\Controllers\simrs\master\mapping\masppingController;
 use App\Http\Controllers\simrs\master\masterDataKeuanganController;
@@ -279,6 +280,16 @@ Route::middleware('auth')->group(function () {
         Route::delete('/mappingUnit/{id}/delete', [mappingUnitController::class, 'destroyUnit'])->name('masterData.mapping.mappingUnit.delete');
         Route::get('/mappingUnit/exportTemplate', [mappingUnitController::class, 'exportTemplateUnit'])->name('masterData.mapping.mappingUnit.exportTemplate');
         Route::post('/mappingUnit/import', [mappingUnitController::class, 'importMappingUnit'])->name('masterData.mapping.mappingUnit.importMappingUnit');
+
+        Route::get('/mappingTindakan', [mappingTindakanController::class, 'mappingTindakan'])->name('masterData.mapping.mappingTindakan');
+        Route::get('/mappingTindakan/getTindakanTable', [mappingTindakanController::class, 'tindakanTable'])->name('masterData.mapping.mappingTindakan.getTindakanTable');
+        Route::get('/mappingTindakan/guideJenisTindakan', [mappingTindakanController::class, 'guideJenisTindakan'])->name('masterData.mapping.mappingTindakan.guideJenisTindakan');
+        Route::get('/mappingTindakan/searchTindakan', [mappingTindakanController::class, 'searchTindakan'])->name('masterData.mapping.mappingTindakan.searchTindakan');
+        Route::get('/mappingTindakan/by-jenis/{id}', [mappingTindakanController::class, 'getByJenisTindakan'])->name('masterData.mapping.mappingTindakan.byJenis');
+        Route::post('/mappingTindakan/store', [mappingTindakanController::class, 'storeTindakan'])->name('masterData.mapping.mappingTindakan.store');
+        Route::get('/mappingTindakan/{id}/edit', [mappingTindakanController::class, 'editTindakan'])->name('masterData.mapping.mappingTindakan.edit');
+        Route::put('/mappingTindakan/{id}/update', [mappingTindakanController::class, 'updateTindakan'])->name('masterData.mapping.mappingTindakan.update');
+        Route::delete('/mappingTindakan/{id}/delete', [mappingTindakanController::class, 'destroyTindakan'])->name('masterData.mapping.mappingTindakan.delete');
     });
 });
 
