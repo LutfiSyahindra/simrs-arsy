@@ -98,6 +98,7 @@
             $('#jenisTindakanSelect').html(jenisOptions()).val('').trigger('change');
             $('#searchTindakanSource').val('').prop('disabled', true);
             $('#clearSearchTindakanSource').prop('disabled', true);
+            setSourceSelectAllDisabled();
             selectedTindakanMap.clear();
             lastSourceResults = [];
 
@@ -213,6 +214,36 @@
             $('#sourceResultInfo').text(text);
         }
 
+        function setSourceSelectAllDisabled() {
+            $('#checkAllVisibleTindakan').prop({
+                checked: false,
+                indeterminate: false,
+                disabled: true
+            });
+            $('#checkAllVisibleTindakanLabel').text('Pilih semua yang tampil');
+        }
+
+        function updateSourceSelectAllState() {
+            const total = lastSourceResults.length;
+            const checkedCount = lastSourceResults.filter(function(item) {
+                return selectedTindakanMap.has(item.source_key);
+            }).length;
+
+            if (total === 0) {
+                setSourceSelectAllDisabled();
+                return;
+            }
+
+            $('#checkAllVisibleTindakan').prop({
+                disabled: false,
+                checked: checkedCount === total,
+                indeterminate: checkedCount > 0 && checkedCount < total
+            });
+            $('#checkAllVisibleTindakanLabel').text(
+                'Pilih semua yang tampil (' + formatAngka(total) + ')'
+            );
+        }
+
         function renderSelectedPreview() {
             if (selectedTindakanMap.size === 0) {
                 $('#selectedTindakanPreview')
@@ -239,6 +270,7 @@
         function renderSourceChecklist(state = 'ready', items = []) {
             if (state === 'disabled') {
                 setSourceResultInfo('Menunggu jenis tindakan');
+                setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty">
                         Pilih jenis tindakan terlebih dahulu.
@@ -249,6 +281,7 @@
 
             if (state === 'too-short') {
                 setSourceResultInfo('Minimal 3 huruf');
+                setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty">
                         Ketik minimal 3 huruf untuk mencari tindakan.
@@ -259,6 +292,7 @@
 
             if (state === 'loading') {
                 setSourceResultInfo('Mencari...');
+                setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty">
                         <span class="spinner-border spinner-border-sm me-2"></span>
@@ -270,6 +304,7 @@
 
             if (state === 'error') {
                 setSourceResultInfo('Gagal memuat');
+                setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty text-danger">
                         Tindakan tidak dapat dimuat.
@@ -280,6 +315,7 @@
 
             if (!items.length) {
                 setSourceResultInfo('0 hasil');
+                setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty">
                         Tindakan tidak ditemukan.
@@ -318,6 +354,8 @@
                     </label>
                 `;
             }).join(''));
+
+            updateSourceSelectAllState();
         }
 
         function searchSourceTindakan(keyword) {
@@ -339,6 +377,7 @@
                 sourceSearchRequest = null;
             }
 
+            lastSourceResults = [];
             renderSourceChecklist('loading');
 
             sourceSearchRequest = $.ajax({
@@ -692,6 +731,7 @@
                 initSelect2('#jenisTindakanSelect', modal, 'Pilih Jenis Tindakan');
                 $('#searchTindakanSource').prop('disabled', true);
                 $('#clearSearchTindakanSource').prop('disabled', true);
+                setSourceSelectAllDisabled();
                 renderSourceChecklist('disabled');
             } catch (error) {
                 Swal.fire({
@@ -710,6 +750,7 @@
             const hasJenis = Boolean($(this).val());
             $('#searchTindakanSource').val('').prop('disabled', !hasJenis);
             $('#clearSearchTindakanSource').prop('disabled', true);
+            setSourceSelectAllDisabled();
             selectedTindakanMap.clear();
             lastSourceResults = [];
             renderSourceChecklist(hasJenis ? 'too-short' : 'disabled');
@@ -756,6 +797,30 @@
 
             updateSelectedCount();
             renderSelectedPreview();
+            updateSourceSelectAllState();
+        });
+
+        $('#checkAllVisibleTindakan').on('change', function() {
+            const checked = $(this).is(':checked');
+
+            if (!lastSourceResults.length) {
+                setSourceSelectAllDisabled();
+                return;
+            }
+
+            lastSourceResults.forEach(function(item) {
+                if (checked) {
+                    selectedTindakanMap.set(item.source_key, item);
+                    return;
+                }
+
+                selectedTindakanMap.delete(item.source_key);
+            });
+
+            renderSourceChecklist('ready', lastSourceResults);
+            updateSelectedCount();
+            renderSelectedPreview();
+            updateSourceSelectAllState();
         });
 
         $(document).on('click', '.tindakan-selected-remove', function() {
@@ -771,6 +836,7 @@
 
             updateSelectedCount();
             renderSelectedPreview();
+            updateSourceSelectAllState();
         });
 
         $('#tindakanForm').on('submit', function(e) {

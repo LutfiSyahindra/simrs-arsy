@@ -155,6 +155,25 @@
             white-space: nowrap;
         }
 
+        .tindakan-select-all-row {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .tindakan-select-all-row .form-check {
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            background: #fff;
+            padding: 5px 12px 5px 34px;
+        }
+
+        .tindakan-select-all-row .form-check-input {
+            margin-top: .18rem;
+        }
+
         .tindakan-source-list {
             max-height: 380px;
             overflow: auto;
@@ -277,6 +296,11 @@
                 width: 100%;
                 text-align: center;
             }
+
+            .tindakan-select-all-row {
+                align-items: stretch;
+                flex-direction: column;
+            }
         }
     </style>
 @endpush
@@ -379,6 +403,21 @@
                                             disabled>
                                             <i class="mdi mdi-close"></i>
                                         </button>
+                                    </div>
+
+                                    <div class="tindakan-select-all-row">
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input" type="checkbox" id="checkAllVisibleTindakan"
+                                                disabled>
+                                            <label class="form-check-label small fw-semibold"
+                                                id="checkAllVisibleTindakanLabel" for="checkAllVisibleTindakan">
+                                                Pilih semua yang tampil
+                                            </label>
+                                        </div>
+
+                                        <span class="small text-muted">
+                                            Berlaku untuk hasil search saat ini.
+                                        </span>
                                     </div>
                                 </div>
 
