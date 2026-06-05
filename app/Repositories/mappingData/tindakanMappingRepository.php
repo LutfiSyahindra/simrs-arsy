@@ -148,7 +148,7 @@ class tindakanMappingRepository
         return $this->mappingTindakanModel::where('id', $id)->delete();
     }
 
-    public function searchTindakan(string $keyword, int $limit = 50)
+    public function searchTindakan(string $keyword, int $limit = 500)
     {
         $keyword = trim($keyword);
 
@@ -156,7 +156,7 @@ class tindakanMappingRepository
             return collect();
         }
 
-        $perSourceLimit = max(8, (int) ceil($limit / count(self::SOURCE_LABELS)) + 2);
+        $perSourceLimit = max(500, (int) ceil($limit / count(self::SOURCE_LABELS)) + 2);
         $rows = collect();
 
         foreach (array_keys(self::SOURCE_LABELS) as $source) {
