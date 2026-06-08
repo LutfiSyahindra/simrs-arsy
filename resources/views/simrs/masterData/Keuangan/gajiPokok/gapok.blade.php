@@ -80,6 +80,7 @@
                                             <th>Jabatan</th>
                                             <th>Status Kerja</th>
                                             <th>Gaji Pokok</th>
+                                            <th>No Telpon</th>
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>

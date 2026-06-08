@@ -13,7 +13,7 @@ class masterGapokRepository
 
     public function getGapok()
     {
-        return gapokModel::select('id','nik','nama','jbtn','stts_kerja','masa_kerja','mulai_kontrak','gaji_pokok')->where('stts_aktif', 'AKTIF')->get();
+        return gapokModel::select('id','nik','nama','jbtn','stts_kerja','masa_kerja','mulai_kontrak','gaji_pokok','no_telp')->where('stts_aktif', 'AKTIF')->get();
     }
 
     public function getPegawai()

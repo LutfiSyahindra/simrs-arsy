@@ -28,6 +28,32 @@ class penggajianRepository
         return gajiTahap1Model::select('id', 'nik', 'nama', 'jabatan', 'status', 'gaji_pokok', 'gaji_dibayar', 'tunjangan', 'periode')->where('periode', $periode)->get();
     }
 
+    public function getPenerimaSlipWhatsappTahap1($periode, array $ids = [])
+    {
+        return gajiTahap1Model::query()
+            ->join('gaji_pokok', 'gaji_pokok.nik', '=', 'gaji_tahap1.nik')
+            ->select([
+                'gaji_tahap1.id',
+                'gaji_tahap1.nik',
+                'gaji_tahap1.nama',
+                'gaji_tahap1.jabatan',
+                'gaji_tahap1.status',
+                'gaji_tahap1.gaji_pokok',
+                'gaji_tahap1.gaji_dibayar',
+                'gaji_tahap1.tunjangan',
+                'gaji_tahap1.periode',
+                'gaji_pokok.no_telp',
+            ])
+            ->where('gaji_tahap1.periode', $periode)
+            ->whereNotNull('gaji_pokok.no_telp')
+            ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''")
+            ->when(!empty($ids), function ($query) use ($ids) {
+                $query->whereIn('gaji_tahap1.id', $ids);
+            })
+            ->orderBy('gaji_tahap1.nama')
+            ->get();
+    }
+
     public function getPegawaiUntukGajiTahap1()
     {
         $pegawaiList = pegawaiModel::query()

@@ -6,10 +6,7 @@
     $tunjanganDetail = collect($data["tunjangan_detail"] ?? []);
     $totalTahap1 = (int) ($data["total"] ?? 0);
 
-    function rupiahSlip($angka)
-    {
-        return number_format((int) $angka, 0, ",", ".");
-    }
+    $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
 @endphp
 
 <!DOCTYPE html>
@@ -238,7 +235,7 @@
                             <td class="col-no">1.</td>
                             <td class="col-name">GAJI POKOK</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">{{ rupiahSlip($data["gaji_dibayar"] ?? 0) }}</td>
+                            <td class="col-value">{{ $rupiahSlip($data["gaji_dibayar"] ?? 0) }}</td>
                         </tr>
 
                         @foreach ($tunjanganDetail as $index => $tunjangan)
@@ -247,7 +244,7 @@
                                 <td class="col-no">{{ $index + 2 }}.</td>
                                 <td class="col-name">{{ strtoupper($tunjangan["nama"] ?? "TUNJANGAN") }}</td>
                                 <td class="col-rp">: Rp.</td>
-                                <td class="col-value">{{ rupiahSlip($tunjangan["nominal"] ?? 0) }}</td>
+                                <td class="col-value">{{ $rupiahSlip($tunjangan["nominal"] ?? 0) }}</td>
                             </tr>
                         @endforeach
 
@@ -256,14 +253,14 @@
                             <td></td>
                             <td class="col-name center">GAJI TAHAP 1</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">{{ rupiahSlip($totalTahap1) }}</td>
+                            <td class="col-value">{{ $rupiahSlip($totalTahap1) }}</td>
                         </tr>
                         <tr class="summary">
                             <td></td>
                             <td></td>
                             <td class="col-name center">DITERIMA / DI TRANSFER</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">{{ rupiahSlip($totalTahap1) }}</td>
+                            <td class="col-value">{{ $rupiahSlip($totalTahap1) }}</td>
                         </tr>
                     </table>
 

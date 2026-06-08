@@ -77,6 +77,10 @@
                     name: 'gaji_pokok'
                 },
                 {
+                    data: 'no_telp',
+                    name: 'no_telp'
+                },
+                {
                     data: 'actions',
                     name: 'actions',
                     orderable: false,
@@ -424,6 +428,7 @@
                     // ===============================
                     $('input[name="nama"]').val(data.nama);
                     $('input[name="jbtn"]').val(data.jbtn);
+                    $('input[name="no_telp"]').val(data.no_telp);
 
                     $('#stts_kerja_display').val(data.stts_kerja);
                     $('#stts_kerja').val(data.stts_kerja);

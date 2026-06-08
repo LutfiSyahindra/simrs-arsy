@@ -135,8 +135,14 @@
 
         .payroll-actions {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
             gap: .5rem;
+        }
+
+        .payroll-actions .btn {
+            min-height: 34px;
+            line-height: 1.2;
+            white-space: normal;
         }
 
         .payroll-table-wrap,
@@ -479,11 +485,57 @@
             padding: .9rem 1rem;
             font-size: .86rem;
         }
+
+        .wa-slip-toolbar {
+            display: grid;
+            grid-template-columns: auto minmax(220px, 1fr) auto;
+            align-items: center;
+            gap: .75rem;
+        }
+
+        .wa-slip-search {
+            max-width: 360px;
+            justify-self: end;
+        }
+
+        .wa-slip-table-wrap {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .wa-slip-table-wrap thead th {
+            background: #f8fafc !important;
+            color: #475569;
+            font-size: .72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            border-bottom: 1px solid #e5e7eb !important;
+            white-space: nowrap;
+        }
+
+        .wa-slip-table-wrap tbody td {
+            border-color: #eef2f7;
+        }
+
+        @media (max-width: 767.98px) {
+            .wa-slip-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .wa-slip-search {
+                width: 100%;
+                max-width: none;
+                justify-self: stretch;
+            }
+        }
     </style>
 @endpush
 
 @section("content")
     @include("simrs.backOffice.keuangan.penggajian.modalDetail")
+    @include("simrs.backOffice.keuangan.penggajian.modalWhatsapp")
     <nav class="page-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="#">Keuangan</a></li>
@@ -541,7 +593,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-12 col-sm-6 col-lg-5">
+                            <div class="col-12 col-sm-6 col-lg-4">
                                 <label class="form-label small text-muted mb-1">Cari</label>
                                 <div class="input-group input-group-sm">
                                     <span class="input-group-text bg-white">
@@ -552,11 +604,16 @@
                                 </div>
                             </div>
 
-                            <div class="col-12 col-lg-4">
+                            <div class="col-12 col-lg-5">
                                 <div class="payroll-actions">
                                     <button type="button" id="btnGenerateGaji" class="btn btn-primary btn-sm">
                                         <i class="mdi mdi-calculator-variant-outline me-1"></i>
                                         Generate
+                                    </button>
+
+                                    <button type="button" id="btnOpenSlipWhatsapp" class="btn btn-success btn-sm">
+                                        <i class="mdi mdi-whatsapp me-1"></i>
+                                        Kirim Slip Gaji Whatsapp
                                     </button>
 
                                     <button type="button" id="btnRefreshPenggajian" class="btn btn-light btn-sm"
@@ -652,7 +709,7 @@
                                             <th class="text-end">Gapok Dibayar</th>
                                             <th class="text-end">Tunjangan</th>
                                             <th class="text-end">Total</th>
-                                            <th>Formula</th>
+                                            <th>Aksi</th>
                                         </tr>
                                     </thead>
                                 </table>

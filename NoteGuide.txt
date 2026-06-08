@@ -1,0 +1,19 @@
+## WORKER JOB GUIDE ##
+1. Running tersembunyi Queue:
+Start-Process php -ArgumentList "artisan queue:work --sleep=3 --tries=1 --timeout=180" -WorkingDirectory "G:\Project\simrs-arsy" -WindowStyle Hidden
+
+2. Melihat worker aktif:
+Get-CimInstance Win32_Process -Filter "name='php.exe'" |
+Where-Object { $_.CommandLine -match "queue:(work|listen)" } |
+Select-Object ProcessId, CommandLine
+
+3. Mematikan worker saat ini:
+Stop-Process -Id 11724 (id sesuai dengan Step no 2)
+
+4. Untuk menghentikan semua queue worker:
+Get-CimInstance Win32_Process -Filter "name='php.exe'" |
+Where-Object { $_.CommandLine -match "queue:(work|listen)" } |
+ForEach-Object { Stop-Process -Id $_.ProcessId }
+
+5. Setelah mengubah kode job, restart worker:
+php artisan queue:restart

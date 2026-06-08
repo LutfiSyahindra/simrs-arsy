@@ -27,6 +27,8 @@
         });
         // ======= END KONFIGURASI AJAX =======
 
+        let slipWhatsappRecipients = [];
+
         // ======= DATA =======
         let tablePenggajianTahap1 = $('#tablePenggajianTahap1').DataTable({
             processing: true,
@@ -147,6 +149,126 @@
                     $('#summaryGapok').text(formatRupiah(data.total_gapok || 0));
                     $('#summaryTunjangan').text(formatRupiah(data.total_tunjangan || 0));
                     $('#summaryPeriode').text(data.periode || '-');
+                }
+            });
+        }
+
+        function escapeHtml(value) {
+            return $('<div>').text(value || '').html();
+        }
+
+        function setSlipWhatsappLoading(isLoading) {
+            $('#waSlipLoading').toggleClass('d-none', !isLoading);
+            $('#waSlipTableWrap').toggleClass('d-none', true);
+            $('#waSlipEmpty').toggleClass('d-none', true);
+        }
+
+        function updateSlipWhatsappSelectedCount() {
+            const total = $('.wa-slip-checkbox').length;
+            const selected = $('.wa-slip-checkbox:checked').length;
+
+            $('#waSlipSelectedCount').text(selected + ' dipilih');
+            $('#btnSendSlipWhatsapp').prop('disabled', selected === 0 || total === 0);
+
+            $('#checkAllSlipWhatsapp')
+                .prop('checked', total > 0 && selected === total)
+                .prop('indeterminate', selected > 0 && selected < total);
+        }
+
+        function renderSlipWhatsappRecipients(items) {
+            const tbody = $('#waSlipPegawaiList');
+            tbody.empty();
+
+            if (!items || items.length === 0) {
+                $('#waSlipTableWrap').addClass('d-none');
+                $('#waSlipEmpty').removeClass('d-none');
+                updateSlipWhatsappSelectedCount();
+                return;
+            }
+
+            items.forEach(function(item) {
+                const statusClass = item.status === 'T' ? 'is-tetap' : item.status === 'FT' ?
+                    'is-kontrak' : 'is-unknown';
+                const statusLabel = item.status_label || '-';
+                const searchable = [
+                    item.nama,
+                    item.nik,
+                    item.jabatan,
+                    item.no_telp,
+                    item.no_whatsapp
+                ].join(' ').toLowerCase();
+
+                tbody.append(`
+                    <tr data-search="${escapeHtml(searchable)}">
+                        <td class="text-center">
+                            <input class="form-check-input wa-slip-checkbox" type="checkbox"
+                                value="${item.id}" id="waSlipPegawai${item.id}">
+                        </td>
+                        <td>
+                            <span class="employee-name">${escapeHtml(item.nama || '-')}</span>
+                            <span class="employee-subtext">${escapeHtml(item.nik || '')}</span>
+                        </td>
+                        <td>${escapeHtml(item.jabatan || '-')}</td>
+                        <td class="text-center">
+                            <span class="payroll-status-badge ${statusClass}">${escapeHtml(statusLabel)}</span>
+                        </td>
+                        <td>
+                            <span class="fw-semibold">${escapeHtml(item.no_whatsapp || item.no_telp || '-')}</span>
+                            <span class="employee-subtext">${escapeHtml(item.no_telp || '')}</span>
+                        </td>
+                        <td class="text-end currency-cell">${formatRupiah(item.total || 0)}</td>
+                    </tr>
+                `);
+            });
+
+            $('#waSlipTableWrap').removeClass('d-none');
+            $('#waSlipEmpty').addClass('d-none');
+            updateSlipWhatsappSelectedCount();
+        }
+
+        function filterSlipWhatsappRows() {
+            const keyword = ($('#searchSlipWhatsappPegawai').val() || '').toLowerCase();
+
+            $('#waSlipPegawaiList tr').each(function() {
+                const searchable = $(this).data('search') || '';
+                $(this).toggle(searchable.indexOf(keyword) !== -1);
+            });
+        }
+
+        function loadSlipWhatsappRecipients() {
+            const periode = $('#periodeGaji').val();
+
+            $('#waSlipPeriode').text(periode || '-');
+            $('#searchSlipWhatsappPegawai').val('');
+            $('#checkAllSlipWhatsapp').prop('checked', false).prop('indeterminate', false);
+            $('#btnSendSlipWhatsapp').prop('disabled', true);
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1") }}",
+                type: "GET",
+                data: {
+                    periode: periode
+                },
+                beforeSend: function() {
+                    setSlipWhatsappLoading(true);
+                },
+                success: function(response) {
+                    slipWhatsappRecipients = response.data || [];
+                    renderSlipWhatsappRecipients(slipWhatsappRecipients);
+                },
+                error: function(xhr) {
+                    slipWhatsappRecipients = [];
+                    renderSlipWhatsappRecipients([]);
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: xhr.responseJSON?.message ||
+                            'Gagal memuat daftar penerima slip gaji.'
+                    });
+                },
+                complete: function() {
+                    $('#waSlipLoading').addClass('d-none');
                 }
             });
         }
@@ -318,6 +440,128 @@
                 tablePenggajianTahap1.ajax.reload(null, false);
                 loadSummaryTahap1();
             }
+        });
+
+        $('#btnOpenSlipWhatsapp').on('click', function() {
+            if ($('#tahapGaji').val() != '1') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Coming Soon',
+                    text: 'Kirim slip Whatsapp untuk gaji tahap 2 belum tersedia.'
+                });
+                return;
+            }
+
+            if (!$('#periodeGaji').val()) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Periode belum dipilih',
+                    text: 'Silakan pilih bulan periode gaji terlebih dahulu.'
+                });
+                return;
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('modalSlipWhatsapp'));
+            modal.show();
+            loadSlipWhatsappRecipients();
+        });
+
+        $('#checkAllSlipWhatsapp').on('change', function() {
+            $('.wa-slip-checkbox').prop('checked', $(this).is(':checked'));
+            updateSlipWhatsappSelectedCount();
+        });
+
+        $(document).on('change', '.wa-slip-checkbox', function() {
+            updateSlipWhatsappSelectedCount();
+        });
+
+        $('#searchSlipWhatsappPegawai').on('keyup', function() {
+            filterSlipWhatsappRows();
+        });
+
+        $('#btnSendSlipWhatsapp').on('click', function() {
+            const periode = $('#periodeGaji').val();
+            const selectedIds = $('.wa-slip-checkbox:checked').map(function() {
+                return $(this).val();
+            }).get();
+            const btn = $(this);
+            const btnHtml = btn.html();
+
+            if (selectedIds.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Pegawai belum dipilih',
+                    text: 'Pilih minimal satu pegawai.'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Masukkan ke antrean?',
+                text: selectedIds.length + ' slip gaji akan dikirim bertahap lewat Whatsapp.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Antrekan',
+                cancelButtonText: 'Batal'
+            }).then(function(result) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route("backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1") }}",
+                    type: "POST",
+                    data: {
+                        periode: periode,
+                        gaji_ids: selectedIds
+                    },
+                    beforeSend: function() {
+                        btn.prop('disabled', true).html(
+                            '<span class="spinner-border spinner-border-sm me-1"></span> Menyiapkan...'
+                        );
+                    },
+                    success: function(response) {
+                        const queued = response.data?.queued || selectedIds.length;
+                        const delaySeconds = response.data?.delay_seconds || 8;
+                        const modalEl = document.getElementById('modalSlipWhatsapp');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+
+                        if (modal) {
+                            modal.hide();
+                        }
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Masuk Antrean',
+                            text: queued + ' slip gaji akan dikirim oleh queue dengan jeda sekitar ' +
+                                delaySeconds + ' detik.',
+                            timer: 2600,
+                            showConfirmButton: false
+                        });
+                    },
+                    error: function(xhr) {
+                        let message = xhr.responseJSON?.message ||
+                            'Gagal mengirim slip gaji ke Whatsapp.';
+
+                        if (xhr.responseJSON?.errors) {
+                            const errors = Object.values(xhr.responseJSON.errors);
+                            if (errors.length && errors[0].length) {
+                                message = errors[0][0];
+                            }
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: message
+                        });
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(btnHtml);
+                        updateSlipWhatsappSelectedCount();
+                    }
+                });
+            });
         });
 
         loadSummaryTahap1();

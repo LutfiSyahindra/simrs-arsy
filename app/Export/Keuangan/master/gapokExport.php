@@ -30,6 +30,7 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
                 $item->jbtn,
                 $item->stts_kerja,
                 $item->mulai_kontrak,
+                '',
                 '' // hanya ini yang diisi user
             ];
         });
@@ -44,6 +45,7 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
             'stts_kerja',
             'mulai_kontrak',
             'gaji_pokok',
+            'no_telp'
         ];
     }
 
@@ -89,9 +91,11 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
         $sheet->getStyle("F2:F{$highestRow}")
             ->getProtection()
             ->setLocked(false);
-
-        // 🔥 AKTIFKAN PROTECTION
-        $sheet->getProtection()->setSheet(true);
+        
+         // 🔥 UNLOCK KOLOM GAJI (F)
+        $sheet->getStyle("G2:G{$highestRow}")
+            ->getProtection()
+            ->setLocked(false);
 
         return [];
     }
@@ -105,6 +109,7 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
             'D' => 20,
             'E' => 25,
             'F' => 25,
+            'G' => 25,
         ];
     }
 

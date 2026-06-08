@@ -59,6 +59,12 @@
                             <div class="invalid-feedback" id="error-stts_kerja"></div>
                         </div>
 
+                        <div class="col-md-12">
+                            <label class="form-label">No Telpon</label>
+                            <input type="text" name="no_telp" class="form-control form-control-sm">
+                            <div class="invalid-feedback" id="error-no_telp"></div>
+                        </div>
+
                     </div>
 
                     <!-- Informasi Gaji -->

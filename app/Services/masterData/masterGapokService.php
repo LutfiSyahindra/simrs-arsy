@@ -84,6 +84,7 @@ class masterGapokService
                     'masaKerja' => $this->getMasaKerjaAlias($g->masa_kerja),
                     'mulaiKontrak' => $g->mulai_kontrak ? Carbon::parse($g->mulai_kontrak)->format('d-m-Y') : '-',
                     'gaji_pokok' => (int) $g->gaji_pokok,
+                    'no_telp' => $g->no_telp ?? '-'
                 ];
             }
         }
@@ -156,7 +157,8 @@ class masterGapokService
                 'stts_kerja' => $pegawai->stts_kerja,
                 'mulai_kontrak' => $pegawai->mulai_kontrak, // 🔥 FIX
                 'masa_kerja' => $masaKerja, // 🔥 AUTO HITUNG
-                'gaji_pokok' => $data['gaji_pokok']
+                'gaji_pokok' => $data['gaji_pokok'],
+                'no_telp' => $data['no_telp']
             ]
         );
 

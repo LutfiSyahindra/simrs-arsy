@@ -25,6 +25,7 @@ class GapokImport implements ToCollection
 
             $nik = $row[0] ?? null;
             $gaji = $row[5] ?? null;
+            $noTelp = $row[6] ?? null;
 
             // 🔥 VALIDASI WAJIB
             if (empty($nik) || empty($gaji)) {
@@ -56,6 +57,7 @@ class GapokImport implements ToCollection
                     'stts_kerja' => $pegawai->stts_kerja,
                     'mulai_kontrak' => $pegawai->mulai_kontrak,
                     'gaji_pokok' => $gaji,
+                    'no_telp' => $noTelp
                 ];
 
                 // 🔥 SIMPAN (CREATE / UPDATE)

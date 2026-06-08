@@ -164,6 +164,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/penggajian/getPenggajianDetail', [penggajianController::class, 'getPenggajianDetail'])->name('backOffice.keuangan.penggajian.getPenggajianDetail');
         Route::post('/penggajian/generateGajiTahap1', [penggajianController::class, 'generateGajiTahap1'])->name('backOffice.keuangan.penggajian.generateGajiTahap1');
         Route::get('/penggajian/getSummaryGajiTahap1', [penggajianController::class, 'getSummaryGajiTahap1'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap1');
+        Route::get('/penggajian/slip-whatsapp/recipients', [penggajianController::class, 'getPenerimaSlipWhatsappTahap1'])->name('backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1');
+        Route::post('/penggajian/slip-whatsapp/send', [penggajianController::class, 'kirimSlipGajiWhatsappTahap1'])->name('backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1');
         Route::get('/penggajian/gajitahap1/{id}/detail', [PenggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
         Route::get('/penggajian/gajitahap1/{id}/export-pdf', [PenggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
         

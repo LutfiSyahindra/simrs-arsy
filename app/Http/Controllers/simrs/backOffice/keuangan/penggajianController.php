@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Services\keuangan\penggajian\penggajianService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 use Yajra\DataTables\Facades\DataTables;
 
 class penggajianController extends Controller
@@ -68,7 +70,7 @@ class penggajianController extends Controller
 
                         <a href="' . $pdfUrl . '"
                             target="_blank"
-                            class="btn btn-outline-success"
+                            class="btn btn-outline-danger"
                             title="Export PDF">
                             <i class="mdi mdi-file-pdf-box"></i>
                         </a>
@@ -102,6 +104,49 @@ class penggajianController extends Controller
             'message' => 'Gaji tahap 1 berhasil digenerate',
             'data' => $result,
         ]);
+    }
+
+    public function getPenerimaSlipWhatsappTahap1(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+        ]);
+
+        $data = $this->penggajianService->getPenerimaSlipWhatsappTahap1($validated['periode']);
+
+        return response()->json([
+            'status' => true,
+            'data' => $data,
+        ]);
+    }
+
+    public function kirimSlipGajiWhatsappTahap1(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+            'gaji_ids' => ['required', 'array', 'min:1'],
+            'gaji_ids.*' => ['required', 'integer'],
+        ]);
+
+        try {
+            $result = $this->penggajianService->kirimSlipGajiWhatsappTahap1(
+                $validated['periode'],
+                $validated['gaji_ids']
+            );
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Slip gaji berhasil dimasukkan ke antrean Whatsapp.',
+                'data' => $result,
+            ]);
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage() ?: 'Gagal mengirim slip gaji ke Whatsapp.',
+            ], 500);
+        }
     }
 
     public function exportSlipGajiTahap1Pdf($id)
