@@ -60,7 +60,7 @@ class penggajianService
                     $jumlahTetap++;
                 } elseif ($status === 'FT') {
                     $gajiDibayar = (int) round($gajiPokok * 0.5);
-                    $tunjanganDibayar = 0;
+                    $tunjanganDibayar = $tunjangan;
                     $jumlahKontrak++;
                 } else {
                     $gajiDibayar = 0;
@@ -271,7 +271,7 @@ class penggajianService
         ->map(function ($tunjangan) use ($gaji) {
             return [
                 'nama' => $tunjangan->nama_tunjangan ?? 'Tunjangan',
-                'nominal' => $gaji->status === 'T' ? (int) $tunjangan->nominal : 0,
+                'nominal' => $gaji->status ? (int) $tunjangan->nominal : 0,
             ];
         })
         ->values();
