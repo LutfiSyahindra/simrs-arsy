@@ -78,6 +78,10 @@
                                 <a href="{{ route("masterData.keuangan.jnsTindakan") }}" class="nav-link">Master Jenis
                                     Tindakan</a>
                             </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.jnsPremi") }}" class="nav-link">Master Jenis
+                                    Premi</a>
+                            </li>
                         </ul>
                     </div>
                 </li>

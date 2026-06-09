@@ -7,6 +7,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
 use App\Http\Controllers\simrs\master\keuangan\jabatanController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
+use App\Http\Controllers\simrs\master\keuangan\jnsPremiController;
 use App\Http\Controllers\simrs\master\keuangan\jnsTindakanController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
@@ -250,6 +251,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/jnsTindakan/{id}/edit', [jnsTindakanController::class, 'edit'])->name('masterData.keuangan.jnsTindakan.edit');
         Route::put('/jnsTindakan/{id}/update', [jnsTindakanController::class, 'update'])->name('masterData.keuangan.jnsTindakan.update');
         Route::delete('/jnsTindakan/{id}/delete', [jnsTindakanController::class, 'destroy'])->name('masterData.keuangan.jnsTindakan.delete');
+
+        Route::get('/jnsPremi', [jnsPremiController::class, 'jnsPremi'])->name('masterData.keuangan.jnsPremi');
+        Route::get('/jnsPremi/getJnsPremiTable', [jnsPremiController::class, 'jnsPremiTable'])->name('masterData.keuangan.jnsPremi.getJnsPremiTable');
+        Route::get('/jnsPremi/generateKode', [jnsPremiController::class, 'generateKodeJnsPremi'])->name('masterData.keuangan.jnsPremi.generateKode');
+        Route::post('/jnsPremi/store', [jnsPremiController::class, 'store'])->name('masterData.keuangan.jnsPremi.store');
+        Route::get('/jnsPremi/{id}/edit', [jnsPremiController::class, 'edit'])->name('masterData.keuangan.jnsPremi.edit');
+        Route::put('/jnsPremi/{id}/update', [jnsPremiController::class, 'update'])->name('masterData.keuangan.jnsPremi.update');
+        Route::delete('/jnsPremi/{id}/delete', [jnsPremiController::class, 'destroy'])->name('masterData.keuangan.jnsPremi.delete');
     });
 
     Route::prefix('simrs/masterData/mapping')->group(function () {
