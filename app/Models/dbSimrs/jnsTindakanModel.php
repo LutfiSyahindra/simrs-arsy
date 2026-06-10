@@ -16,4 +16,9 @@ class jnsTindakanModel extends Model
     {
         return $this->hasMany(mappingTindakanModel::class, 'jnsTindakan_id', 'id');
     }
+
+    public function mappingPremi()
+    {
+        return $this->hasMany(mappingPremiModel::class, 'jnsTindakan_id', 'id');
+    }
 }

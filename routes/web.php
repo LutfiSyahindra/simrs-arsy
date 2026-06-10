@@ -14,6 +14,7 @@ use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\keuangan\unitController;
 use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
+use App\Http\Controllers\simrs\master\mapping\mappingPremiController;
 use App\Http\Controllers\simrs\master\mapping\mappingTindakanController;
 use App\Http\Controllers\simrs\master\mapping\mappingUnitController;
 use App\Http\Controllers\simrs\master\mapping\masppingController;
@@ -301,6 +302,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingTindakan/{id}/edit', [mappingTindakanController::class, 'editTindakan'])->name('masterData.mapping.mappingTindakan.edit');
         Route::put('/mappingTindakan/{id}/update', [mappingTindakanController::class, 'updateTindakan'])->name('masterData.mapping.mappingTindakan.update');
         Route::delete('/mappingTindakan/{id}/delete', [mappingTindakanController::class, 'destroyTindakan'])->name('masterData.mapping.mappingTindakan.delete');
+
+        Route::get('/mappingPremi', [mappingPremiController::class, 'mappingPremi'])->name('masterData.mapping.mappingPremi');
+        Route::get('/mappingPremi/getPremiTable', [mappingPremiController::class, 'premiTable'])->name('masterData.mapping.mappingPremi.getPremiTable');
+        Route::get('/mappingPremi/guideJenisPremi', [mappingPremiController::class, 'guideJenisPremi'])->name('masterData.mapping.mappingPremi.guideJenisPremi');
+        Route::get('/mappingPremi/guideJenisTindakan', [mappingPremiController::class, 'guideJenisTindakan'])->name('masterData.mapping.mappingPremi.guideJenisTindakan');
+        Route::get('/mappingPremi/by-premi/{id}', [mappingPremiController::class, 'getByPremi'])->name('masterData.mapping.mappingPremi.byPremi');
+        Route::post('/mappingPremi/store', [mappingPremiController::class, 'store'])->name('masterData.mapping.mappingPremi.store');
+        Route::put('/mappingPremi/{id}/update', [mappingPremiController::class, 'update'])->name('masterData.mapping.mappingPremi.update');
+        Route::delete('/mappingPremi/{id}/delete', [mappingPremiController::class, 'destroy'])->name('masterData.mapping.mappingPremi.delete');
     });
 });
 

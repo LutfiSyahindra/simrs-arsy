@@ -12,8 +12,8 @@ class jnsPremiModel extends Model
     protected $table = 'master_jenis_premi';
     protected $fillable = ['kode','jenis'];
 
-    // public function mappingTindakan()
-    // {
-    //     return $this->hasMany(mappingTindakanModel::class, 'jnsPremi_id', 'id');
-    // }
+    public function mappingPremi()
+    {
+        return $this->hasMany(mappingPremiModel::class, 'jnsPremi_id', 'id');
+    }
 }

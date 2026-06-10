@@ -155,6 +155,10 @@
             background: #475569;
         }
 
+        .finance-master-page .mapping-card-icon.purple {
+            background: #d80fb6;
+        }
+
         .finance-master-page .mapping-card-icon i,
         .finance-master-page .mapping-summary-icon i {
             font-size: 21px;
@@ -441,7 +445,7 @@
                                             <span class="mapping-card-icon cyan">
                                                 <i class="mdi mdi-medical-bag"></i>
                                             </span>
-                                            <span class="mapping-status draft">Draft</span>
+                                            <span class="mapping-status ready">Ready</span>
                                         </div>
                                         <div class="mt-3">
                                             <div class="mapping-card-title">Mapping Tindakan</div>
@@ -458,6 +462,35 @@
                                             <span>Unit</span>
                                         </div>
                                         <a href="{{ route("masterData.mapping.mappingTindakan") }}"
+                                            class="mapping-card-action">
+                                            <span>Buka mapping</span>
+                                            <i class="mdi mdi-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="mapping-menu-card" data-search="mapping premi">
+                                    <div>
+                                        <div class="mapping-card-head">
+                                            <span class="mapping-card-icon purple">
+                                                <i class="mdi mdi-shield-check"></i>
+                                            </span>
+                                            <span class="mapping-status ready">Ready</span>
+                                        </div>
+                                        <div class="mt-3">
+                                            <div class="mapping-card-title">Mapping Premi</div>
+                                            <p class="mapping-card-text">
+                                                Hubungkan Premi dengan Tindakan.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="mapping-meta mb-3">
+                                            <span>Premi</span>
+                                            <span>Jenis premi</span>
+                                            <span>Tindakan</span>
+                                        </div>
+                                        <a href="{{ route("masterData.mapping.mappingPremi") }}"
                                             class="mapping-card-action">
                                             <span>Buka mapping</span>
                                             <i class="mdi mdi-arrow-right"></i>

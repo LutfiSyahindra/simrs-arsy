@@ -26,7 +26,8 @@ License: For each use you must have a valid license purchased only from above li
                 @include("template.partials.navbar")
                 <!-- partial -->
 
-                <div class="page-content">
+                <div class="page-content has-workspace-tabs">
+                    @include("template.partials.workspaceTabs")
 
                     @yield("content")
 

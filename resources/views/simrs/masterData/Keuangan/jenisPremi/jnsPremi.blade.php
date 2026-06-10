@@ -26,7 +26,7 @@
                         <div class="master-panel">
                             <div class="master-title-group">
                                 <div class="master-icon master-icon-primary">
-                                    <i class="mdi mdi-medical-bag"></i>
+                                    <i class="mdi mdi-cash-multiple"></i>
                                 </div>
 
                                 <div>
@@ -79,5 +79,5 @@
 @endsection
 
 @push("scripts")
-    @include("simrs.masterData.Keuangan.JenisPremi.jsMain") 
+    @include("simrs.masterData.Keuangan.JenisPremi.jsMain")
 @endpush
