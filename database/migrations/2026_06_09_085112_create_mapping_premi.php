@@ -16,7 +16,8 @@ return new class extends Migration
 
             $table->foreignId('jnsPremi_id')->constrained('master_jenis_premi')->cascadeOnDelete();
             $table->foreignId('jnsTindakan_id')->constrained('master_jenis_tindakan')->cascadeOnDelete();
-            $table->integer('persentase');
+            $table->integer('nilai');
+            $table->enum('jenis', ['persen', 'nominal'])->default('persen');
 
             $table->timestamps();
 

@@ -79,12 +79,37 @@
             word-break: break-word;
         }
 
-        .premi-percentage {
+        .premi-value {
             color: #047857;
             font-size: 20px;
             font-weight: 800;
-            min-width: 72px;
+            min-width: 110px;
             text-align: right;
+        }
+
+        .premi-value.nominal {
+            color: #1d4ed8;
+            font-size: 16px;
+        }
+
+        .premi-kind-badge {
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 10px;
+            font-weight: 800;
+            margin-top: 5px;
+            padding: 3px 7px;
+            text-transform: uppercase;
+        }
+
+        .premi-kind-badge.persen {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .premi-kind-badge.nominal {
+            background: #dbeafe;
+            color: #1d4ed8;
         }
 
         .premi-inline-editor {
@@ -281,7 +306,7 @@
                 width: 100%;
             }
 
-            .premi-percentage {
+            .premi-value {
                 text-align: left;
             }
         }
@@ -313,7 +338,7 @@
                                     <div class="master-eyebrow">Master Keuangan</div>
                                     <h5 class="master-title">Mapping Premi</h5>
                                     <p class="master-subtitle mb-0">
-                                        Hubungkan master premi dengan jenis tindakan dan persentasenya.
+                                        Hubungkan master premi dengan tindakan serta nilai persen atau nominalnya.
                                     </p>
                                 </div>
                             </div>

@@ -59,7 +59,8 @@ class mappingPremiController extends Controller
                 'jnsPremi_id' => 'required|integer|exists:master_jenis_premi,id',
                 'mappings' => 'required|array|min:1',
                 'mappings.*.jnsTindakan_id' => 'required|integer|distinct|exists:master_jenis_tindakan,id',
-                'mappings.*.persentase' => 'required|integer|min:0|max:100',
+                'mappings.*.jenis' => 'required|in:persen,nominal',
+                'mappings.*.nilai' => 'required|integer|min:0|max:2147483647',
             ], [
                 'jnsPremi_id.required' => 'Jenis premi wajib dipilih',
                 'jnsPremi_id.exists' => 'Jenis premi tidak ditemukan',
@@ -68,11 +69,15 @@ class mappingPremiController extends Controller
                 'mappings.*.jnsTindakan_id.required' => 'Jenis tindakan wajib dipilih',
                 'mappings.*.jnsTindakan_id.distinct' => 'Jenis tindakan tidak boleh duplikat',
                 'mappings.*.jnsTindakan_id.exists' => 'Jenis tindakan tidak ditemukan',
-                'mappings.*.persentase.required' => 'Persentase wajib diisi',
-                'mappings.*.persentase.integer' => 'Persentase harus berupa bilangan bulat',
-                'mappings.*.persentase.min' => 'Persentase minimal 0%',
-                'mappings.*.persentase.max' => 'Persentase maksimal 100%',
+                'mappings.*.jenis.required' => 'Jenis nilai wajib dipilih',
+                'mappings.*.jenis.in' => 'Jenis nilai harus persen atau nominal',
+                'mappings.*.nilai.required' => 'Nilai premi wajib diisi',
+                'mappings.*.nilai.integer' => 'Nilai premi harus berupa bilangan bulat',
+                'mappings.*.nilai.min' => 'Nilai premi minimal 0',
+                'mappings.*.nilai.max' => 'Nilai nominal terlalu besar',
             ]);
+
+            $this->validatePersenValues($validated['mappings']);
 
             $premiId = (int) $validated['jnsPremi_id'];
             $tindakanIds = collect($validated['mappings'])
@@ -120,15 +125,20 @@ class mappingPremiController extends Controller
         try {
             $validated = $request->validate([
                 'jnsTindakan_id' => 'required|integer|exists:master_jenis_tindakan,id',
-                'persentase' => 'required|integer|min:0|max:100',
+                'jenis' => 'required|in:persen,nominal',
+                'nilai' => 'required|integer|min:0|max:2147483647',
             ], [
                 'jnsTindakan_id.required' => 'Jenis tindakan wajib dipilih',
                 'jnsTindakan_id.exists' => 'Jenis tindakan tidak ditemukan',
-                'persentase.required' => 'Persentase wajib diisi',
-                'persentase.integer' => 'Persentase harus berupa bilangan bulat',
-                'persentase.min' => 'Persentase minimal 0%',
-                'persentase.max' => 'Persentase maksimal 100%',
+                'jenis.required' => 'Jenis nilai wajib dipilih',
+                'jenis.in' => 'Jenis nilai harus persen atau nominal',
+                'nilai.required' => 'Nilai premi wajib diisi',
+                'nilai.integer' => 'Nilai premi harus berupa bilangan bulat',
+                'nilai.min' => 'Nilai premi minimal 0',
+                'nilai.max' => 'Nilai nominal terlalu besar',
             ]);
+
+            $this->validatePersenValues([$validated], false);
 
             $row = $this->premiMappingService->findById($id);
 
@@ -151,7 +161,12 @@ class mappingPremiController extends Controller
                 ], 422);
             }
 
-            $this->premiMappingService->update($id, $tindakanId, (int) $validated['persentase']);
+            $this->premiMappingService->update(
+                $id,
+                $tindakanId,
+                $validated['jenis'],
+                (int) $validated['nilai']
+            );
 
             return response()->json([
                 'status' => true,
@@ -191,6 +206,22 @@ class mappingPremiController extends Controller
                 'status' => false,
                 'message' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    private function validatePersenValues(array $mappings, bool $nested = true): void
+    {
+        $errors = [];
+
+        foreach ($mappings as $index => $mapping) {
+            if (($mapping['jenis'] ?? null) === 'persen' && (int) ($mapping['nilai'] ?? 0) > 100) {
+                $key = $nested ? "mappings.$index.nilai" : 'nilai';
+                $errors[$key] = ['Nilai persen maksimal 100%'];
+            }
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
         }
     }
 }

@@ -13,7 +13,12 @@ class mappingPremiModel extends Model
     protected $fillable = [
         'jnsPremi_id',
         'jnsTindakan_id',
-        'persentase'
+        'nilai',
+        'jenis',
+    ];
+
+    protected $casts = [
+        'nilai' => 'integer',
     ];
 
     public function jnsTindakan()

@@ -5,7 +5,7 @@
                 <div>
                     <h5 class="modal-title fw-semibold">Mapping Premi</h5>
                     <small class="text-muted">
-                        Pilih premi, jenis tindakan, dan persentase yang berlaku.
+                        Pilih premi, jenis tindakan, serta nilai persen atau nominal yang berlaku.
                     </small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -26,7 +26,7 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
                             <div class="fw-semibold">Jenis Tindakan</div>
-                            <small class="text-muted">Persentase dapat berbeda untuk setiap jenis tindakan.</small>
+                            <small class="text-muted">Nilai persen atau nominal dapat berbeda untuk setiap tindakan.</small>
                         </div>
                         <button type="button" id="addPremiMappingRow" class="btn btn-sm btn-outline-primary">
                             <i class="mdi mdi-plus"></i> Tambah Baris

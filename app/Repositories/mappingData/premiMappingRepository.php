@@ -26,7 +26,6 @@ class premiMappingRepository
     {
         return $this->masterJnsPremiModel::select('id', 'kode', 'jenis')
             ->withCount(['mappingPremi as jumlah_tindakan'])
-            ->withSum('mappingPremi as total_persentase', 'persentase')
             ->orderBy('jenis')
             ->get();
     }
@@ -57,7 +56,7 @@ class premiMappingRepository
 
     public function getMappingsByPremi(int $premiId)
     {
-        return $this->mappingPremiModel::select('id', 'jnsPremi_id', 'jnsTindakan_id', 'persentase')
+        return $this->mappingPremiModel::select('id', 'jnsPremi_id', 'jnsTindakan_id', 'nilai', 'jenis')
             ->with('jnsTindakan:id,kode,jenis')
             ->where('jnsPremi_id', $premiId)
             ->orderBy('jnsTindakan_id')

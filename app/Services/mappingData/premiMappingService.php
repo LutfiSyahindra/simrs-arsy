@@ -20,14 +20,12 @@ class premiMappingService
             ->getPremiWithCounts()
             ->map(function ($premi) {
                 $jumlah = (int) $premi->jumlah_tindakan;
-                $totalPersentase = (int) ($premi->total_persentase ?? 0);
 
                 return [
                     'id' => $premi->id,
                     'kode' => $premi->kode,
                     'jenis' => $premi->jenis,
                     'jumlah_tindakan' => $jumlah,
-                    'total_persentase' => $totalPersentase,
                     'total' => '<span class="fw-bold text-primary">'.$jumlah.' tindakan</span>',
                 ];
             });
@@ -79,7 +77,8 @@ class premiMappingService
                     return [
                         'jnsPremi_id' => $premiId,
                         'jnsTindakan_id' => (int) $mapping['jnsTindakan_id'],
-                        'persentase' => (int) $mapping['persentase'],
+                        'nilai' => (int) $mapping['nilai'],
+                        'jenis' => $mapping['jenis'],
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -110,11 +109,12 @@ class premiMappingService
         return $this->premiMappingRepository->existsMapping($premiId, $tindakanId, $exceptId);
     }
 
-    public function update($id, int $tindakanId, int $persentase)
+    public function update($id, int $tindakanId, string $jenis, int $nilai)
     {
         return $this->premiMappingRepository->update($id, [
             'jnsTindakan_id' => $tindakanId,
-            'persentase' => $persentase,
+            'jenis' => $jenis,
+            'nilai' => $nilai,
         ]);
     }
 
@@ -131,7 +131,8 @@ class premiMappingService
             'jnsTindakan_id' => (int) $item->jnsTindakan_id,
             'kode_tindakan' => $item->jnsTindakan->kode ?? '-',
             'jenis_tindakan' => $item->jnsTindakan->jenis ?? '-',
-            'persentase' => (int) $item->persentase,
+            'jenis' => $item->jenis,
+            'nilai' => (int) $item->nilai,
         ];
     }
 }
