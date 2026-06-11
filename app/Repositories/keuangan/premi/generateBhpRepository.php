@@ -37,8 +37,7 @@ class generateBhpRepository
                     })
                     ->orWhere(function ($a09) {
                         $a09
-                            ->where('rp.kd_pj', 'A09')
-                            ->where('rp.status_bayar', 'Sudah Bayar');
+                            ->where('rp.kd_pj', 'A09');
                     });
             })
             ->orderBy('rp.tgl_registrasi')
