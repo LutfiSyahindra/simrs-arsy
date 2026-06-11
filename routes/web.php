@@ -2,6 +2,8 @@
 
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
@@ -160,6 +162,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/premi/cetakPremiDetailPdf', [premiController::class, 'cetakPremiDetailPdf'])->name('backOffice.keuangan.premi.cetakPremiDetailPdf');
         Route::get('/premi/cetakPremiDetailExcel', [premiController::class, 'cetakPremiDetailExcel'])->name('backOffice.keuangan.premi.cetakPremiDetailExcel');
         Route::get('/premi/cetakPremiAllPdf', [premiController::class, 'cetakAllPremiPdf'])->name('backOffice.keuangan.premi.cetakPremiAllPdf');
+
+        Route::get('/hitung-premi', [hitungPremiController::class, 'index'])->name('backOffice.keuangan.hitungPremi');
+        Route::get('/hitung-premi/generateBhp', [hitungPremiBhpController::class, 'generateBhp'])->name('backOffice.keuangan.hitungPremi.generateBhp');
+        Route::get('/hitung-premi/generateBhp/table', [hitungPremiBhpController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateBhp.table');
+        Route::get('/hitung-premi/generateBhp/summary', [hitungPremiBhpController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateBhp.summary');
+        Route::post('/hitung-premi/generateBhp', [hitungPremiBhpController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateBhp.store');
+        Route::get('/hitung-premi/generateBhp/{id}/detail', [hitungPremiBhpController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateBhp.detail');
+        Route::post('/hitung-premi/generateBhp/{id}/lock', [hitungPremiBhpController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateBhp.lock');
+        Route::post('/hitung-premi/generateBhp/{id}/unlock', [hitungPremiBhpController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateBhp.unlock');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');

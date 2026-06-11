@@ -194,12 +194,14 @@
                                 Pegawai</a>
                         </li> --}}
                         <li class="nav-item">
-                            <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Pendapatan</a>
+                            <a href="{{ route("backOffice.keuangan.premi") }}" class="nav-link">Tindakan</a>
                         </li>
                         <li class="nav-item">
                             <a href="{{ route("backOffice.keuangan.penggajian") }}" class="nav-link">Penggajian</a>
                         </li>
-                        
+                        <li class="nav-item">
+                            <a href="{{ route("backOffice.keuangan.hitungPremi") }}" class="nav-link">Hitung Premi</a>
+                        </li>
                     </ul>
                 </div>
             </li>
