@@ -399,6 +399,31 @@
                 </div>
             </article>
 
+            <article class="generator-menu-card" style="--card-color: #059669; --card-soft: #d1fae5;"
+                data-title="Generate Premi Kamar" data-search="generate premi kamar rawat inap kelas tarif hari perawatan">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-hospital-building"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Kamar</h5>
+                    <p class="generator-menu-description">
+                        Memproses premi dari penggunaan kamar, lama inap, penjamin, dan status pembayaran.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        Registrasi rawat inap dan penggunaan kamar
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">KAMAR</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateKamar") }}" class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
             <article class="generator-menu-card" style="--card-color: #2563eb; --card-soft: #dbeafe;"
                 data-title="Generate Premi Tindakan"
                 data-search="generate premi tindakan pelayanan medis mapping jenis tindakan">
@@ -419,31 +444,6 @@
                 </div>
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">TINDAKAN</span>
-                    <button type="button" class="btn-open-generator" disabled>
-                        Segera Hadir <i class="mdi mdi-progress-clock"></i>
-                    </button>
-                </div>
-            </article>
-
-            <article class="generator-menu-card" style="--card-color: #059669; --card-soft: #d1fae5;"
-                data-title="Generate Premi Kamar" data-search="generate premi kamar rawat inap kelas tarif hari perawatan">
-                <div class="generator-menu-accent"></div>
-                <div class="generator-menu-body">
-                    <div class="generator-menu-head">
-                        <div class="generator-menu-icon"><i class="mdi mdi-hospital-building"></i></div>
-                        <span class="generator-menu-status preparation">Persiapan</span>
-                    </div>
-                    <h5 class="generator-menu-title">Generate Premi Kamar</h5>
-                    <p class="generator-menu-description">
-                        Memproses premi kamar dari transaksi rawat inap, kelas kamar, tarif, dan lama perawatan.
-                    </p>
-                    <div class="generator-menu-source">
-                        <i class="mdi mdi-database-outline"></i>
-                        Registrasi rawat inap dan penggunaan kamar
-                    </div>
-                </div>
-                <div class="generator-menu-footer">
-                    <span class="generator-menu-code">KAMAR</span>
                     <button type="button" class="btn-open-generator" disabled>
                         Segera Hadir <i class="mdi mdi-progress-clock"></i>
                     </button>

@@ -4,6 +4,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
@@ -171,6 +172,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateBhp/{id}/detail', [hitungPremiBhpController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateBhp.detail');
         Route::post('/hitung-premi/generateBhp/{id}/lock', [hitungPremiBhpController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateBhp.lock');
         Route::post('/hitung-premi/generateBhp/{id}/unlock', [hitungPremiBhpController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateBhp.unlock');
+
+        Route::get('/hitung-premi/generateKamar', [hitungPremiKamarController::class, 'generateKamar'])->name('backOffice.keuangan.hitungPremi.generateKamar');
+        Route::get('/hitung-premi/generateKamar/table', [hitungPremiKamarController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateKamar.table');
+        Route::get('/hitung-premi/generateKamar/summary', [hitungPremiKamarController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateKamar.summary');
+        Route::post('/hitung-premi/generateKamar', [hitungPremiKamarController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateKamar.store');
+        Route::get('/hitung-premi/generateKamar/{id}/detail', [hitungPremiKamarController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateKamar.detail');
+        Route::post('/hitung-premi/generateKamar/{id}/lock', [hitungPremiKamarController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateKamar.lock');
+        Route::post('/hitung-premi/generateKamar/{id}/unlock', [hitungPremiKamarController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateKamar.unlock');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');
