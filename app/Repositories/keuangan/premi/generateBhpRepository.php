@@ -4,7 +4,7 @@ namespace App\Repositories\keuangan\premi;
 
 use App\Models\dbSimrs\generateBhpDetailModel;
 use App\Models\dbSimrs\generateBhpModel;
-use Illuminate\Support\Carbon;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,9 +13,11 @@ class generateBhpRepository
 {
     public function getEligibleByType(string $periode, string $jenisBhp): Collection
     {
+        $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisBhp);
+
         return $jenisBhp === 'bpjs'
-            ? $this->getEligibleBpjsByPeriod($periode)
-            : $this->getEligibleUmumByPeriod($periode);
+            ? $this->getEligibleBpjsByPeriod($sourcePeriod)
+            : $this->getEligibleUmumByPeriod($sourcePeriod);
     }
 
     public function getEligibleUmumByPeriod(string $periode): Collection
@@ -63,8 +65,7 @@ class generateBhpRepository
 
     private function baseEligibleQuery(string $periode)
     {
-        $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
-        $end = $start->copy()->addMonth();
+        $range = PremiSourcePeriod::range($periode, 'umum');
 
         return DB::connection('mysql_khanza')
             ->table('reg_periksa as rp')
@@ -76,8 +77,8 @@ class generateBhpRepository
                 'pj.png_jawab as nama_penjamin',
             ])
             ->where('rp.status_lanjut', 'Ranap')
-            ->where('rp.tgl_registrasi', '>=', $start->toDateString())
-            ->where('rp.tgl_registrasi', '<', $end->toDateString());
+            ->where('rp.tgl_registrasi', '>=', $range['start']->toDateString())
+            ->where('rp.tgl_registrasi', '<', $range['end']->toDateString());
     }
 
     public function getResults(?string $periode = null, ?string $jenisBhp = null): Collection
@@ -119,24 +120,23 @@ class generateBhpRepository
     }
 
     public function saveResult(
-            string $periode,
-            string $jenisBhp,
-            int $jumlah,
-            int $nominal
-        ): generateBhpModel
-        {
-            return generateBhpModel::query()->updateOrCreate(
-                [
-                    'periode' => $periode,
-                    'jenis_bhp' => $jenisBhp,
-                ],
-                [
-                    'jumlah_bhp' => $jumlah,
-                    'nominal_hitung' => $nominal,
-                    'total_bhp' => $jumlah * $nominal,
-                    'generate_by' => Auth::user()->id,
-                ]
-            );
+        string $periode,
+        string $jenisBhp,
+        int $jumlah,
+        int $nominal
+    ): generateBhpModel {
+        return generateBhpModel::query()->updateOrCreate(
+            [
+                'periode' => $periode,
+                'jenis_bhp' => $jenisBhp,
+            ],
+            [
+                'jumlah_bhp' => $jumlah,
+                'nominal_hitung' => $nominal,
+                'total_bhp' => $jumlah * $nominal,
+                'generate_by' => Auth::user()->id,
+            ]
+        );
     }
 
     public function replaceDetails(generateBhpModel $generateBhp, Collection $details): void

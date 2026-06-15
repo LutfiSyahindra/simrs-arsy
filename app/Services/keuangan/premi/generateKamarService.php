@@ -5,6 +5,7 @@ namespace App\Services\keuangan\premi;
 use App\Models\dbSimrs\generateKamarModel;
 use App\Models\User;
 use App\Repositories\keuangan\premi\generateKamarRepository;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,10 @@ class generateKamarService
             ->map(fn ($row) => [
                 'id' => $row->id,
                 'periode' => $row->periode,
+                'periode_sumber' => PremiSourcePeriod::resolve(
+                    $row->periode,
+                    $row->jenis_kamar
+                ),
                 'jenis_kamar' => $row->jenis_kamar,
                 'jenis_kamar_label' => $this->typeLabel($row->jenis_kamar),
                 'jumlah_kamar' => $row->jumlah_kamar,
@@ -45,6 +50,9 @@ class generateKamarService
 
         return [
             'periode' => $periode,
+            'periode_sumber' => $periode
+                ? PremiSourcePeriod::resolve($periode, $jenisKamar)
+                : null,
             'jenis_kamar' => $jenisKamar,
             'jenis_kamar_label' => $this->typeLabel($jenisKamar),
             'jumlah_kamar' => $row?->jumlah_kamar ?? 0,
@@ -60,8 +68,15 @@ class generateKamarService
     public function generate(string $periode, string $jenisKamar, int $nominal): array
     {
         $typeLabel = $this->typeLabel($jenisKamar);
+        $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisKamar);
 
-        return DB::transaction(function () use ($periode, $jenisKamar, $nominal, $typeLabel) {
+        return DB::transaction(function () use (
+            $periode,
+            $jenisKamar,
+            $nominal,
+            $typeLabel,
+            $sourcePeriod
+        ) {
             $existing = $this->generateKamarRepository
                 ->findByPeriodAndTypeForUpdate($periode, $jenisKamar);
 
@@ -75,7 +90,7 @@ class generateKamarService
 
             if ($details->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'periode' => "Tidak ada data kamar inap {$typeLabel} yang memenuhi kriteria pada periode ini.",
+                    'periode' => "Tidak ada data kamar inap {$typeLabel} yang memenuhi kriteria pada periode sumber {$sourcePeriod}.",
                 ]);
             }
 
@@ -177,6 +192,10 @@ class generateKamarService
         return [
             'id' => $result->id,
             'periode' => $result->periode,
+            'periode_sumber' => PremiSourcePeriod::resolve(
+                $result->periode,
+                $result->jenis_kamar
+            ),
             'jenis_kamar' => $result->jenis_kamar,
             'jenis_kamar_label' => $this->typeLabel($result->jenis_kamar),
             'jumlah_kamar' => $result->jumlah_kamar,

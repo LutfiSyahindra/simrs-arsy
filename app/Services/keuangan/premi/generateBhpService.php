@@ -4,6 +4,7 @@ namespace App\Services\keuangan\premi;
 
 use App\Models\User;
 use App\Repositories\keuangan\premi\generateBhpRepository;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -12,8 +13,7 @@ class generateBhpService
 {
     public function __construct(
         protected generateBhpRepository $generateBhpRepository
-    ) {
-    }
+    ) {}
 
     public function getResults(?string $periode = null, ?string $jenisBhp = null)
     {
@@ -22,6 +22,10 @@ class generateBhpService
             ->map(fn ($row) => [
                 'id' => $row->id,
                 'periode' => $row->periode,
+                'periode_sumber' => PremiSourcePeriod::resolve(
+                    $row->periode,
+                    $row->jenis_bhp
+                ),
                 'jenis_bhp' => $row->jenis_bhp,
                 'jenis_bhp_label' => $this->typeLabel($row->jenis_bhp),
                 'jumlah_bhp' => $row->jumlah_bhp,
@@ -44,6 +48,9 @@ class generateBhpService
 
         return [
             'periode' => $periode,
+            'periode_sumber' => $periode
+                ? PremiSourcePeriod::resolve($periode, $jenisBhp)
+                : null,
             'jenis_bhp' => $jenisBhp,
             'jenis_bhp_label' => $this->typeLabel($jenisBhp),
             'jumlah_bhp' => $row?->jumlah_bhp ?? 0,
@@ -58,8 +65,15 @@ class generateBhpService
     public function generate(string $periode, string $jenisBhp, int $nominal): array
     {
         $typeLabel = $this->typeLabel($jenisBhp);
+        $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisBhp);
 
-        return DB::transaction(function () use ($periode, $jenisBhp, $nominal, $typeLabel) {
+        return DB::transaction(function () use (
+            $periode,
+            $jenisBhp,
+            $nominal,
+            $typeLabel,
+            $sourcePeriod
+        ) {
             $existing = $this->generateBhpRepository
                 ->findByPeriodAndTypeForUpdate($periode, $jenisBhp);
 
@@ -73,7 +87,7 @@ class generateBhpService
 
             if ($details->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'periode' => "Tidak ada data rawat inap {$typeLabel} yang memenuhi kriteria pada periode ini.",
+                    'periode' => "Tidak ada data rawat inap {$typeLabel} yang memenuhi kriteria pada periode sumber {$sourcePeriod}.",
                 ]);
             }
 
@@ -89,6 +103,10 @@ class generateBhpService
             return [
                 'id' => $result->id,
                 'periode' => $result->periode,
+                'periode_sumber' => PremiSourcePeriod::resolve(
+                    $result->periode,
+                    $result->jenis_bhp
+                ),
                 'jenis_bhp' => $result->jenis_bhp,
                 'jenis_bhp_label' => $this->typeLabel($result->jenis_bhp),
                 'jumlah_bhp' => $result->jumlah_bhp,
@@ -113,6 +131,10 @@ class generateBhpService
         return [
             'id' => $result->id,
             'periode' => $result->periode,
+            'periode_sumber' => PremiSourcePeriod::resolve(
+                $result->periode,
+                $result->jenis_bhp
+            ),
             'jenis_bhp' => $result->jenis_bhp,
             'jenis_bhp_label' => $this->typeLabel($result->jenis_bhp),
             'jumlah_bhp' => $result->jumlah_bhp,

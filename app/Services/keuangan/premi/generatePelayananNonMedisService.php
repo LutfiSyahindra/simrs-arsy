@@ -5,6 +5,7 @@ namespace App\Services\keuangan\premi;
 use App\Models\dbSimrs\premiPelayananNonMedisModel;
 use App\Models\User;
 use App\Repositories\keuangan\premi\generatePelayananNonMedisRepository;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +54,7 @@ class generatePelayananNonMedisService
 
         return [
             'periode' => $periode,
+            'periode_sumber' => PremiSourcePeriod::resolve($periode, $jenis),
             'jenis_pelayanan' => $jenis,
             'jenis_pelayanan_label' => $this->typeLabel($jenis),
             'dependency_bhp' => $this->dependencyPayload(
@@ -137,8 +139,10 @@ class generatePelayananNonMedisService
             $calculation = $this->repository->calculate($periode, $jenis);
 
             if ($calculation['jumlah_mapping_premi'] === 0) {
+                $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenis);
+
                 throw ValidationException::withMessages([
-                    'mapping' => 'Tidak ada transaksi yang sesuai dengan mapping tindakan dan mapping premi.',
+                    'mapping' => "Tidak ada transaksi periode sumber {$sourcePeriod} yang sesuai dengan mapping tindakan dan mapping premi.",
                 ]);
             }
 
@@ -241,6 +245,10 @@ class generatePelayananNonMedisService
         return [
             'id' => $result->id,
             'periode' => $result->periode,
+            'periode_sumber' => PremiSourcePeriod::resolve(
+                $result->periode,
+                $result->jenis_pelayanan
+            ),
             'jenis_pelayanan' => $result->jenis_pelayanan,
             'jenis_pelayanan_label' => $this->typeLabel($result->jenis_pelayanan),
             'jumlah_transaksi' => $result->jumlah_transaksi,

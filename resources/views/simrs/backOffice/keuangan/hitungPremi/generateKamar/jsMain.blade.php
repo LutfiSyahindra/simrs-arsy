@@ -51,7 +51,8 @@
                 criteria: [
                     'Status lanjut pasien adalah rawat inap.',
                     'Kode penjamin pasien adalah BPJ.',
-                    'Piutang pasien berstatus Belum Lunas.'
+                    'Piutang pasien berstatus Belum Lunas.',
+                    'Data sumber diambil dari satu bulan sebelum periode generate.'
                 ]
             }
         };
@@ -88,6 +89,29 @@
             return xhr.responseJSON?.message || fallback;
         }
 
+        function getSourcePeriod(periode, type) {
+            const parts = String(periode || '').split('-').map(Number);
+
+            if (parts.length !== 2 || !parts[0] || !parts[1]) {
+                return '-';
+            }
+
+            const source = new Date(parts[0], parts[1] - 1 - (type === 'bpjs' ? 1 : 0), 1);
+
+            return source.getFullYear() + '-' +
+                String(source.getMonth() + 1).padStart(2, '0');
+        }
+
+        function updateSourcePeriodInfo() {
+            const sourcePeriod = getSourcePeriod($('#periodeBhp').val(), activeType);
+            const message = activeType === 'bpjs' ?
+                'Periode hasil tetap ' + ($('#periodeBhp').val() || '-') +
+                    ', data BPJS dibaca dari bulan sebelumnya: ' + sourcePeriod + '.' :
+                'Data Umum dibaca dari periode yang dipilih: ' + sourcePeriod + '.';
+
+            $('#periodeSourceHelp').text(message);
+        }
+
         function updateTypeDisplay() {
             const config = typeConfig[activeType];
 
@@ -100,6 +124,7 @@
             $('#activeTypeDescription span').text(config.description);
             $('#btnGenerateBhpLabel').text('Generate Kamar ' + config.label);
             $('#resultBhpTitle').text('Hasil Generate Kamar ' + config.label);
+            updateSourcePeriodInfo();
 
             $('#activeCriteriaList').html(config.criteria.map(function(criteria) {
                 return `
@@ -126,7 +151,8 @@
                     $('#summaryNominalBhp').text(formatRupiah(data.nominal_hitung));
                     $('#summaryTotalBhp').text(formatRupiah(data.total_lama_inap));
                     $('#summaryPeriode').text(
-                        (data.periode || '-') + ' / ' + (data.jenis_kamar_label || '-')
+                        (data.periode || '-') + ' / ' + (data.jenis_kamar_label || '-') +
+                        ' / Sumber ' + (data.periode_sumber || '-')
                     );
                     $('#summaryFormulaBhp').text(
                         (data.jumlah_lama_inap || 0) + ' hari x ' +
@@ -392,6 +418,7 @@
             const periode = $('#periodeBhp').val() || '-';
             $('#heroActivePeriod').text(periode);
             $('#actionActivePeriod').text(periode);
+            updateSourcePeriodInfo();
         }
 
         $('.btn-type-bhp').on('click', function() {
@@ -518,6 +545,10 @@
             $('#jenisGenerateBhp').val(activeType);
             $('#jenisGenerateBhpLabel').val(config.label);
             $('#periodeGenerateBhp').val(periode);
+            $('#periodeGenerateSourceInfo').text(
+                'Data sumber: ' + getSourcePeriod(periode, activeType) +
+                (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.')
+            );
             $('#nominalHitungBhp').val('').removeClass('is-invalid');
             $('#nominalHitungBhpError').text('');
             generateModal.show();
@@ -975,7 +1006,10 @@
                     );
                     $('#detailBhpHeader').toggleClass('is-bpjs', data.jenis_kamar === 'bpjs');
                     $('#detailBhpTypeBadge').text(data.jenis_kamar_label || '-');
-                    $('#detailBhpPeriode').text(data.periode || '-');
+                    $('#detailBhpPeriode').text(
+                        (data.periode || '-') + ' / Sumber ' +
+                        (data.periode_sumber || '-')
+                    );
                     $('#detailBhpJumlah').text((data.jumlah_kamar || 0) + ' kamar');
                     $('#detailBhpLama').text((data.jumlah_lama_inap || 0) + ' hari');
                     $('#detailBhpNominal').text(formatRupiah(data.nominal_hitung));

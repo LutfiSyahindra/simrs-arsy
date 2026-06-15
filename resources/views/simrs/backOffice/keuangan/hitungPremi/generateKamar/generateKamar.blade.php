@@ -1542,7 +1542,7 @@
                         </div>
 
                         <div class="col-12 col-md-5">
-                            <label class="bhp-control-label d-block" for="periodeBhp">Periode Registrasi</label>
+                            <label class="bhp-control-label d-block" for="periodeBhp">Periode Generate</label>
                             <div class="input-group bhp-control-input">
                                 <span class="input-group-text">
                                     <i class="mdi mdi-calendar-month-outline text-primary"></i>
@@ -1550,7 +1550,7 @@
                                 <input type="text" id="periodeBhp" class="form-control fw-semibold"
                                     value="{{ date("Y-m") }}" autocomplete="off">
                             </div>
-                            <small class="text-muted d-block mt-2">
+                            <small class="text-muted d-block mt-2" id="periodeSourceHelp">
                                 Data dibaca berdasarkan bulan tanggal masuk pasien.
                             </small>
                         </div>

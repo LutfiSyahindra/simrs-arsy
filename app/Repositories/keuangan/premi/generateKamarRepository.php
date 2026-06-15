@@ -4,7 +4,7 @@ namespace App\Repositories\keuangan\premi;
 
 use App\Models\dbSimrs\generateKamarDetailModel;
 use App\Models\dbSimrs\generateKamarModel;
-use Illuminate\Support\Carbon;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -13,9 +13,11 @@ class generateKamarRepository
 {
     public function getEligibleByType(string $periode, string $jenisKamar): Collection
     {
+        $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisKamar);
+
         return $jenisKamar === 'bpjs'
-            ? $this->getEligibleBpjsByPeriod($periode)
-            : $this->getEligibleUmumByPeriod($periode);
+            ? $this->getEligibleBpjsByPeriod($sourcePeriod)
+            : $this->getEligibleUmumByPeriod($sourcePeriod);
     }
 
     public function getEligibleUmumByPeriod(string $periode): Collection
@@ -66,8 +68,7 @@ class generateKamarRepository
 
     private function baseEligibleQuery(string $periode)
     {
-        $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
-        $end = $start->copy()->addMonth();
+        $range = PremiSourcePeriod::range($periode, 'umum');
 
         return DB::connection('mysql_khanza')
             ->table('kamar_inap as ki')
@@ -82,8 +83,8 @@ class generateKamarRepository
                 'rp.kd_pj',
                 'pj.png_jawab as nama_penjamin',
             ])
-            ->where('ki.tgl_masuk', '>=', $start->toDateString())
-            ->where('ki.tgl_masuk', '<', $end->toDateString());
+            ->where('ki.tgl_masuk', '>=', $range['start']->toDateString())
+            ->where('ki.tgl_masuk', '<', $range['end']->toDateString());
     }
 
     public function getResults(?string $periode = null, ?string $jenisKamar = null): Collection

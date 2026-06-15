@@ -42,6 +42,18 @@
             $('#periodeNonMedis').val(now.getFullYear() + '-' + month);
         }
 
+        function updateSourcePeriodInfo(sourcePeriod) {
+            const periode = $('#periodeNonMedis').val() || '-';
+            const source = sourcePeriod || periode;
+
+            $('#nonMedisSourcePeriod').text(
+                activeType === 'bpjs' ?
+                'Periode hasil ' + periode + ', sumber tindakan BPJS bulan sebelumnya: ' +
+                    source + '.' :
+                'Sumber tindakan Umum mengikuti periode yang dipilih: ' + source + '.'
+            );
+        }
+
         function renderDependency(selector, data, label) {
             const card = $(selector);
             const value = card.find('.non-medis-dependency-value');
@@ -66,6 +78,7 @@
 
         function renderSummary(data) {
             summaryData = data;
+            updateSourcePeriodInfo(data.periode_sumber);
             renderDependency('#dependencyBhp', data.dependency_bhp, 'BHP');
             renderDependency('#dependencyKamar', data.dependency_kamar, 'Kamar');
 
@@ -116,6 +129,7 @@
 
         function resetSummary() {
             summaryData = null;
+            updateSourcePeriodInfo();
             renderDependency('#dependencyBhp', null, 'BHP');
             renderDependency('#dependencyKamar', null, 'Kamar');
             $('#summaryTransaksi').text('0');
@@ -274,6 +288,7 @@
                 .removeClass('umum bpjs')
                 .addClass(activeType)
                 .text(activeType.toUpperCase());
+            updateSourcePeriodInfo();
             refreshAll();
         });
 
@@ -293,6 +308,8 @@
                 html:
                     '<div class="text-start small">' +
                     '<div class="mb-2">Periode: <strong>' + escapeHtml(periode) + '</strong></div>' +
+                    '<div class="mb-2">Periode sumber: <strong>' +
+                    escapeHtml(summaryData.periode_sumber || periode) + '</strong></div>' +
                     '<div class="mb-2">Jenis: <strong>' + typeLabel + '</strong></div>' +
                     '<div class="p-2 rounded bg-light">' +
                     escapeHtml($('#summaryFormula').text()) +
@@ -543,7 +560,8 @@
 
                     $('#detailNonMedisMeta').text(
                         (data.periode || '-') + ' / ' +
-                        (data.jenis_pelayanan_label || '-') + ' / Generate oleh ' +
+                        (data.jenis_pelayanan_label || '-') + ' / Sumber ' +
+                        (data.periode_sumber || '-') + ' / Generate oleh ' +
                         (data.generate_by_name || '-')
                     );
                     $('#detailJumlahTransaksi').text(

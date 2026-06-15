@@ -667,6 +667,9 @@
             <div class="non-medis-period">
                 <label for="periodeNonMedis">Periode Perhitungan</label>
                 <input type="month" id="periodeNonMedis" class="form-control">
+                <small class="d-block mt-1 text-white-50" id="nonMedisSourcePeriod">
+                    Sumber data mengikuti periode yang dipilih.
+                </small>
             </div>
         </section>
 
@@ -682,7 +685,7 @@
                 <i class="mdi mdi-shield-account-outline"></i>
                 <span>
                     <strong>BPJS</strong>
-                    <small>Kode penjamin BPJ dengan piutang Belum Lunas</small>
+                    <small>Kode BPJ, piutang Belum Lunas, sumber bulan sebelumnya</small>
                 </span>
             </button>
         </div>

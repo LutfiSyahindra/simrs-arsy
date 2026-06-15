@@ -24,8 +24,9 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="periodeGenerateBhp" class="form-label">Periode</label>
+                        <label for="periodeGenerateBhp" class="form-label">Periode Hasil</label>
                         <input type="text" id="periodeGenerateBhp" class="form-control" readonly>
+                        <small class="text-muted d-block mt-1" id="periodeGenerateSourceInfo"></small>
                     </div>
 
                     <div>

@@ -6,6 +6,7 @@ use App\Models\dbSimrs\generateBhpModel;
 use App\Models\dbSimrs\generateKamarModel;
 use App\Models\dbSimrs\premiPelayananNonMedisDetailModel;
 use App\Models\dbSimrs\premiPelayananNonMedisModel;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -190,8 +191,7 @@ class generatePelayananNonMedisRepository
         string $jenisPelayanan,
         Collection $mappings
     ): Collection {
-        $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
-        $end = $start->copy()->addMonth();
+        $range = PremiSourcePeriod::range($periode, $jenisPelayanan);
         $mappingBySource = $mappings
             ->groupBy(fn ($mapping) => $mapping->sumber_tindakan.'|'.$mapping->kd_tindakan);
         $codesBySource = $mappings
@@ -209,8 +209,8 @@ class generatePelayananNonMedisRepository
             $rows = $this->sourceQuery(
                 $definition,
                 $jenisPelayanan,
-                $start,
-                $end,
+                $range['start'],
+                $range['end'],
                 $codes
             )->get();
 

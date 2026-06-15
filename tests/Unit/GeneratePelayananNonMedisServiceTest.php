@@ -39,6 +39,7 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
             'Data BHP dan Kamar Inap sudah tersedia dan terkunci.',
             $summary['readiness_message']
         );
+        $this->assertSame('2026-06', $summary['periode_sumber']);
         $this->assertSame(35000.0, $summary['total_final']);
     }
 
@@ -66,6 +67,7 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
             'Kunci terlebih dahulu: Kamar Inap.',
             $summary['readiness_message']
         );
+        $this->assertSame('2026-05', $summary['periode_sumber']);
         $this->assertFalse($summary['dependency_kamar']['is_locked']);
     }
 
