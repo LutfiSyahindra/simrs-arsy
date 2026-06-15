@@ -10,15 +10,20 @@ class mappingPremiModel extends Model
     use HasFactory;
 
     protected $table = 'mapping_premi';
+
     protected $fillable = [
         'jnsPremi_id',
         'jnsTindakan_id',
         'nilai',
         'jenis',
+        'nilai_umum',
+        'nilai_bpjs',
     ];
 
     protected $casts = [
         'nilai' => 'integer',
+        'nilai_umum' => 'integer',
+        'nilai_bpjs' => 'integer',
     ];
 
     public function jnsTindakan()

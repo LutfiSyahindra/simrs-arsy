@@ -425,17 +425,50 @@
             word-break: break-word;
         }
 
-        .premi-value {
-            color: #047857;
-            font-size: 20px;
-            font-weight: 800;
-            min-width: 110px;
+        .premi-value-grid {
+            display: grid;
+            flex: 0 0 270px;
+            gap: 7px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .premi-value-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 9px;
+            min-width: 0;
+            padding: 7px 9px;
             text-align: right;
         }
 
-        .premi-value.nominal {
-            color: #1d4ed8;
-            font-size: 16px;
+        .premi-value-item.umum {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+
+        .premi-value-item.bpjs {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .premi-value-label {
+            color: #64748b;
+            display: block;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .premi-value-number {
+            color: #0f172a;
+            display: block;
+            font-size: 14px;
+            font-weight: 900;
+            margin-top: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .premi-kind-badge {
@@ -690,7 +723,14 @@
                 grid-template-columns: 1fr;
             }
 
-            .premi-value {
+            .premi-value-grid {
+                flex-basis: auto;
+                grid-template-columns: 1fr;
+                text-align: left;
+                width: 100%;
+            }
+
+            .premi-value-item {
                 text-align: left;
             }
         }

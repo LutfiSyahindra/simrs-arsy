@@ -425,28 +425,29 @@
             </article>
 
             <article class="generator-menu-card" style="--card-color: #2563eb; --card-soft: #dbeafe;"
-                data-title="Generate Premi Tindakan"
-                data-search="generate premi tindakan pelayanan medis mapping jenis tindakan">
+                data-title="Generate Premi Pelayanan Non Medis"
+                data-search="generate premi Pelayanan Non Medis pelayanan medis mapping jenis Pelayanan Non Medis">
                 <div class="generator-menu-accent"></div>
                 <div class="generator-menu-body">
                     <div class="generator-menu-head">
                         <div class="generator-menu-icon"><i class="mdi mdi-hospital-building"></i></div>
-                        <span class="generator-menu-status preparation">Persiapan</span>
+                        <span class="generator-menu-status">Siap</span>
                     </div>
-                    <h5 class="generator-menu-title">Generate Premi Tindakan</h5>
+                    <h5 class="generator-menu-title">Generate Premi Pelayanan Non Medis</h5>
                     <p class="generator-menu-description">
-                        Memproses premi dari transaksi tindakan berdasarkan mapping jenis tindakan dan persentasenya.
+                        Memproses premi dari transaksi Pelayanan Non Medis berdasarkan mapping jenis Pelayanan Non Medis dan persentasenya.
                     </p>
                     <div class="generator-menu-source">
                         <i class="mdi mdi-database-outline"></i>
-                        Transaksi tindakan dan mapping premi
+                        Transaksi Pelayanan Non Medis dan mapping premi
                     </div>
                 </div>
                 <div class="generator-menu-footer">
-                    <span class="generator-menu-code">TINDAKAN</span>
-                    <button type="button" class="btn-open-generator" disabled>
-                        Segera Hadir <i class="mdi mdi-progress-clock"></i>
-                    </button>
+                    <span class="generator-menu-code">Pelayanan Non Medis</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
                 </div>
             </article>
 

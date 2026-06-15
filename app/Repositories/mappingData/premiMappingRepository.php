@@ -109,7 +109,15 @@ class premiMappingRepository
 
     public function getMappingsByPremi(int $premiId)
     {
-        return $this->mappingPremiModel::select('id', 'jnsPremi_id', 'jnsTindakan_id', 'nilai', 'jenis')
+        return $this->mappingPremiModel::select(
+            'id',
+            'jnsPremi_id',
+            'jnsTindakan_id',
+            'nilai',
+            'jenis',
+            'nilai_umum',
+            'nilai_bpjs'
+        )
             ->with('jnsTindakan:id,kode,jenis')
             ->where('jnsPremi_id', $premiId)
             ->orderBy('jnsTindakan_id')

@@ -5,6 +5,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiPelayananNonMedisController;
 use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
@@ -180,6 +181,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateKamar/{id}/detail', [hitungPremiKamarController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateKamar.detail');
         Route::post('/hitung-premi/generateKamar/{id}/lock', [hitungPremiKamarController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateKamar.lock');
         Route::post('/hitung-premi/generateKamar/{id}/unlock', [hitungPremiKamarController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateKamar.unlock');
+
+        Route::get('/hitung-premi/generatePelayananNonMedis', [hitungPremiPelayananNonMedisController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis');
+        Route::get('/hitung-premi/generatePelayananNonMedis/table', [hitungPremiPelayananNonMedisController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.table');
+        Route::get('/hitung-premi/generatePelayananNonMedis/summary', [hitungPremiPelayananNonMedisController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.summary');
+        Route::post('/hitung-premi/generatePelayananNonMedis', [hitungPremiPelayananNonMedisController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.store');
+        Route::get('/hitung-premi/generatePelayananNonMedis/{id}/detail', [hitungPremiPelayananNonMedisController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.detail');
+        Route::post('/hitung-premi/generatePelayananNonMedis/{id}/lock', [hitungPremiPelayananNonMedisController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.lock');
+        Route::post('/hitung-premi/generatePelayananNonMedis/{id}/unlock', [hitungPremiPelayananNonMedisController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.unlock');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');

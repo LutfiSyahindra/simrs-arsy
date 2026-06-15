@@ -148,17 +148,16 @@
             return 'Rp ' + new Intl.NumberFormat('id-ID').format(Number(value) || 0);
         }
 
-        function formatMappingValue(item) {
+        function formatMappingValue(item, field) {
             return item.jenis === 'nominal'
-                ? formatRupiah(item.nilai)
-                : `${Number(item.nilai) || 0}%`;
+                ? formatRupiah(item[field])
+                : `${Number(item[field]) || 0}%`;
         }
 
         function applyValueMode(scope) {
             const jenis = scope.find('.mapping-jenis, .inline-jenis').val() || 'persen';
             const input = scope.find('.mapping-nilai, .inline-nilai');
             const addon = scope.find('.mapping-value-addon, .inline-value-addon');
-            const label = scope.find('.mapping-value-label, .inline-value-label');
             const help = scope.find('.inline-value-help');
 
             input.attr('min', 0);
@@ -166,15 +165,13 @@
             if (jenis === 'nominal') {
                 input.attr('max', 2147483647).attr('placeholder', '0');
                 addon.text('Rp');
-                label.text('Nilai Nominal');
-                help.text('Masukkan nominal premi dalam Rupiah.');
+                help.text('Masukkan nominal premi UMUM dan BPJS dalam Rupiah.');
                 return;
             }
 
             input.attr('max', 100).attr('placeholder', '0');
             addon.text('%');
-            label.text('Nilai Persen');
-            help.text('Nilai yang diizinkan 0 sampai 100.');
+            help.text('Persentase UMUM dan BPJS yang diizinkan adalah 0 sampai 100.');
         }
 
         function resetValidation() {
@@ -188,29 +185,38 @@
                 <div class="card border premi-form-row">
                     <div class="card-body py-3">
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-5">
+                            <div class="col-lg-4">
                                 <label class="form-label">Jenis Tindakan</label>
                                 <select name="mappings[${index}][jnsTindakan_id]"
                                     class="form-select mapping-tindakan-select">
                                     ${tindakanOptions(data.jnsTindakan_id)}
                                 </select>
                             </div>
-                            <div class="col-md-2">
+                            <div class="col-lg-2">
                                 <label class="form-label">Jenis Nilai</label>
                                 <select name="mappings[${index}][jenis]" class="form-select mapping-jenis">
                                     ${jenisOptions(data.jenis || 'persen')}
                                 </select>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label mapping-value-label">Nilai Persen</label>
+                            <div class="col-lg-2">
+                                <label class="form-label">Nilai UMUM</label>
                                 <div class="input-group">
                                     <span class="input-group-text mapping-value-addon">%</span>
-                                    <input type="number" name="mappings[${index}][nilai]"
-                                        class="form-control mapping-nilai" min="0" step="1"
-                                        value="${escapeHtml(data.nilai ?? '')}" placeholder="0">
+                                    <input type="number" name="mappings[${index}][nilai_umum]"
+                                        class="form-control mapping-nilai mapping-nilai-umum" min="0" step="1"
+                                        value="${escapeHtml(data.nilai_umum ?? '')}" placeholder="0">
                                 </div>
                             </div>
-                            <div class="col-md-1 text-end">
+                            <div class="col-lg-3">
+                                <label class="form-label">Nilai BPJS</label>
+                                <div class="input-group">
+                                    <span class="input-group-text mapping-value-addon">%</span>
+                                    <input type="number" name="mappings[${index}][nilai_bpjs]"
+                                        class="form-control mapping-nilai mapping-nilai-bpjs" min="0" step="1"
+                                        value="${escapeHtml(data.nilai_bpjs ?? '')}" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="col-lg-1 text-end">
                                 <button type="button" class="btn btn-light btn-icon remove-premi-row" title="Hapus baris">
                                     <i class="mdi mdi-close"></i>
                                 </button>
@@ -494,7 +500,9 @@
                 return `
                     <div class="premi-empty-state">
                         <div class="fw-semibold mb-1">Belum ada jenis tindakan</div>
-                        <div class="small">Tambahkan jenis tindakan serta nilai persen atau nominal dari panel ini.</div>
+                        <div class="small">
+                            Tambahkan jenis tindakan serta nilai UMUM dan BPJS dari panel ini.
+                        </div>
                     </div>
                 `;
             }
@@ -506,7 +514,8 @@
                             <div class="premi-mapping-card" data-id="${item.id}"
                                 data-tindakan-id="${item.jnsTindakan_id}"
                                 data-jenis="${escapeHtml(item.jenis)}"
-                                data-nilai="${item.nilai}">
+                                data-nilai-umum="${item.nilai_umum}"
+                                data-nilai-bpjs="${item.nilai_bpjs}">
                                 <div class="premi-card-icon">
                                     <i class="mdi mdi-medical-bag"></i>
                                 </div>
@@ -517,8 +526,19 @@
                                         ${escapeHtml(item.jenis)}
                                     </span>
                                 </div>
-                                <div class="premi-value ${escapeHtml(item.jenis)}">
-                                    ${formatMappingValue(item)}
+                                <div class="premi-value-grid">
+                                    <div class="premi-value-item umum">
+                                        <span class="premi-value-label">UMUM</span>
+                                        <span class="premi-value-number">
+                                            ${formatMappingValue(item, 'nilai_umum')}
+                                        </span>
+                                    </div>
+                                    <div class="premi-value-item bpjs">
+                                        <span class="premi-value-label">BPJS</span>
+                                        <span class="premi-value-number">
+                                            ${formatMappingValue(item, 'nilai_bpjs')}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="premi-card-actions">
                                     <button type="button" class="btn btn-light btn-sm edit-mapping-premi" title="Edit">
@@ -549,17 +569,31 @@
         }
 
         function updatePanelTotals(panel, items) {
-            const totalPersen = (items || [])
+            const totalPersenUmum = (items || [])
                 .filter(item => item.jenis === 'persen')
-                .reduce((sum, item) => sum + (Number(item.nilai) || 0), 0);
-            const totalNominal = (items || [])
+                .reduce((sum, item) => sum + (Number(item.nilai_umum) || 0), 0);
+            const totalPersenBpjs = (items || [])
+                .filter(item => item.jenis === 'persen')
+                .reduce((sum, item) => sum + (Number(item.nilai_bpjs) || 0), 0);
+            const totalNominalUmum = (items || [])
                 .filter(item => item.jenis === 'nominal')
-                .reduce((sum, item) => sum + (Number(item.nilai) || 0), 0);
+                .reduce((sum, item) => sum + (Number(item.nilai_umum) || 0), 0);
+            const totalNominalBpjs = (items || [])
+                .filter(item => item.jenis === 'nominal')
+                .reduce((sum, item) => sum + (Number(item.nilai_bpjs) || 0), 0);
             const count = (items || []).length;
             const summaries = [];
 
-            if (totalPersen > 0) summaries.push(`${totalPersen}%`);
-            if (totalNominal > 0) summaries.push(formatRupiah(totalNominal));
+            if (totalPersenUmum > 0 || totalNominalUmum > 0) {
+                summaries.push(
+                    `UMUM ${totalPersenUmum}% / ${formatRupiah(totalNominalUmum)}`
+                );
+            }
+            if (totalPersenBpjs > 0 || totalNominalBpjs > 0) {
+                summaries.push(
+                    `BPJS ${totalPersenBpjs}% / ${formatRupiah(totalNominalBpjs)}`
+                );
+            }
 
             panel.find('.premi-panel-count').text(count + ' tindakan');
             panel.data('action-count', count);
@@ -801,8 +835,8 @@
             const isEdit = mode === 'edit';
             const title = isEdit ? 'Edit Mapping Premi' : 'Tambah Mapping Premi';
             const subtitle = isEdit
-                ? 'Ubah tindakan, jenis nilai, atau nilai premi pada mapping ini.'
-                : 'Tambahkan tindakan beserta nilai persen atau nominal.';
+                ? 'Ubah tindakan, jenis nilai, serta nilai UMUM dan BPJS.'
+                : 'Tambahkan tindakan beserta nilai UMUM dan BPJS.';
 
             panel.find('.premi-editor-slot').html(`
                 <div class="premi-inline-editor" data-mode="${mode}" data-id="${data.id || ''}">
@@ -821,7 +855,7 @@
 
                     <div class="premi-inline-body">
                         <div class="row g-3">
-                            <div class="col-lg-6">
+                            <div class="col-lg-4">
                                 <div class="premi-inline-field">
                                     <label class="form-label">Jenis Tindakan</label>
                                     <div class="premi-inline-control">
@@ -847,22 +881,37 @@
                                 </div>
                             </div>
 
-                            <div class="col-lg-4">
+                            <div class="col-lg-3">
                                 <div class="premi-inline-field">
-                                    <label class="form-label inline-value-label">Nilai Persen</label>
+                                    <label class="form-label">Nilai UMUM</label>
                                     <div class="premi-inline-control">
                                         <div class="input-group">
                                             <span class="input-group-text fw-bold inline-value-addon">%</span>
-                                            <input type="number" class="form-control inline-nilai" min="0"
-                                                step="1" value="${escapeHtml(data.nilai ?? '')}" placeholder="0">
+                                            <input type="number"
+                                                class="form-control inline-nilai inline-nilai-umum" min="0"
+                                                step="1" value="${escapeHtml(data.nilai_umum ?? '')}" placeholder="0">
                                         </div>
                                     </div>
-                                    <span class="premi-inline-help inline-value-help">
-                                        Nilai yang diizinkan 0 sampai 100.
-                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-3">
+                                <div class="premi-inline-field">
+                                    <label class="form-label">Nilai BPJS</label>
+                                    <div class="premi-inline-control">
+                                        <div class="input-group">
+                                            <span class="input-group-text fw-bold inline-value-addon">%</span>
+                                            <input type="number"
+                                                class="form-control inline-nilai inline-nilai-bpjs" min="0"
+                                                step="1" value="${escapeHtml(data.nilai_bpjs ?? '')}" placeholder="0">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        <span class="premi-inline-help inline-value-help">
+                            Persentase UMUM dan BPJS yang diizinkan adalah 0 sampai 100.
+                        </span>
                     </div>
 
                     <div class="premi-inline-actions">
@@ -1022,15 +1071,18 @@
             container.find('.premi-form-row').each(function() {
                 const row = $(this);
                 const jenis = row.find('.mapping-jenis').val();
-                const nilai = row.find('.mapping-nilai').val();
+                const nilaiUmum = row.find('.mapping-nilai-umum').val();
+                const nilaiBpjs = row.find('.mapping-nilai-bpjs').val();
 
-                if (!jenis || nilai === '' || Number(nilai) < 0) {
-                    valueError = 'Jenis nilai dan nilai premi wajib diisi.';
+                if (!jenis || nilaiUmum === '' || nilaiBpjs === '' ||
+                    Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0) {
+                    valueError = 'Jenis nilai, nilai UMUM, dan nilai BPJS wajib diisi.';
                     return false;
                 }
 
-                if (jenis === 'persen' && Number(nilai) > 100) {
-                    valueError = 'Nilai persen maksimal 100%.';
+                if (jenis === 'persen' &&
+                    (Number(nilaiUmum) > 100 || Number(nilaiBpjs) > 100)) {
+                    valueError = 'Nilai persen UMUM dan BPJS maksimal 100%.';
                     return false;
                 }
             });
@@ -1200,7 +1252,8 @@
                 id: card.attr('data-id'),
                 jnsTindakan_id: card.attr('data-tindakan-id'),
                 jenis: card.attr('data-jenis'),
-                nilai: card.attr('data-nilai')
+                nilai_umum: card.attr('data-nilai-umum'),
+                nilai_bpjs: card.attr('data-nilai-bpjs')
             };
 
             loadTindakanGuide().done(function() {
@@ -1222,28 +1275,37 @@
             const id = editor.data('id');
             const tindakanId = editor.find('.inline-tindakan').val();
             const jenis = editor.find('.inline-jenis').val();
-            const nilai = editor.find('.inline-nilai').val();
+            const nilaiUmum = editor.find('.inline-nilai-umum').val();
+            const nilaiBpjs = editor.find('.inline-nilai-bpjs').val();
 
-            if (!tindakanId || !jenis || nilai === '' || Number(nilai) < 0) {
-                Swal.fire('Data belum lengkap', 'Pilih tindakan, jenis nilai, dan isi nilai premi.', 'warning');
+            if (!tindakanId || !jenis || nilaiUmum === '' || nilaiBpjs === '' ||
+                Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0) {
+                Swal.fire(
+                    'Data belum lengkap',
+                    'Pilih tindakan, jenis nilai, serta isi nilai UMUM dan BPJS.',
+                    'warning'
+                );
                 return;
             }
 
-            if (jenis === 'persen' && Number(nilai) > 100) {
-                Swal.fire('Nilai tidak valid', 'Nilai persen maksimal 100%.', 'warning');
+            if (jenis === 'persen' &&
+                (Number(nilaiUmum) > 100 || Number(nilaiBpjs) > 100)) {
+                Swal.fire('Nilai tidak valid', 'Nilai persen UMUM dan BPJS maksimal 100%.', 'warning');
                 return;
             }
 
             const data = mode === 'edit' ? {
                 jnsTindakan_id: tindakanId,
                 jenis: jenis,
-                nilai: nilai
+                nilai_umum: nilaiUmum,
+                nilai_bpjs: nilaiBpjs
             } : {
                 jnsPremi_id: panel.data('premi-id'),
                 mappings: [{
                     jnsTindakan_id: tindakanId,
                     jenis: jenis,
-                    nilai: nilai
+                    nilai_umum: nilaiUmum,
+                    nilai_bpjs: nilaiBpjs
                 }]
             };
 

@@ -110,7 +110,8 @@ class mappingPremiController extends Controller
                 'mappings' => 'required|array|min:1',
                 'mappings.*.jnsTindakan_id' => 'required|integer|distinct|exists:master_jenis_tindakan,id',
                 'mappings.*.jenis' => 'required|in:persen,nominal',
-                'mappings.*.nilai' => 'required|integer|min:0|max:2147483647',
+                'mappings.*.nilai_umum' => 'required|integer|min:0|max:2147483647',
+                'mappings.*.nilai_bpjs' => 'required|integer|min:0|max:2147483647',
             ], [
                 'jnsPremi_id.required' => 'Jenis premi wajib dipilih',
                 'jnsPremi_id.exists' => 'Jenis premi tidak ditemukan',
@@ -121,10 +122,14 @@ class mappingPremiController extends Controller
                 'mappings.*.jnsTindakan_id.exists' => 'Jenis tindakan tidak ditemukan',
                 'mappings.*.jenis.required' => 'Jenis nilai wajib dipilih',
                 'mappings.*.jenis.in' => 'Jenis nilai harus persen atau nominal',
-                'mappings.*.nilai.required' => 'Nilai premi wajib diisi',
-                'mappings.*.nilai.integer' => 'Nilai premi harus berupa bilangan bulat',
-                'mappings.*.nilai.min' => 'Nilai premi minimal 0',
-                'mappings.*.nilai.max' => 'Nilai nominal terlalu besar',
+                'mappings.*.nilai_umum.required' => 'Nilai UMUM wajib diisi',
+                'mappings.*.nilai_umum.integer' => 'Nilai UMUM harus berupa bilangan bulat',
+                'mappings.*.nilai_umum.min' => 'Nilai UMUM minimal 0',
+                'mappings.*.nilai_umum.max' => 'Nilai UMUM terlalu besar',
+                'mappings.*.nilai_bpjs.required' => 'Nilai BPJS wajib diisi',
+                'mappings.*.nilai_bpjs.integer' => 'Nilai BPJS harus berupa bilangan bulat',
+                'mappings.*.nilai_bpjs.min' => 'Nilai BPJS minimal 0',
+                'mappings.*.nilai_bpjs.max' => 'Nilai BPJS terlalu besar',
             ]);
 
             $this->validatePersenValues($validated['mappings']);
@@ -176,16 +181,21 @@ class mappingPremiController extends Controller
             $validated = $request->validate([
                 'jnsTindakan_id' => 'required|integer|exists:master_jenis_tindakan,id',
                 'jenis' => 'required|in:persen,nominal',
-                'nilai' => 'required|integer|min:0|max:2147483647',
+                'nilai_umum' => 'required|integer|min:0|max:2147483647',
+                'nilai_bpjs' => 'required|integer|min:0|max:2147483647',
             ], [
                 'jnsTindakan_id.required' => 'Jenis tindakan wajib dipilih',
                 'jnsTindakan_id.exists' => 'Jenis tindakan tidak ditemukan',
                 'jenis.required' => 'Jenis nilai wajib dipilih',
                 'jenis.in' => 'Jenis nilai harus persen atau nominal',
-                'nilai.required' => 'Nilai premi wajib diisi',
-                'nilai.integer' => 'Nilai premi harus berupa bilangan bulat',
-                'nilai.min' => 'Nilai premi minimal 0',
-                'nilai.max' => 'Nilai nominal terlalu besar',
+                'nilai_umum.required' => 'Nilai UMUM wajib diisi',
+                'nilai_umum.integer' => 'Nilai UMUM harus berupa bilangan bulat',
+                'nilai_umum.min' => 'Nilai UMUM minimal 0',
+                'nilai_umum.max' => 'Nilai UMUM terlalu besar',
+                'nilai_bpjs.required' => 'Nilai BPJS wajib diisi',
+                'nilai_bpjs.integer' => 'Nilai BPJS harus berupa bilangan bulat',
+                'nilai_bpjs.min' => 'Nilai BPJS minimal 0',
+                'nilai_bpjs.max' => 'Nilai BPJS terlalu besar',
             ]);
 
             $this->validatePersenValues([$validated], false);
@@ -215,7 +225,8 @@ class mappingPremiController extends Controller
                 $id,
                 $tindakanId,
                 $validated['jenis'],
-                (int) $validated['nilai']
+                (int) $validated['nilai_umum'],
+                (int) $validated['nilai_bpjs']
             );
 
             return response()->json([
@@ -264,9 +275,15 @@ class mappingPremiController extends Controller
         $errors = [];
 
         foreach ($mappings as $index => $mapping) {
-            if (($mapping['jenis'] ?? null) === 'persen' && (int) ($mapping['nilai'] ?? 0) > 100) {
-                $key = $nested ? "mappings.$index.nilai" : 'nilai';
-                $errors[$key] = ['Nilai persen maksimal 100%'];
+            if (($mapping['jenis'] ?? null) !== 'persen') {
+                continue;
+            }
+
+            foreach (['nilai_umum' => 'UMUM', 'nilai_bpjs' => 'BPJS'] as $field => $label) {
+                if ((int) ($mapping[$field] ?? 0) > 100) {
+                    $key = $nested ? "mappings.$index.$field" : $field;
+                    $errors[$key] = ["Nilai persen {$label} maksimal 100%"];
+                }
             }
         }
 

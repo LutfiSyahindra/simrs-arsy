@@ -5,7 +5,7 @@
                 <div>
                     <h5 class="modal-title fw-semibold">Mapping Premi</h5>
                     <small class="text-muted">
-                        Pilih premi, jenis tindakan, serta nilai persen atau nominal yang berlaku.
+                        Pilih premi, jenis tindakan, serta nilai UMUM dan BPJS yang berlaku.
                         Pegawai penerima dapat diatur dari rincian premi.
                     </small>
                 </div>
@@ -27,7 +27,9 @@
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
                             <div class="fw-semibold">Jenis Tindakan</div>
-                            <small class="text-muted">Nilai persen atau nominal dapat berbeda untuk setiap tindakan.</small>
+                            <small class="text-muted">
+                                Setiap tindakan memiliki nilai UMUM dan BPJS untuk rumus persen atau nominal.
+                            </small>
                         </div>
                         <button type="button" id="addPremiMappingRow" class="btn btn-sm btn-outline-primary">
                             <i class="mdi mdi-plus"></i> Tambah Baris

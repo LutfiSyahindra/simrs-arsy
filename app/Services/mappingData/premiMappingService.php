@@ -122,8 +122,10 @@ class premiMappingService
                     return [
                         'jnsPremi_id' => $premiId,
                         'jnsTindakan_id' => (int) $mapping['jnsTindakan_id'],
-                        'nilai' => (int) $mapping['nilai'],
+                        'nilai' => (int) $mapping['nilai_umum'],
                         'jenis' => $mapping['jenis'],
+                        'nilai_umum' => (int) $mapping['nilai_umum'],
+                        'nilai_bpjs' => (int) $mapping['nilai_bpjs'],
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -154,12 +156,19 @@ class premiMappingService
         return $this->premiMappingRepository->existsMapping($premiId, $tindakanId, $exceptId);
     }
 
-    public function update($id, int $tindakanId, string $jenis, int $nilai)
-    {
+    public function update(
+        $id,
+        int $tindakanId,
+        string $jenis,
+        int $nilaiUmum,
+        int $nilaiBpjs
+    ) {
         return $this->premiMappingRepository->update($id, [
             'jnsTindakan_id' => $tindakanId,
             'jenis' => $jenis,
-            'nilai' => $nilai,
+            'nilai' => $nilaiUmum,
+            'nilai_umum' => $nilaiUmum,
+            'nilai_bpjs' => $nilaiBpjs,
         ]);
     }
 
@@ -177,7 +186,9 @@ class premiMappingService
             'kode_tindakan' => $item->jnsTindakan->kode ?? '-',
             'jenis_tindakan' => $item->jnsTindakan->jenis ?? '-',
             'jenis' => $item->jenis,
-            'nilai' => (int) $item->nilai,
+            'nilai' => (int) $item->nilai_umum,
+            'nilai_umum' => (int) $item->nilai_umum,
+            'nilai_bpjs' => (int) $item->nilai_bpjs,
         ];
     }
 }

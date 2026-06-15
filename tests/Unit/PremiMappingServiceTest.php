@@ -54,4 +54,29 @@ class PremiMappingServiceTest extends TestCase
 
         $this->assertTrue($result);
     }
+
+    public function test_update_persists_umum_and_bpjs_values(): void
+    {
+        $repository = Mockery::mock(premiMappingRepository::class);
+        $repository->shouldReceive('update')
+            ->once()
+            ->with(5, [
+                'jnsTindakan_id' => 2,
+                'jenis' => 'nominal',
+                'nilai' => 2500,
+                'nilai_umum' => 2500,
+                'nilai_bpjs' => 1750,
+            ])
+            ->andReturnTrue();
+
+        $result = (new premiMappingService($repository))->update(
+            5,
+            2,
+            'nominal',
+            2500,
+            1750
+        );
+
+        $this->assertTrue($result);
+    }
 }
