@@ -47,9 +47,59 @@ class mappingPremiController extends Controller
         return response()->json($this->premiMappingService->guideJenisPremi());
     }
 
+    public function guidePegawai()
+    {
+        return response()->json($this->premiMappingService->guidePegawai());
+    }
+
     public function getByPremi($id)
     {
         return response()->json($this->premiMappingService->getByPremi((int) $id));
+    }
+
+    public function getPegawaiByPremi($id)
+    {
+        return response()->json($this->premiMappingService->getPegawaiByPremi((int) $id));
+    }
+
+    public function updatePegawai(Request $request, string $id)
+    {
+        try {
+            if (! $this->premiMappingService->findPremiById((int) $id)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Jenis premi tidak ditemukan',
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'nik' => 'present|array',
+                'nik.*' => 'required|string|distinct|exists:gaji_pokok,nik',
+            ], [
+                'nik.present' => 'Daftar pegawai wajib dikirim',
+                'nik.array' => 'Format pegawai tidak valid',
+                'nik.*.distinct' => 'Pegawai tidak boleh duplikat',
+                'nik.*.exists' => 'Pegawai tidak ditemukan',
+            ]);
+
+            $this->premiMappingService->syncPegawai((int) $id, $validated['nik']);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Pegawai penerima premi berhasil diperbarui',
+                'jumlah_pegawai' => count($validated['nik']),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function store(Request $request)
@@ -86,7 +136,7 @@ class mappingPremiController extends Controller
                 ->all();
             $existingIds = $this->premiMappingService->existingTindakanIds($premiId, $tindakanIds);
 
-            if (!empty($existingIds)) {
+            if (! empty($existingIds)) {
                 $names = $this->premiMappingService->guideJenisTindakan()
                     ->whereIn('id', $existingIds)
                     ->pluck('jenis')
@@ -142,7 +192,7 @@ class mappingPremiController extends Controller
 
             $row = $this->premiMappingService->findById($id);
 
-            if (!$row) {
+            if (! $row) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Data mapping premi tidak ditemukan',
@@ -188,7 +238,7 @@ class mappingPremiController extends Controller
     public function destroy(string $id)
     {
         try {
-            if (!$this->premiMappingService->findById($id)) {
+            if (! $this->premiMappingService->findById($id)) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Data mapping premi tidak ditemukan',
@@ -220,7 +270,7 @@ class mappingPremiController extends Controller
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
     }

@@ -10,10 +10,16 @@ class jnsPremiModel extends Model
     use HasFactory;
 
     protected $table = 'master_jenis_premi';
-    protected $fillable = ['kode','jenis'];
+
+    protected $fillable = ['kode', 'jenis'];
 
     public function mappingPremi()
     {
         return $this->hasMany(mappingPremiModel::class, 'jnsPremi_id', 'id');
+    }
+
+    public function pegawaiPremi()
+    {
+        return $this->hasMany(mappingPremiPegawaiModel::class, 'jnsPremi_id', 'id');
     }
 }

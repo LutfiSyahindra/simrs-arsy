@@ -327,7 +327,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingPremi/getPremiTable', [mappingPremiController::class, 'premiTable'])->name('masterData.mapping.mappingPremi.getPremiTable');
         Route::get('/mappingPremi/guideJenisPremi', [mappingPremiController::class, 'guideJenisPremi'])->name('masterData.mapping.mappingPremi.guideJenisPremi');
         Route::get('/mappingPremi/guideJenisTindakan', [mappingPremiController::class, 'guideJenisTindakan'])->name('masterData.mapping.mappingPremi.guideJenisTindakan');
+        Route::get('/mappingPremi/guidePegawai', [mappingPremiController::class, 'guidePegawai'])->name('masterData.mapping.mappingPremi.guidePegawai');
         Route::get('/mappingPremi/by-premi/{id}', [mappingPremiController::class, 'getByPremi'])->name('masterData.mapping.mappingPremi.byPremi');
+        Route::get('/mappingPremi/by-premi/{id}/pegawai', [mappingPremiController::class, 'getPegawaiByPremi'])->name('masterData.mapping.mappingPremi.byPremi.pegawai');
+        Route::put('/mappingPremi/by-premi/{id}/pegawai', [mappingPremiController::class, 'updatePegawai'])->name('masterData.mapping.mappingPremi.updatePegawai');
         Route::post('/mappingPremi/store', [mappingPremiController::class, 'store'])->name('masterData.mapping.mappingPremi.store');
         Route::put('/mappingPremi/{id}/update', [mappingPremiController::class, 'update'])->name('masterData.mapping.mappingPremi.update');
         Route::delete('/mappingPremi/{id}/delete', [mappingPremiController::class, 'destroy'])->name('masterData.mapping.mappingPremi.delete');

@@ -20,13 +20,16 @@ class premiMappingService
             ->getPremiWithCounts()
             ->map(function ($premi) {
                 $jumlah = (int) $premi->jumlah_tindakan;
+                $jumlahPegawai = (int) $premi->jumlah_pegawai;
 
                 return [
                     'id' => $premi->id,
                     'kode' => $premi->kode,
                     'jenis' => $premi->jenis,
                     'jumlah_tindakan' => $jumlah,
-                    'total' => '<span class="fw-bold text-primary">'.$jumlah.' tindakan</span>',
+                    'jumlah_pegawai' => $jumlahPegawai,
+                    'total' => '<span class="fw-bold text-primary">'.$jumlah.' tindakan</span>'
+                        .'<div class="small text-muted">'.$jumlahPegawai.' pegawai</div>',
                 ];
             });
     }
@@ -52,6 +55,48 @@ class premiMappingService
                 'jenis' => $premi->jenis,
             ];
         });
+    }
+
+    public function guidePegawai()
+    {
+        return $this->premiMappingRepository->getPegawai()->map(function ($pegawai) {
+            return [
+                'nik' => $pegawai->nik,
+                'nama' => $pegawai->nama,
+                'jbtn' => $pegawai->jbtn,
+                'stts_kerja' => $pegawai->stts_kerja,
+                'text' => trim($pegawai->nik.' - '.$pegawai->nama),
+            ];
+        });
+    }
+
+    public function getPegawaiByPremi(int $premiId)
+    {
+        return $this->premiMappingRepository
+            ->getPegawaiByPremi($premiId)
+            ->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'nik' => $item->nik,
+                    'nama' => $item->gapok->nama ?? $item->nik,
+                    'jbtn' => $item->gapok->jbtn ?? '-',
+                    'stts_kerja' => $item->gapok->stts_kerja ?? '-',
+                ];
+            })
+            ->sortBy('nama', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
+    public function syncPegawai(int $premiId, array $niks)
+    {
+        $niks = collect($niks)
+            ->map(fn ($nik) => trim((string) $nik))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        return $this->premiMappingRepository->syncPegawai($premiId, $niks);
     }
 
     public function findPremiById(int $id)

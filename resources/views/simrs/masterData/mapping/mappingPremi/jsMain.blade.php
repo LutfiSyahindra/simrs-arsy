@@ -4,11 +4,15 @@
         const container = $('#premiMappingContainer');
         const storeUrl = "{{ route("masterData.mapping.mappingPremi.store") }}";
         const byPremiUrl = "{{ route("masterData.mapping.mappingPremi.byPremi", ":id") }}";
+        const pegawaiByPremiUrl = "{{ route("masterData.mapping.mappingPremi.byPremi.pegawai", ":id") }}";
+        const updatePegawaiUrl = "{{ route("masterData.mapping.mappingPremi.updatePegawai", ":id") }}";
         const updateUrl = "{{ route("masterData.mapping.mappingPremi.update", ":id") }}";
         const deleteUrl = "{{ route("masterData.mapping.mappingPremi.delete", ":id") }}";
         let tindakanList = [];
         let premiList = [];
+        let pegawaiList = [];
         let tindakanRequest = null;
+        let pegawaiRequest = null;
         let rowIndex = 0;
 
         $.ajaxSetup({
@@ -49,6 +53,94 @@
             return `
                 <option value="persen" ${selectedJenis === 'persen' ? 'selected' : ''}>Persen</option>
                 <option value="nominal" ${selectedJenis === 'nominal' ? 'selected' : ''}>Nominal</option>
+            `;
+        }
+
+        function normalizeText(value) {
+            return String(value ?? '').trim().toLowerCase();
+        }
+
+        function employeeStatusLabel(status) {
+            const code = String(status ?? '').trim().toUpperCase();
+            const labels = {
+                T: 'Tetap',
+                FT: 'Kontrak',
+                MT: 'Mitra'
+            };
+
+            return labels[code] || String(status || '-').trim();
+        }
+
+        function employeeInitials(name) {
+            const parts = String(name || 'P')
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean);
+
+            return (parts.slice(0, 2).map(part => part.charAt(0)).join('') || 'P').toUpperCase();
+        }
+
+        function statusBadgeClass(status) {
+            const normalized = normalizeText(employeeStatusLabel(status));
+
+            if (normalized.includes('tetap')) return 'tetap';
+            if (normalized.includes('kontrak')) return 'kontrak';
+            // if (normalized.includes('casual')) return 'casual';
+            if (normalized.includes('mitra')) return 'mitra';
+
+            return 'netral';
+        }
+
+        function employeeStatusOptions(items, selectedStatus = '') {
+            const statuses = [...new Set(
+                (items || [])
+                    .map(item => employeeStatusLabel(item.stts_kerja))
+                    .filter(Boolean)
+            )].sort((a, b) => a.localeCompare(b, 'id'));
+            let options = '<option value="">Semua status kerja</option>';
+
+            statuses.forEach(function(status) {
+                const value = normalizeText(status);
+                options += `
+                    <option value="${escapeHtml(value)}" ${value === selectedStatus ? 'selected' : ''}>
+                        ${escapeHtml(status)}
+                    </option>
+                `;
+            });
+
+            return options;
+        }
+
+        function employeeSearchText(item) {
+            return normalizeText([
+                item.nik,
+                item.nama,
+                item.jbtn,
+                employeeStatusLabel(item.stts_kerja)
+            ].join(' '));
+        }
+
+        function employeeIdentity(item) {
+            return `
+                <div class="premi-employee-avatar">${escapeHtml(employeeInitials(item.nama))}</div>
+                <div class="premi-employee-info">
+                    <div class="premi-employee-name" title="${escapeHtml(item.nama)}">
+                        ${escapeHtml(item.nama)}
+                    </div>
+                    <div class="premi-employee-nik">
+                        <i class="mdi mdi-card-account-details-outline"></i>
+                        ${escapeHtml(item.nik)}
+                    </div>
+                    <div class="premi-employee-meta">
+                        <span class="premi-employee-job" title="${escapeHtml(item.jbtn || '-')}">
+                            <i class="mdi mdi-briefcase-outline"></i>
+                            ${escapeHtml(item.jbtn || '-')}
+                        </span>
+                        <span class="premi-status-badge ${statusBadgeClass(item.stts_kerja)}">
+                            ${escapeHtml(employeeStatusLabel(item.stts_kerja))}
+                        </span>
+                    </div>
+                </div>
             `;
         }
 
@@ -189,6 +281,27 @@
             return tindakanRequest;
         }
 
+        function loadPegawaiGuide() {
+            if (pegawaiList.length) {
+                return $.Deferred().resolve(pegawaiList).promise();
+            }
+
+            if (pegawaiRequest) {
+                return pegawaiRequest;
+            }
+
+            pegawaiRequest = $.get(
+                "{{ route("masterData.mapping.mappingPremi.guidePegawai") }}",
+                function(response) {
+                    pegawaiList = response || [];
+                }
+            ).always(function() {
+                pegawaiRequest = null;
+            });
+
+            return pegawaiRequest;
+        }
+
         function fillPremiSelect() {
             const select = $('#jenisPremiSelect');
             const current = select.val();
@@ -210,12 +323,25 @@
                             <div class="fw-semibold text-dark">${escapeHtml(data.kode)} - ${escapeHtml(data.jenis)}</div>
                         </div>
                         <div class="premi-panel-actions">
+                            <span class="badge bg-white text-secondary border premi-employee-count">
+                                ${Number(data.jumlah_pegawai) || 0} pegawai
+                            </span>
                             <span class="badge bg-white text-secondary border premi-panel-count">
                                 ${Number(data.jumlah_tindakan) || 0} tindakan
                             </span>
-                            <button type="button" class="btn btn-sm btn-primary btn-inline-add-premi">
-                                <i class="mdi mdi-plus"></i> Tambah
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-manage-premi-employees">
+                                <i class="mdi mdi-account-multiple-outline"></i> Atur Pegawai
                             </button>
+                            <button type="button" class="btn btn-sm btn-primary btn-inline-add-premi">
+                                <i class="mdi mdi-plus"></i> Tambah Tindakan
+                            </button>
+                        </div>
+                    </div>
+                    <div class="premi-employee-slot"></div>
+                    <div class="premi-employee-summary">
+                        <div class="small text-muted py-1">
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            Memuat pegawai penerima...
                         </div>
                     </div>
                     <div class="premi-editor-slot"></div>
@@ -227,6 +353,140 @@
                     </div>
                 </div>
             `;
+        }
+
+        function renderEmployeeSummary(items) {
+            if (!items || items.length === 0) {
+                return `
+                    <div class="premi-employee-summary-head">
+                        <div class="premi-employee-heading">
+                            <div class="premi-employee-heading-icon">
+                                <i class="mdi mdi-account-group-outline"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark">Pegawai Penerima Premi</div>
+                                <div class="small text-muted">Kelola siapa saja yang menerima jenis premi ini.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="premi-employee-summary-body">
+                        <div class="premi-employee-empty">
+                            <i class="mdi mdi-account-plus-outline d-block fs-3 text-primary mb-2"></i>
+                            <div class="fw-semibold text-dark">Belum ada pegawai penerima</div>
+                            <div class="small mb-3">Tambahkan pegawai agar premi ini memiliki daftar penerima yang jelas.</div>
+                            <button type="button" class="btn btn-sm btn-primary btn-manage-premi-employees">
+                                <i class="mdi mdi-account-multiple-plus-outline"></i>
+                                Pilih Pegawai
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const totalJabatan = new Set(
+                items.map(item => normalizeText(item.jbtn)).filter(Boolean)
+            ).size;
+            const totalStatus = new Set(
+                items.map(item => normalizeText(employeeStatusLabel(item.stts_kerja))).filter(Boolean)
+            ).size;
+
+            return `
+                <div class="premi-employee-summary-head">
+                    <div class="premi-employee-heading">
+                        <div class="premi-employee-heading-icon">
+                            <i class="mdi mdi-account-group-outline"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark">Pegawai Penerima Premi</div>
+                            <div class="small text-muted">
+                                Daftar pegawai yang berhak menerima premi ini.
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-manage-premi-employees">
+                        <i class="mdi mdi-account-edit-outline"></i>
+                        Ubah Penerima
+                    </button>
+                </div>
+                <div class="premi-employee-summary-body">
+                    <div class="premi-employee-stats">
+                        <div class="premi-employee-stat">
+                            <i class="mdi mdi-account-check-outline"></i>
+                            <div>
+                                <div class="premi-employee-stat-value">${items.length}</div>
+                                <div class="premi-employee-stat-label">Total penerima</div>
+                            </div>
+                        </div>
+                        <div class="premi-employee-stat">
+                            <i class="mdi mdi-briefcase-variant-outline"></i>
+                            <div>
+                                <div class="premi-employee-stat-value">${totalJabatan}</div>
+                                <div class="premi-employee-stat-label">Jabatan berbeda</div>
+                            </div>
+                        </div>
+                        <div class="premi-employee-stat">
+                            <i class="mdi mdi-badge-account-horizontal-outline"></i>
+                            <div>
+                                <div class="premi-employee-stat-value">${totalStatus}</div>
+                                <div class="premi-employee-stat-label">Status kerja</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="premi-employee-summary-tools">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-white">
+                                <i class="mdi mdi-magnify text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control premi-employee-summary-search"
+                                placeholder="Cari nama, NIK, atau jabatan...">
+                        </div>
+                        <select class="form-select form-select-sm premi-employee-summary-status">
+                            ${employeeStatusOptions(items)}
+                        </select>
+                    </div>
+
+                    <div class="small text-muted mb-2">
+                        Menampilkan <strong class="premi-summary-result-count text-dark">${items.length}</strong>
+                        dari ${items.length} pegawai
+                    </div>
+
+                    <div class="premi-employee-list">
+                        ${items.map(function(item) {
+                            return `
+                                <div class="premi-employee-card"
+                                    data-search="${escapeHtml(employeeSearchText(item))}"
+                                    data-status="${escapeHtml(normalizeText(employeeStatusLabel(item.stts_kerja)))}">
+                                    ${employeeIdentity(item)}
+                                </div>
+                            `;
+                        }).join('')}
+                        <div class="premi-employee-empty premi-employee-filter-empty d-none">
+                            <i class="mdi mdi-account-search-outline d-block fs-3 mb-2"></i>
+                            Tidak ada pegawai yang cocok dengan pencarian.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function applyEmployeeSummaryFilter(summary) {
+            const query = normalizeText(summary.find('.premi-employee-summary-search').val());
+            const status = normalizeText(summary.find('.premi-employee-summary-status').val());
+            let visibleCount = 0;
+
+            summary.find('.premi-employee-card').each(function() {
+                const card = $(this);
+                const matchesQuery = !query || String(card.data('search')).includes(query);
+                const matchesStatus = !status || String(card.data('status')) === status;
+                const visible = matchesQuery && matchesStatus;
+
+                card.toggle(visible);
+                if (visible) visibleCount++;
+            });
+
+            summary.find('.premi-summary-result-count').text(visibleCount);
+            summary.find('.premi-employee-filter-empty').toggleClass('d-none', visibleCount > 0);
         }
 
         function renderMappingList(items) {
@@ -276,6 +536,18 @@
             `;
         }
 
+        function renderTableTotals(panel) {
+            const actionCount = Number(panel.data('action-count')) || 0;
+            const employeeCount = Number(panel.data('employee-count')) || 0;
+            const summaries = panel.data('mapping-summaries') || [];
+
+            panel.closest('tr').prev('tr').find('td').last().html(
+                `<span class="fw-bold text-primary">${actionCount} tindakan</span>
+                <div class="small text-muted">${employeeCount} pegawai</div>
+                ${summaries.length ? `<div class="small text-muted">${summaries.join(' + ')}</div>` : ''}`
+            );
+        }
+
         function updatePanelTotals(panel, items) {
             const totalPersen = (items || [])
                 .filter(item => item.jenis === 'persen')
@@ -290,16 +562,22 @@
             if (totalNominal > 0) summaries.push(formatRupiah(totalNominal));
 
             panel.find('.premi-panel-count').text(count + ' tindakan');
-            panel.closest('tr').prev('tr').find('td').last().html(
-                `<span class="fw-bold text-primary">${count} tindakan</span>
-                ${summaries.length ? `<div class="small text-muted">${summaries.join(' + ')}</div>` : ''}`
-            );
+            panel.data('action-count', count);
+            panel.data('mapping-summaries', summaries);
+            renderTableTotals(panel);
+        }
+
+        function updateEmployeeTotals(panel, items) {
+            const count = (items || []).length;
+
+            panel.find('.premi-employee-count').text(count + ' pegawai');
+            panel.data('employee-count', count);
+            renderTableTotals(panel);
         }
 
         function refreshDetailPanel(panel) {
             const premiId = panel.data('premi-id');
-
-            return $.get(routeWithId(byPremiUrl, premiId), function(items) {
+            const mappingRequest = $.get(routeWithId(byPremiUrl, premiId), function(items) {
                 panel.find('.premi-mapping-list').html(renderMappingList(items));
                 updatePanelTotals(panel, items);
             }).fail(function(xhr) {
@@ -309,6 +587,214 @@
                     </div>
                 `);
             });
+
+            const pegawaiRequest = $.get(routeWithId(pegawaiByPremiUrl, premiId), function(items) {
+                panel.find('.premi-employee-summary').html(renderEmployeeSummary(items));
+                updateEmployeeTotals(panel, items);
+            }).fail(function(xhr) {
+                panel.find('.premi-employee-summary').html(`
+                    <div class="small text-danger">
+                        ${escapeHtml(xhr.responseJSON?.message || 'Pegawai penerima tidak dapat dimuat.')}
+                    </div>
+                `);
+            });
+
+            return $.when(mappingRequest, pegawaiRequest);
+        }
+
+        function getPickerSelected(editor) {
+            return editor.data('selectedNiks') || new Set();
+        }
+
+        function getFilteredPickerEmployees(editor) {
+            const query = normalizeText(editor.find('.premi-picker-search').val());
+            const status = normalizeText(editor.find('.premi-picker-status').val());
+
+            return pegawaiList.filter(function(item) {
+                const matchesQuery = !query || employeeSearchText(item).includes(query);
+                const matchesStatus = !status ||
+                    normalizeText(employeeStatusLabel(item.stts_kerja)) === status;
+
+                return matchesQuery && matchesStatus;
+            });
+        }
+
+        function renderEmployeePickerList(editor) {
+            const selectedNiks = getPickerSelected(editor);
+            const filteredItems = getFilteredPickerEmployees(editor);
+            const list = editor.find('.premi-picker-list');
+
+            editor.find('.premi-picker-filter-count').text(filteredItems.length + ' pegawai');
+
+            if (!filteredItems.length) {
+                list.html(`
+                    <div class="premi-employee-empty">
+                        <i class="mdi mdi-account-search-outline d-block fs-3 mb-2"></i>
+                        Pegawai tidak ditemukan. Coba ubah kata kunci atau filter status.
+                    </div>
+                `);
+                return;
+            }
+
+            list.html(filteredItems.map(function(item) {
+                const selected = selectedNiks.has(String(item.nik));
+
+                return `
+                    <label class="premi-picker-row ${selected ? 'selected' : ''}" data-nik="${escapeHtml(item.nik)}">
+                        <input type="checkbox" class="form-check-input premi-picker-check"
+                            value="${escapeHtml(item.nik)}" ${selected ? 'checked' : ''}>
+                        ${employeeIdentity(item)}
+                        <i class="mdi ${selected ? 'mdi-check-circle text-primary' : 'mdi-plus-circle-outline text-muted'} fs-5"></i>
+                    </label>
+                `;
+            }).join(''));
+        }
+
+        function renderSelectedEmployeeList(editor) {
+            const selectedNiks = getPickerSelected(editor);
+            const selectedItems = pegawaiList.filter(item => selectedNiks.has(String(item.nik)));
+            const selectedList = editor.find('.premi-picker-selected-list');
+            const remaining = Math.max(pegawaiList.length - selectedItems.length, 0);
+
+            editor.find('.premi-picker-total-count').text(pegawaiList.length);
+            editor.find('.premi-picker-selected-count').text(selectedItems.length);
+            editor.find('.premi-picker-remaining-count').text(remaining);
+            editor.find('.employee-selection-count').text(selectedItems.length + ' pegawai dipilih');
+
+            if (!selectedItems.length) {
+                selectedList.html(`
+                    <div class="premi-employee-empty">
+                        <i class="mdi mdi-account-arrow-right-outline d-block fs-3 mb-2"></i>
+                        Belum ada pegawai dipilih.
+                    </div>
+                `);
+                return;
+            }
+
+            selectedList.html(selectedItems.map(function(item) {
+                return `
+                    <div class="premi-picker-selected-item" data-nik="${escapeHtml(item.nik)}">
+                        ${employeeIdentity(item)}
+                        <button type="button" class="premi-picker-remove remove-premi-employee"
+                            title="Hapus ${escapeHtml(item.nama)}">
+                            <i class="mdi mdi-close"></i>
+                        </button>
+                    </div>
+                `;
+            }).join(''));
+        }
+
+        function refreshEmployeePicker(editor) {
+            renderEmployeePickerList(editor);
+            renderSelectedEmployeeList(editor);
+        }
+
+        function showEmployeeEditor(panel, items) {
+            const selectedNiks = new Set((items || []).map(item => String(item.nik)));
+
+            panel.find('.premi-employee-slot').html(`
+                <div class="premi-inline-editor premi-employee-editor">
+                    <div class="premi-inline-head">
+                        <div class="premi-inline-heading">
+                            <div class="premi-inline-icon">
+                                <i class="mdi mdi-account-multiple-outline"></i>
+                            </div>
+                            <div>
+                                <div class="premi-inline-title">Atur Pegawai Penerima</div>
+                                <div class="premi-inline-subtitle">
+                                    Cari pegawai aktif, pilih penerima, lalu periksa daftar pilihan sebelum menyimpan.
+                                </div>
+                            </div>
+                        </div>
+                        <span class="premi-inline-mode employee-selection-count">
+                            ${selectedNiks.size} pegawai dipilih
+                        </span>
+                    </div>
+
+                    <div class="premi-inline-body">
+                        <div class="premi-employee-picker-overview">
+                            <div class="premi-picker-stat">
+                                <strong class="premi-picker-total-count">${pegawaiList.length}</strong>
+                                <span>Pegawai aktif tersedia</span>
+                            </div>
+                            <div class="premi-picker-stat">
+                                <strong class="premi-picker-selected-count">${selectedNiks.size}</strong>
+                                <span>Dipilih sebagai penerima</span>
+                            </div>
+                            <div class="premi-picker-stat">
+                                <strong class="premi-picker-remaining-count">
+                                    ${Math.max(pegawaiList.length - selectedNiks.size, 0)}
+                                </strong>
+                                <span>Belum dipilih</span>
+                            </div>
+                        </div>
+
+                        <div class="premi-employee-picker-grid">
+                            <div class="premi-picker-pane">
+                                <div class="premi-picker-pane-head">
+                                    <div class="premi-picker-pane-title">
+                                        <i class="mdi mdi-account-search-outline me-1"></i>
+                                        Daftar Pegawai Aktif
+                                    </div>
+                                    <span class="small text-muted premi-picker-filter-count">
+                                        ${pegawaiList.length} pegawai
+                                    </span>
+                                </div>
+                                <div class="premi-picker-toolbar">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white">
+                                            <i class="mdi mdi-magnify text-muted"></i>
+                                        </span>
+                                        <input type="text" class="form-control premi-picker-search"
+                                            placeholder="Cari nama, NIK, atau jabatan...">
+                                    </div>
+                                    <select class="form-select form-select-sm premi-picker-status">
+                                        ${employeeStatusOptions(pegawaiList)}
+                                    </select>
+                                </div>
+                                <div class="premi-employee-tools px-2 mt-0 mb-2">
+                                    <button type="button" class="btn btn-outline-primary btn-sm select-visible-premi-employees">
+                                        <i class="mdi mdi-check-all"></i>
+                                        Pilih Hasil Filter
+                                    </button>
+                                </div>
+                                <div class="premi-picker-list"></div>
+                            </div>
+
+                            <div class="premi-picker-pane">
+                                <div class="premi-picker-pane-head">
+                                    <div class="premi-picker-pane-title">
+                                        <i class="mdi mdi-account-check-outline me-1"></i>
+                                        Penerima Terpilih
+                                    </div>
+                                    <button type="button" class="btn btn-light btn-sm text-danger clear-premi-employees">
+                                        Kosongkan
+                                    </button>
+                                </div>
+                                <div class="small text-muted px-3 py-2">
+                                    Daftar ini yang akan disimpan sebagai penerima premi.
+                                </div>
+                                <div class="premi-picker-selected-list"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="premi-inline-actions">
+                        <button type="button" class="btn btn-light btn-sm cancel-premi-employees">
+                            <i class="mdi mdi-close"></i>
+                            Batal
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm save-premi-employees">
+                            <i class="mdi mdi-content-save-outline"></i>
+                            Simpan Pegawai
+                        </button>
+                    </div>
+                </div>
+            `);
+
+            const editor = panel.find('.premi-employee-editor');
+            editor.data('selectedNiks', selectedNiks);
+            refreshEmployeePicker(editor);
         }
 
         function showInlineEditor(panel, mode, data = {}) {
@@ -586,6 +1072,124 @@
                 showInlineEditor(panel, 'add');
             }).fail(function() {
                 Swal.fire('Gagal', 'Master jenis tindakan tidak dapat dimuat.', 'error');
+            });
+        });
+
+        $(document).on('click', '.btn-manage-premi-employees', function() {
+            const panel = $(this).closest('.premi-expand-panel');
+            const premiId = panel.data('premi-id');
+
+            $.when(
+                loadPegawaiGuide(),
+                $.get(routeWithId(pegawaiByPremiUrl, premiId))
+            ).done(function(guideResponse, employeeResponse) {
+                const items = Array.isArray(employeeResponse?.[0])
+                    ? employeeResponse[0]
+                    : employeeResponse;
+                showEmployeeEditor(panel, items || []);
+            }).fail(function() {
+                Swal.fire('Gagal', 'Data pegawai penerima tidak dapat dimuat.', 'error');
+            });
+        });
+
+        $(document).on('input', '.premi-employee-summary-search', function() {
+            applyEmployeeSummaryFilter($(this).closest('.premi-employee-summary'));
+        });
+
+        $(document).on('change', '.premi-employee-summary-status', function() {
+            applyEmployeeSummaryFilter($(this).closest('.premi-employee-summary'));
+        });
+
+        $(document).on('input', '.premi-picker-search', function() {
+            renderEmployeePickerList($(this).closest('.premi-employee-editor'));
+        });
+
+        $(document).on('change', '.premi-picker-status', function() {
+            renderEmployeePickerList($(this).closest('.premi-employee-editor'));
+        });
+
+        $(document).on('change', '.premi-picker-check', function() {
+            const editor = $(this).closest('.premi-employee-editor');
+            const selectedNiks = getPickerSelected(editor);
+            const nik = String($(this).val());
+
+            if (this.checked) {
+                selectedNiks.add(nik);
+            } else {
+                selectedNiks.delete(nik);
+            }
+
+            editor.data('selectedNiks', selectedNiks);
+            refreshEmployeePicker(editor);
+        });
+
+        $(document).on('click', '.select-visible-premi-employees', function() {
+            const editor = $(this).closest('.premi-employee-editor');
+            const selectedNiks = getPickerSelected(editor);
+
+            getFilteredPickerEmployees(editor).forEach(function(item) {
+                selectedNiks.add(String(item.nik));
+            });
+
+            editor.data('selectedNiks', selectedNiks);
+            refreshEmployeePicker(editor);
+        });
+
+        $(document).on('click', '.clear-premi-employees', function() {
+            const editor = $(this).closest('.premi-employee-editor');
+            editor.data('selectedNiks', new Set());
+            refreshEmployeePicker(editor);
+        });
+
+        $(document).on('click', '.remove-premi-employee', function() {
+            const editor = $(this).closest('.premi-employee-editor');
+            const selectedNiks = getPickerSelected(editor);
+            const nik = String($(this).closest('.premi-picker-selected-item').attr('data-nik'));
+
+            selectedNiks.delete(nik);
+            editor.data('selectedNiks', selectedNiks);
+            refreshEmployeePicker(editor);
+        });
+
+        $(document).on('click', '.cancel-premi-employees', function() {
+            $(this).closest('.premi-employee-slot').empty();
+        });
+
+        $(document).on('click', '.save-premi-employees', function() {
+            const button = $(this);
+            const editor = button.closest('.premi-employee-editor');
+            const panel = button.closest('.premi-expand-panel');
+            const selectedNiks = [...getPickerSelected(editor)];
+            const originalButton = button.html();
+
+            button.prop('disabled', true).html(`
+                <span class="spinner-border spinner-border-sm"></span>
+                Menyimpan...
+            `);
+
+            $.ajax({
+                url: routeWithId(updatePegawaiUrl, panel.data('premi-id')),
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    nik: selectedNiks
+                }),
+                success: function(response) {
+                    editor.remove();
+                    refreshDetailPanel(panel);
+                    showToast('success', response.message);
+                },
+                error: function(xhr) {
+                    Swal.fire(
+                        'Gagal',
+                        xhr.responseJSON?.message || Object.values(xhr.responseJSON?.errors || {})[0]?.[0] ||
+                        'Pegawai penerima gagal disimpan',
+                        xhr.status === 422 ? 'warning' : 'error'
+                    );
+                },
+                complete: function() {
+                    button.prop('disabled', false).html(originalButton);
+                }
             });
         });
 

@@ -6,6 +6,7 @@
                     <h5 class="modal-title fw-semibold">Mapping Premi</h5>
                     <small class="text-muted">
                         Pilih premi, jenis tindakan, serta nilai persen atau nominal yang berlaku.
+                        Pegawai penerima dapat diatur dari rincian premi.
                     </small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

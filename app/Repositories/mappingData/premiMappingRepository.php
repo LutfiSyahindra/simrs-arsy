@@ -2,30 +2,46 @@
 
 namespace App\Repositories\mappingData;
 
+use App\Models\dbSimrs\gapokModel;
 use App\Models\dbSimrs\jnsPremiModel;
 use App\Models\dbSimrs\jnsTindakanModel;
 use App\Models\dbSimrs\mappingPremiModel;
+use App\Models\dbSimrs\mappingPremiPegawaiModel;
+use Illuminate\Support\Facades\DB;
 
 class premiMappingRepository
 {
     protected $mappingPremiModel;
+
+    protected $mappingPremiPegawaiModel;
+
     protected $masterJnsPremiModel;
+
     protected $masterJnsTindakanModel;
+
+    protected $gapokModel;
 
     public function __construct(
         mappingPremiModel $mappingPremiModel,
+        mappingPremiPegawaiModel $mappingPremiPegawaiModel,
         jnsPremiModel $masterJnsPremiModel,
-        jnsTindakanModel $masterJnsTindakanModel
+        jnsTindakanModel $masterJnsTindakanModel,
+        gapokModel $gapokModel
     ) {
         $this->mappingPremiModel = $mappingPremiModel;
+        $this->mappingPremiPegawaiModel = $mappingPremiPegawaiModel;
         $this->masterJnsPremiModel = $masterJnsPremiModel;
         $this->masterJnsTindakanModel = $masterJnsTindakanModel;
+        $this->gapokModel = $gapokModel;
     }
 
     public function getPremiWithCounts()
     {
         return $this->masterJnsPremiModel::select('id', 'kode', 'jenis')
-            ->withCount(['mappingPremi as jumlah_tindakan'])
+            ->withCount([
+                'mappingPremi as jumlah_tindakan',
+                'pegawaiPremi as jumlah_pegawai',
+            ])
             ->orderBy('jenis')
             ->get();
     }
@@ -42,6 +58,43 @@ class premiMappingRepository
         return $this->masterJnsTindakanModel::select('id', 'kode', 'jenis')
             ->orderBy('jenis')
             ->get();
+    }
+
+    public function getPegawai()
+    {
+        return $this->gapokModel::select('nik', 'nama', 'jbtn', 'stts_kerja')
+            ->where('stts_aktif', 'AKTIF')
+            ->orderBy('nama')
+            ->get();
+    }
+
+    public function getPegawaiByPremi(int $premiId)
+    {
+        return $this->mappingPremiPegawaiModel::select('id', 'jnsPremi_id', 'nik')
+            ->with('gapok:nik,nama,jbtn,stts_kerja')
+            ->where('jnsPremi_id', $premiId)
+            ->get();
+    }
+
+    public function syncPegawai(int $premiId, array $niks)
+    {
+        return DB::transaction(function () use ($premiId, $niks) {
+            $this->mappingPremiPegawaiModel::where('jnsPremi_id', $premiId)->delete();
+
+            if (empty($niks)) {
+                return true;
+            }
+
+            $now = now();
+            $data = collect($niks)->map(fn ($nik) => [
+                'jnsPremi_id' => $premiId,
+                'nik' => $nik,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all();
+
+            return $this->mappingPremiPegawaiModel::insert($data);
+        });
     }
 
     public function findPremiById(int $id)
