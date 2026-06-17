@@ -25,13 +25,15 @@ class hitungPremiPelayananNonMedisController extends Controller
         $validated = $request->validate([
             'periode' => ['nullable', 'date_format:Y-m'],
             'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
+            'jnsPremi_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
         ]);
         $canUnlock = $request->user()?->hasRole('Admin') ?? false;
 
         return DataTables::of(
             $this->service->getResults(
                 $validated['periode'] ?? null,
-                $validated['jenis_pelayanan'] ?? null
+                $validated['jenis_pelayanan'] ?? null,
+                isset($validated['jnsPremi_id']) ? (int) $validated['jnsPremi_id'] : null
             )
         )
             ->addIndexColumn()
@@ -71,18 +73,66 @@ class hitungPremiPelayananNonMedisController extends Controller
             ->make(true);
     }
 
+    public function mappingPremiOptions()
+    {
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->getMappingPremiOptions(),
+        ]);
+    }
+
+    public function karcisConfig()
+    {
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->getKarcisConfig(),
+        ]);
+    }
+
+    public function updateKarcisConfig(Request $request)
+    {
+        $request->merge([
+            'jnsTindakan_id' => $request->input('jnsTindakan_id', []),
+        ]);
+
+        $validated = $request->validate([
+            'jnsTindakan_id' => ['present', 'array'],
+            'jnsTindakan_id.*' => [
+                'required',
+                'integer',
+                'distinct',
+                'exists:master_jenis_tindakan,id',
+            ],
+        ], [
+            'jnsTindakan_id.present' => 'Daftar tindakan karcis wajib dikirim.',
+            'jnsTindakan_id.array' => 'Format tindakan karcis tidak valid.',
+            'jnsTindakan_id.*.exists' => 'Jenis tindakan tidak ditemukan.',
+            'jnsTindakan_id.*.distinct' => 'Jenis tindakan tidak boleh duplikat.',
+        ]);
+
+        $this->service->saveKarcisConfig($validated['jnsTindakan_id']);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi karcis BPJS berhasil disimpan.',
+            'data' => $this->service->getKarcisConfig(),
+        ]);
+    }
+
     public function summary(Request $request)
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
+            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
         ]);
 
         return response()->json([
             'status' => true,
             'data' => $this->service->getSummary(
                 $validated['periode'],
-                $validated['jenis_pelayanan']
+                $validated['jenis_pelayanan'],
+                (int) $validated['jnsPremi_id']
             ),
         ]);
     }
@@ -92,10 +142,12 @@ class hitungPremiPelayananNonMedisController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
+            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
         ]);
         $result = $this->service->generate(
             $validated['periode'],
-            $validated['jenis_pelayanan']
+            $validated['jenis_pelayanan'],
+            (int) $validated['jnsPremi_id']
         );
 
         return response()->json([

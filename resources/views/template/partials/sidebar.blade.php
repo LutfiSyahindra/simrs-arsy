@@ -82,6 +82,10 @@
                                 <a href="{{ route("masterData.keuangan.jnsPremi") }}" class="nav-link">Master Jenis
                                     Premi</a>
                             </li>
+                            <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.plotingPremi") }}" class="nav-link">Master Ploting
+                                    Premi</a>
+                            </li>
                         </ul>
                     </div>
                 </li>

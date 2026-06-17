@@ -14,6 +14,9 @@ class premiPelayananNonMedisModel extends Model
     protected $fillable = [
         'periode',
         'jenis_pelayanan',
+        'jnsPremi_id',
+        'kode_premi',
+        'nama_premi',
         'generate_bhp_id',
         'generate_kamar_inap_id',
         'jumlah_transaksi',
@@ -31,6 +34,7 @@ class premiPelayananNonMedisModel extends Model
     ];
 
     protected $casts = [
+        'jnsPremi_id' => 'integer',
         'jumlah_transaksi' => 'integer',
         'jumlah_jenis_tindakan' => 'integer',
         'jumlah_mapping_premi' => 'integer',
@@ -59,6 +63,11 @@ class premiPelayananNonMedisModel extends Model
     public function generateKamar(): BelongsTo
     {
         return $this->belongsTo(generateKamarModel::class, 'generate_kamar_inap_id');
+    }
+
+    public function jnsPremi(): BelongsTo
+    {
+        return $this->belongsTo(jnsPremiModel::class, 'jnsPremi_id');
     }
 
     public function lockedBy(): BelongsTo

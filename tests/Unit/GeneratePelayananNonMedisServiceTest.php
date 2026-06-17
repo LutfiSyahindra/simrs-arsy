@@ -24,15 +24,26 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
             ]);
         $repository->shouldReceive('findByPeriodAndType')
             ->once()
-            ->with('2026-06', 'umum')
+            ->with('2026-06', 'umum', 7)
             ->andReturnNull();
+        $repository->shouldReceive('findPremi')
+            ->once()
+            ->with(7)
+            ->andReturn((object) [
+                'id' => 7,
+                'kode' => 'PNM',
+                'jenis' => 'Pelayanan Non Medis',
+            ]);
         $repository->shouldReceive('calculate')
             ->once()
-            ->with('2026-06', 'umum')
+            ->with('2026-06', 'umum', 7)
             ->andReturn($this->calculation());
+        $repository->shouldReceive('getKarcisTindakanIds')
+            ->twice()
+            ->andReturn(collect());
 
         $summary = (new generatePelayananNonMedisService($repository))
-            ->getSummary('2026-06', 'umum');
+            ->getSummary('2026-06', 'umum', 7);
 
         $this->assertTrue($summary['ready']);
         $this->assertSame(
@@ -55,12 +66,23 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
             ]);
         $repository->shouldReceive('findByPeriodAndType')
             ->once()
-            ->with('2026-06', 'bpjs')
+            ->with('2026-06', 'bpjs', 7)
             ->andReturnNull();
+        $repository->shouldReceive('findPremi')
+            ->once()
+            ->with(7)
+            ->andReturn((object) [
+                'id' => 7,
+                'kode' => 'PNM',
+                'jenis' => 'Pelayanan Non Medis',
+            ]);
         $repository->shouldNotReceive('calculate');
+        $repository->shouldReceive('getKarcisTindakanIds')
+            ->twice()
+            ->andReturn(collect());
 
         $summary = (new generatePelayananNonMedisService($repository))
-            ->getSummary('2026-06', 'bpjs');
+            ->getSummary('2026-06', 'bpjs', 7);
 
         $this->assertFalse($summary['ready']);
         $this->assertSame(
@@ -90,6 +112,9 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
             'jumlah_mapping_premi' => 2,
             'total_biaya_rawat' => 100000,
             'total_mapping_premi' => 5000,
+            'kode_premi' => 'PNM',
+            'nama_premi' => 'Pelayanan Non Medis',
+            'details' => collect(),
         ];
     }
 }

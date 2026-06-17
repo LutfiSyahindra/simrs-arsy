@@ -70,14 +70,27 @@ class generatePelayananNonMedisRepository
         ];
     }
 
-    public function calculate(string $periode, string $jenisPelayanan): array
+    public function calculate(
+        string $periode,
+        string $jenisPelayanan,
+        int $jnsPremiId
+    ): array
     {
-        $mappings = $this->getCalculationMappings($jenisPelayanan);
+        $karcisTindakanIds = $this->getKarcisTindakanIds();
+        $mappings = $this->getCalculationMappings(
+            $jenisPelayanan,
+            $jnsPremiId,
+            $karcisTindakanIds
+        );
+        $selectedPremi = $mappings->first();
 
         if ($mappings->isEmpty()) {
             return [
                 'transactions' => collect(),
                 'details' => collect(),
+                'jnsPremi_id' => $jnsPremiId,
+                'kode_premi' => null,
+                'nama_premi' => null,
                 'jumlah_transaksi' => 0,
                 'jumlah_jenis_tindakan' => 0,
                 'jumlah_mapping_premi' => 0,
@@ -89,55 +102,58 @@ class generatePelayananNonMedisRepository
         $transactions = $this->getTransactions(
             $periode,
             $jenisPelayanan,
-            $mappings
+            $mappings,
+            $karcisTindakanIds
         );
         $transactionsByAction = $transactions->groupBy('jnsTindakan_id');
 
         $details = $mappings
             ->groupBy('mapping_premi_id')
-            ->map(function (Collection $rows) use ($transactionsByAction) {
+            ->flatMap(function (Collection $rows) use ($transactionsByAction, $jenisPelayanan) {
                 $mapping = $rows->first();
                 $items = $transactionsByAction
                     ->get($mapping->jnsTindakan_id, collect())
                     ->values();
-                $totalBiaya = round((float) $items->sum('biaya_rawat'), 2);
-                $jumlahData = $items->count();
-                $dasarHitung = $mapping->jenis_mapping === 'persen'
-                    ? $totalBiaya
-                    : $jumlahData;
-                $hasil = $mapping->jenis_mapping === 'persen'
-                    ? round($totalBiaya * ((float) $mapping->nilai_mapping / 100), 2)
-                    : round($jumlahData * (float) $mapping->nilai_mapping, 2);
 
-                return [
-                    'mapping_premi_id' => (int) $mapping->mapping_premi_id,
-                    'jnsPremi_id' => (int) $mapping->jnsPremi_id,
-                    'jnsTindakan_id' => (int) $mapping->jnsTindakan_id,
-                    'kode_premi' => $mapping->kode_premi,
-                    'nama_premi' => $mapping->nama_premi,
-                    'kode_jenis_tindakan' => $mapping->kode_jenis_tindakan,
-                    'nama_jenis_tindakan' => $mapping->nama_jenis_tindakan,
-                    'jenis_mapping' => $mapping->jenis_mapping,
-                    'nilai_mapping' => (float) $mapping->nilai_mapping,
-                    'jumlah_data' => $jumlahData,
-                    'total_biaya_rawat' => $totalBiaya,
-                    'dasar_hitung' => $dasarHitung,
-                    'hasil_mapping' => $hasil,
-                    'data_tindakan' => $items->map(fn ($item) => [
-                        'source_table' => $item->source_table,
-                        'sumber_tindakan' => $item->sumber_tindakan,
-                        'no_rawat' => $item->no_rawat,
-                        'tanggal' => $item->tanggal,
-                        'jam' => $item->jam,
-                        'kd_tindakan' => $item->kd_tindakan,
-                        'nm_tindakan' => $item->nm_tindakan,
-                        'kd_pj' => $item->kd_pj,
-                        'nama_penjamin' => $item->nama_penjamin,
-                        'kd_dokter' => $item->kd_dokter,
-                        'nip' => $item->nip,
-                        'biaya_rawat' => (float) $item->biaya_rawat,
-                    ])->all(),
-                ];
+                if ($jenisPelayanan !== 'umum') {
+                    return collect([
+                        $this->makeDetail(
+                            $mapping,
+                            $items,
+                            (float) $mapping->nilai_mapping,
+                            (int) $mapping->mapping_premi_id
+                        ),
+                    ]);
+                }
+
+                [$karcisBpjsItems, $umumItems] = $items
+                    ->partition(fn ($item) => $item->jenis_pelayanan_sumber === 'bpjs_karcis');
+                $details = collect();
+
+                if ($umumItems->isNotEmpty()) {
+                    $details->push(
+                        $this->makeDetail(
+                            $mapping,
+                            $umumItems->values(),
+                            (float) $mapping->nilai_umum,
+                            (int) $mapping->mapping_premi_id
+                        )
+                    );
+                }
+
+                if ($karcisBpjsItems->isNotEmpty()) {
+                    $details->push(
+                        $this->makeDetail(
+                            $mapping,
+                            $karcisBpjsItems->values(),
+                            (float) $mapping->nilai_bpjs,
+                            null,
+                            ' (Karcis BPJS)'
+                        )
+                    );
+                }
+
+                return $details;
             })
             ->filter(fn (array $detail) => $detail['jumlah_data'] > 0)
             ->sortBy('nama_jenis_tindakan')
@@ -146,6 +162,9 @@ class generatePelayananNonMedisRepository
         return [
             'transactions' => $transactions,
             'details' => $details,
+            'jnsPremi_id' => $jnsPremiId,
+            'kode_premi' => $selectedPremi?->kode_premi,
+            'nama_premi' => $selectedPremi?->nama_premi,
             'jumlah_transaksi' => $transactions->count(),
             'jumlah_jenis_tindakan' => $transactions
                 ->pluck('jnsTindakan_id')
@@ -157,7 +176,131 @@ class generatePelayananNonMedisRepository
         ];
     }
 
-    private function getCalculationMappings(string $jenisPelayanan): Collection
+    private function makeDetail(
+        object $mapping,
+        Collection $items,
+        float $nilaiMapping,
+        ?int $mappingPremiId,
+        string $suffix = ''
+    ): array {
+        $totalBiaya = round((float) $items->sum('biaya_rawat'), 2);
+        $jumlahData = $items->count();
+        $dasarHitung = $mapping->jenis_mapping === 'persen'
+            ? $totalBiaya
+            : $jumlahData;
+        $hasil = $mapping->jenis_mapping === 'persen'
+            ? round($totalBiaya * ($nilaiMapping / 100), 2)
+            : round($jumlahData * $nilaiMapping, 2);
+
+        return [
+            'mapping_premi_id' => $mappingPremiId,
+            'jnsPremi_id' => (int) $mapping->jnsPremi_id,
+            'jnsTindakan_id' => (int) $mapping->jnsTindakan_id,
+            'kode_premi' => $mapping->kode_premi,
+            'nama_premi' => trim($mapping->nama_premi.$suffix),
+            'kode_jenis_tindakan' => $mapping->kode_jenis_tindakan,
+            'nama_jenis_tindakan' => trim($mapping->nama_jenis_tindakan.$suffix),
+            'jenis_mapping' => $mapping->jenis_mapping,
+            'nilai_mapping' => $nilaiMapping,
+            'jumlah_data' => $jumlahData,
+            'total_biaya_rawat' => $totalBiaya,
+            'dasar_hitung' => $dasarHitung,
+            'hasil_mapping' => $hasil,
+            'data_tindakan' => $items->map(fn ($item) => [
+                'source_table' => $item->source_table,
+                'sumber_tindakan' => $item->sumber_tindakan,
+                'no_rawat' => $item->no_rawat,
+                'tanggal' => $item->tanggal,
+                'jam' => $item->jam,
+                'kd_tindakan' => $item->kd_tindakan,
+                'nm_tindakan' => $item->nm_tindakan,
+                'kd_pj' => $item->kd_pj,
+                'nama_penjamin' => $item->nama_penjamin,
+                'kd_dokter' => $item->kd_dokter,
+                'nip' => $item->nip,
+                'jenis_pelayanan_sumber' => $item->jenis_pelayanan_sumber,
+                'biaya_rawat' => (float) $item->biaya_rawat,
+            ])->all(),
+        ];
+    }
+
+    public function getMappingPremiOptions(): Collection
+    {
+        return DB::table('master_jenis_premi as jp')
+            ->join('mapping_premi as mp', 'mp.jnsPremi_id', '=', 'jp.id')
+            ->select([
+                'jp.id',
+                'jp.kode',
+                'jp.jenis',
+                DB::raw('COUNT(mp.id) as jumlah_tindakan'),
+            ])
+            ->groupBy('jp.id', 'jp.kode', 'jp.jenis')
+            ->orderBy('jp.jenis')
+            ->get();
+    }
+
+    public function getKarcisConfigOptions(): Collection
+    {
+        return DB::table('master_jenis_tindakan as jt')
+            ->leftJoin('mapping_tindakan as mt', 'mt.jnsTindakan_id', '=', 'jt.id')
+            ->leftJoin('mapping_premi as mp', 'mp.jnsTindakan_id', '=', 'jt.id')
+            ->select([
+                'jt.id',
+                'jt.kode',
+                'jt.jenis',
+                DB::raw('COUNT(DISTINCT mt.id) as jumlah_mapping_tindakan'),
+                DB::raw('COUNT(DISTINCT mp.id) as jumlah_mapping_premi'),
+            ])
+            ->groupBy('jt.id', 'jt.kode', 'jt.jenis')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getKarcisTindakanIds(): Collection
+    {
+        return DB::table('premi_pelayanan_non_medis_karcis_config')
+            ->pluck('jnsTindakan_id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
+    public function saveKarcisConfig(array $tindakanIds): void
+    {
+        DB::transaction(function () use ($tindakanIds) {
+            DB::table('premi_pelayanan_non_medis_karcis_config')->delete();
+
+            if (empty($tindakanIds)) {
+                return;
+            }
+
+            $now = now();
+            DB::table('premi_pelayanan_non_medis_karcis_config')->insert(
+                collect($tindakanIds)
+                    ->unique()
+                    ->map(fn ($id) => [
+                        'jnsTindakan_id' => (int) $id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->values()
+                    ->all()
+            );
+        });
+    }
+
+    public function findPremi(int $jnsPremiId)
+    {
+        return DB::table('master_jenis_premi')
+            ->select('id', 'kode', 'jenis')
+            ->where('id', $jnsPremiId)
+            ->first();
+    }
+
+    private function getCalculationMappings(
+        string $jenisPelayanan,
+        int $jnsPremiId,
+        Collection $karcisTindakanIds
+    ): Collection
     {
         $valueColumn = $jenisPelayanan === 'bpjs'
             ? 'mp.nilai_bpjs'
@@ -175,12 +318,22 @@ class generatePelayananNonMedisRepository
                 'mp.id as mapping_premi_id',
                 'mp.jnsPremi_id',
                 'mp.jenis as jenis_mapping',
+                'mp.nilai_umum',
+                'mp.nilai_bpjs',
                 DB::raw("{$valueColumn} as nilai_mapping"),
                 'jp.kode as kode_premi',
                 'jp.jenis as nama_premi',
                 'jt.kode as kode_jenis_tindakan',
                 'jt.jenis as nama_jenis_tindakan',
             ])
+            ->where('mp.jnsPremi_id', $jnsPremiId)
+            ->when(
+                $jenisPelayanan === 'bpjs' && $karcisTindakanIds->isNotEmpty(),
+                fn ($query) => $query->whereNotIn(
+                    'mp.jnsTindakan_id',
+                    $karcisTindakanIds->all()
+                )
+            )
             ->orderBy('mt.sumber_tindakan')
             ->orderBy('mt.kd_tindakan')
             ->get();
@@ -189,9 +342,53 @@ class generatePelayananNonMedisRepository
     private function getTransactions(
         string $periode,
         string $jenisPelayanan,
-        Collection $mappings
+        Collection $mappings,
+        Collection $karcisTindakanIds
     ): Collection {
-        $range = PremiSourcePeriod::range($periode, $jenisPelayanan);
+        $transactions = $this->collectTransactions(
+            $periode,
+            $jenisPelayanan,
+            $mappings,
+            $jenisPelayanan
+        );
+
+        if ($jenisPelayanan === 'umum' && $karcisTindakanIds->isNotEmpty()) {
+            $karcisMappings = $mappings
+                ->filter(fn ($mapping) => $karcisTindakanIds->contains(
+                    (int) $mapping->jnsTindakan_id
+                ))
+                ->values();
+
+            if ($karcisMappings->isNotEmpty()) {
+                $transactions = $transactions->merge(
+                    $this->collectTransactions(
+                        $periode,
+                        'bpjs',
+                        $karcisMappings,
+                        'bpjs_karcis'
+                    )
+                );
+            }
+        }
+
+        return $transactions
+            ->sortBy(fn ($row) => implode('|', [
+                $row->tanggal,
+                $row->jam,
+                $row->no_rawat,
+                $row->source_table,
+                $row->kd_tindakan,
+            ]))
+            ->values();
+    }
+
+    private function collectTransactions(
+        string $periode,
+        string $filterJenisPelayanan,
+        Collection $mappings,
+        string $sourceType
+    ): Collection {
+        $range = PremiSourcePeriod::range($periode, $filterJenisPelayanan);
         $mappingBySource = $mappings
             ->groupBy(fn ($mapping) => $mapping->sumber_tindakan.'|'.$mapping->kd_tindakan);
         $codesBySource = $mappings
@@ -208,7 +405,7 @@ class generatePelayananNonMedisRepository
 
             $rows = $this->sourceQuery(
                 $definition,
-                $jenisPelayanan,
+                $filterJenisPelayanan,
                 $range['start'],
                 $range['end'],
                 $codes
@@ -224,20 +421,13 @@ class generatePelayananNonMedisRepository
                     $rowCopy->jnsTindakan_id = (int) $mapping->jnsTindakan_id;
                     $rowCopy->nm_tindakan = $mapping->nm_tindakan;
                     $rowCopy->biaya_rawat = round((float) $rowCopy->biaya_rawat, 2);
+                    $rowCopy->jenis_pelayanan_sumber = $sourceType;
                     $transactions->push($rowCopy);
                 }
             }
         }
 
-        return $transactions
-            ->sortBy(fn ($row) => implode('|', [
-                $row->tanggal,
-                $row->jam,
-                $row->no_rawat,
-                $row->source_table,
-                $row->kd_tindakan,
-            ]))
-            ->values();
+        return $transactions;
     }
 
     private function sourceQuery(
@@ -322,7 +512,8 @@ class generatePelayananNonMedisRepository
 
     public function getResults(
         ?string $periode = null,
-        ?string $jenisPelayanan = null
+        ?string $jenisPelayanan = null,
+        ?int $jnsPremiId = null
     ): Collection {
         return premiPelayananNonMedisModel::query()
             ->with(['lockedBy:id,name', 'generateBy:id,name'])
@@ -332,29 +523,54 @@ class generatePelayananNonMedisRepository
                 $jenisPelayanan,
                 fn ($query) => $query->where('jenis_pelayanan', $jenisPelayanan)
             )
+            ->when($jnsPremiId, fn ($query) => $query->where('jnsPremi_id', $jnsPremiId))
             ->orderByDesc('periode')
             ->orderBy('jenis_pelayanan')
+            ->orderBy('nama_premi')
             ->get();
     }
 
     public function findByPeriodAndType(
         string $periode,
-        string $jenisPelayanan
+        string $jenisPelayanan,
+        int $jnsPremiId
     ): ?premiPelayananNonMedisModel {
         return premiPelayananNonMedisModel::query()
             ->with('lockedBy:id,name')
+            ->with([
+                'details' => fn ($query) => $query
+                    ->select([
+                        'id',
+                        'premi_pelayanan_non_medis_id',
+                        'mapping_premi_id',
+                        'jnsTindakan_id',
+                        'kode_jenis_tindakan',
+                        'nama_jenis_tindakan',
+                        'jenis_mapping',
+                        'nilai_mapping',
+                        'jumlah_data',
+                        'total_biaya_rawat',
+                        'dasar_hitung',
+                        'hasil_mapping',
+                        'data_tindakan',
+                    ])
+                    ->orderBy('nama_jenis_tindakan'),
+            ])
             ->where('periode', $periode)
             ->where('jenis_pelayanan', $jenisPelayanan)
+            ->where('jnsPremi_id', $jnsPremiId)
             ->first();
     }
 
     public function findByPeriodAndTypeForUpdate(
         string $periode,
-        string $jenisPelayanan
+        string $jenisPelayanan,
+        int $jnsPremiId
     ): ?premiPelayananNonMedisModel {
         return premiPelayananNonMedisModel::query()
             ->where('periode', $periode)
             ->where('jenis_pelayanan', $jenisPelayanan)
+            ->where('jnsPremi_id', $jnsPremiId)
             ->lockForUpdate()
             ->first();
     }
@@ -362,6 +578,7 @@ class generatePelayananNonMedisRepository
     public function saveResult(
         string $periode,
         string $jenisPelayanan,
+        int $jnsPremiId,
         array $dependencies,
         array $calculation
     ): premiPelayananNonMedisModel {
@@ -373,8 +590,11 @@ class generatePelayananNonMedisRepository
             [
                 'periode' => $periode,
                 'jenis_pelayanan' => $jenisPelayanan,
+                'jnsPremi_id' => $jnsPremiId,
             ],
             [
+                'kode_premi' => $calculation['kode_premi'],
+                'nama_premi' => $calculation['nama_premi'],
                 'generate_bhp_id' => $dependencies['bhp']->id,
                 'generate_kamar_inap_id' => $dependencies['kamar']->id,
                 'jumlah_transaksi' => $calculation['jumlah_transaksi'],

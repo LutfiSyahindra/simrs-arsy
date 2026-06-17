@@ -16,10 +16,14 @@ class generatePelayananNonMedisService
         protected generatePelayananNonMedisRepository $repository
     ) {}
 
-    public function getResults(?string $periode = null, ?string $jenis = null)
+    public function getResults(
+        ?string $periode = null,
+        ?string $jenis = null,
+        ?int $jnsPremiId = null
+    )
     {
         return $this->repository
-            ->getResults($periode, $jenis)
+            ->getResults($periode, $jenis, $jnsPremiId)
             ->map(fn ($row) => [
                 ...$this->resultPayload($row),
                 'jumlah_detail' => $row->details_count,
@@ -31,15 +35,71 @@ class generatePelayananNonMedisService
             ]);
     }
 
-    public function getSummary(string $periode, string $jenis): array
+    public function getMappingPremiOptions()
+    {
+        return $this->repository
+            ->getMappingPremiOptions()
+            ->map(fn ($item) => [
+                'id' => (int) $item->id,
+                'kode' => $item->kode,
+                'jenis' => $item->jenis,
+                'jumlah_tindakan' => (int) $item->jumlah_tindakan,
+                'text' => trim($item->kode.' - '.$item->jenis),
+            ])
+            ->values();
+    }
+
+    public function getKarcisConfig(): array
+    {
+        $selectedIds = $this->repository->getKarcisTindakanIds()
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        return [
+            'selected_ids' => $selectedIds,
+            'options' => $this->repository
+                ->getKarcisConfigOptions()
+                ->map(fn ($item) => [
+                    'id' => (int) $item->id,
+                    'kode' => $item->kode,
+                    'jenis' => $item->jenis,
+                    'jumlah_mapping_tindakan' => (int) $item->jumlah_mapping_tindakan,
+                    'jumlah_mapping_premi' => (int) $item->jumlah_mapping_premi,
+                    'selected' => $selectedIds->contains((int) $item->id),
+                ])
+                ->values(),
+        ];
+    }
+
+    public function saveKarcisConfig(array $tindakanIds): void
+    {
+        $this->repository->saveKarcisConfig(
+            collect($tindakanIds)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all()
+        );
+    }
+
+    public function getSummary(string $periode, string $jenis, int $jnsPremiId): array
     {
         $dependencies = $this->repository->getDependencies($periode, $jenis);
-        $existing = $this->repository->findByPeriodAndType($periode, $jenis);
+        $existing = $this->repository->findByPeriodAndType(
+            $periode,
+            $jenis,
+            $jnsPremiId
+        );
+        $selectedPremi = $this->repository->findPremi($jnsPremiId);
         $calculation = null;
         $dependenciesReady = $this->dependenciesAreLocked($dependencies);
 
         if ($dependenciesReady && ! $existing?->is_locked) {
-            $calculation = $this->repository->calculate($periode, $jenis);
+            $calculation = $this->repository->calculate(
+                $periode,
+                $jenis,
+                $jnsPremiId
+            );
         }
 
         $totalBhp = $calculation
@@ -57,6 +117,13 @@ class generatePelayananNonMedisService
             'periode_sumber' => PremiSourcePeriod::resolve($periode, $jenis),
             'jenis_pelayanan' => $jenis,
             'jenis_pelayanan_label' => $this->typeLabel($jenis),
+            'jnsPremi_id' => $jnsPremiId,
+            'kode_premi' => $calculation['kode_premi']
+                ?? $existing?->kode_premi
+                ?? $selectedPremi?->kode,
+            'nama_premi' => $calculation['nama_premi']
+                ?? $existing?->nama_premi
+                ?? $selectedPremi?->jenis,
             'dependency_bhp' => $this->dependencyPayload(
                 $dependencies['bhp'],
                 'total_bhp'
@@ -94,14 +161,20 @@ class generatePelayananNonMedisService
             'is_locked' => $existing?->is_locked ?? false,
             'locked_at' => optional($existing?->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $existing?->lockedBy?->name,
+            'karcis_config_count' => $this->repository->getKarcisTindakanIds()->count(),
+            'karcis_source_period' => PremiSourcePeriod::resolve($periode, 'bpjs'),
+            'karcis_rule_message' => $this->karcisRuleMessage($jenis),
+            'preview_details' => $calculation
+                ? $this->previewDetails($calculation['details'])
+                : $this->previewDetails($existing?->details ?? []),
         ];
     }
 
-    public function generate(string $periode, string $jenis): array
+    public function generate(string $periode, string $jenis, int $jnsPremiId): array
     {
-        return DB::transaction(function () use ($periode, $jenis) {
+        return DB::transaction(function () use ($periode, $jenis, $jnsPremiId) {
             $existing = $this->repository
-                ->findByPeriodAndTypeForUpdate($periode, $jenis);
+                ->findByPeriodAndTypeForUpdate($periode, $jenis, $jnsPremiId);
 
             if ($existing?->is_locked) {
                 throw ValidationException::withMessages([
@@ -136,19 +209,29 @@ class generatePelayananNonMedisService
                 ]);
             }
 
-            $calculation = $this->repository->calculate($periode, $jenis);
+            $calculation = $this->repository->calculate(
+                $periode,
+                $jenis,
+                $jnsPremiId
+            );
 
             if ($calculation['jumlah_mapping_premi'] === 0) {
                 $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenis);
+                $selectedPremi = $this->repository->findPremi($jnsPremiId);
+                $premiName = trim(
+                    ($selectedPremi?->kode ? $selectedPremi->kode.' - ' : '')
+                    .($selectedPremi?->jenis ?? 'mapping premi terpilih')
+                );
 
                 throw ValidationException::withMessages([
-                    'mapping' => "Tidak ada transaksi periode sumber {$sourcePeriod} yang sesuai dengan mapping tindakan dan mapping premi.",
+                    'mapping' => "Tidak ada transaksi periode sumber {$sourcePeriod} yang sesuai dengan {$premiName}.",
                 ]);
             }
 
             $result = $this->repository->saveResult(
                 $periode,
                 $jenis,
+                $jnsPremiId,
                 $dependencies,
                 $calculation
             );
@@ -251,6 +334,9 @@ class generatePelayananNonMedisService
             ),
             'jenis_pelayanan' => $result->jenis_pelayanan,
             'jenis_pelayanan_label' => $this->typeLabel($result->jenis_pelayanan),
+            'jnsPremi_id' => $result->jnsPremi_id,
+            'kode_premi' => $result->kode_premi,
+            'nama_premi' => $result->nama_premi,
             'jumlah_transaksi' => $result->jumlah_transaksi,
             'jumlah_jenis_tindakan' => $result->jumlah_jenis_tindakan,
             'jumlah_mapping_premi' => $result->jumlah_mapping_premi,
@@ -302,6 +388,41 @@ class generatePelayananNonMedisService
         }
 
         return 'Data BHP dan Kamar Inap sudah tersedia dan terkunci.';
+    }
+
+    private function karcisRuleMessage(string $jenis): string
+    {
+        $count = $this->repository->getKarcisTindakanIds()->count();
+
+        if ($count === 0) {
+            return 'Belum ada tindakan karcis BPJS yang dikonfigurasi.';
+        }
+
+        return $jenis === 'bpjs'
+            ? "{$count} tindakan karcis BPJS dikecualikan dari Generate BPJS."
+            : "{$count} tindakan karcis BPJS ikut ditambahkan ke Generate UMUM dengan nilai hitung BPJS.";
+    }
+
+    private function previewDetails($details): array
+    {
+        return collect($details)
+            ->map(fn ($detail) => [
+                'mapping_premi_id' => data_get($detail, 'mapping_premi_id'),
+                'jnsTindakan_id' => data_get($detail, 'jnsTindakan_id'),
+                'kode_jenis_tindakan' => data_get($detail, 'kode_jenis_tindakan'),
+                'nama_jenis_tindakan' => data_get($detail, 'nama_jenis_tindakan'),
+                'jenis_mapping' => data_get($detail, 'jenis_mapping'),
+                'nilai_mapping' => data_get($detail, 'nilai_mapping'),
+                'jumlah_data' => data_get($detail, 'jumlah_data'),
+                'jumlah_data_karcis_bpjs' => collect(data_get($detail, 'data_tindakan', []))
+                    ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
+                    ->count(),
+                'total_biaya_rawat' => data_get($detail, 'total_biaya_rawat'),
+                'dasar_hitung' => data_get($detail, 'dasar_hitung'),
+                'hasil_mapping' => data_get($detail, 'hasil_mapping'),
+            ])
+            ->values()
+            ->all();
     }
 
     private function lockPayload($result): array

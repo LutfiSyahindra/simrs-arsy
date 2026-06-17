@@ -7,7 +7,12 @@
         });
 
         const detailModal = new bootstrap.Modal(document.getElementById('modalDetailNonMedis'));
+        const karcisConfigModal = new bootstrap.Modal(document.getElementById('modalKarcisConfig'));
         let activeType = 'umum';
+        let activePremiId = '';
+        let mappingPremiList = [];
+        let karcisConfigOptions = [];
+        let karcisSelectedIds = [];
         let summaryData = null;
         let detailMappings = [];
         let selectedMappingId = '';
@@ -26,6 +31,22 @@
             return $('<div>').text(value ?? '').html();
         }
 
+        function activePremi() {
+            return mappingPremiList.find(function(item) {
+                return String(item.id) === String(activePremiId);
+            });
+        }
+
+        function activePremiLabel() {
+            const premi = activePremi();
+
+            if (!premi) {
+                return '-';
+            }
+
+            return (premi.kode || '-') + ' - ' + (premi.jenis || '-');
+        }
+
         function errorMessage(xhr) {
             const errors = xhr.responseJSON?.errors;
 
@@ -36,21 +57,137 @@
             return xhr.responseJSON?.message || 'Terjadi kesalahan saat memproses data.';
         }
 
+        function renderKarcisConfigList() {
+            const list = $('#karcisConfigList').empty();
+            const keyword = String($('#karcisConfigSearch').val() || '').trim().toLowerCase();
+            const filtered = karcisConfigOptions.filter(function(item) {
+                const haystack = [
+                    item.kode,
+                    item.jenis,
+                    item.jumlah_mapping_tindakan,
+                    item.jumlah_mapping_premi
+                ].join(' ').toLowerCase();
+
+                return !keyword || haystack.includes(keyword);
+            });
+
+            $('#karcisConfigSelectedCount').text(
+                formatNumber(karcisSelectedIds.length) + ' tindakan dipilih'
+            );
+
+            if (!filtered.length) {
+                list.html('<div class="non-medis-empty">Jenis tindakan tidak ditemukan.</div>');
+                return;
+            }
+
+            filtered.forEach(function(item) {
+                const checked = karcisSelectedIds.includes(Number(item.id)) ? 'checked' : '';
+
+                list.append(`
+                    <label class="karcis-config-item">
+                        <input type="checkbox" class="form-check-input karcis-config-check"
+                            value="${escapeHtml(item.id)}" ${checked}>
+                        <span class="karcis-config-main">
+                            <span class="karcis-config-title">
+                                ${escapeHtml(item.kode || '-')} - ${escapeHtml(item.jenis || '-')}
+                            </span>
+                            <span class="karcis-config-meta d-block">
+                                ${formatNumber(item.jumlah_mapping_tindakan)} mapping tindakan /
+                                ${formatNumber(item.jumlah_mapping_premi)} mapping premi
+                            </span>
+                        </span>
+                    </label>
+                `);
+            });
+        }
+
+        function loadKarcisConfig() {
+            $('#karcisConfigList').html(
+                '<div class="non-medis-empty">Memuat tindakan...</div>'
+            );
+
+            return $.get(
+                "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.karcisConfig") }}",
+                function(response) {
+                    const data = response.data || {};
+                    karcisConfigOptions = data.options || [];
+                    karcisSelectedIds = (data.selected_ids || []).map(Number);
+                    renderKarcisConfigList();
+                }
+            ).fail(function(xhr) {
+                $('#karcisConfigList').html(
+                    '<div class="non-medis-empty">' + escapeHtml(errorMessage(xhr)) + '</div>'
+                );
+            });
+        }
+
         function setDefaultPeriod() {
             const now = new Date();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             $('#periodeNonMedis').val(now.getFullYear() + '-' + month);
         }
 
-        function updateSourcePeriodInfo(sourcePeriod) {
+        function renderMappingPremiOptions() {
+            const select = $('#mappingPremiNonMedis');
+            const current = activePremiId;
+
+            select.empty().append('<option value="">Pilih mapping premi</option>');
+
+            mappingPremiList.forEach(function(item) {
+                select.append(
+                    $('<option>', {
+                        value: item.id,
+                        text: (item.kode || '-') + ' - ' + (item.jenis || '-') +
+                            ' (' + formatNumber(item.jumlah_tindakan) + ' tindakan)'
+                    })
+                );
+            });
+
+            if (current && mappingPremiList.some(item => String(item.id) === String(current))) {
+                select.val(current);
+            } else {
+                activePremiId = '';
+                select.val('');
+            }
+
+            $('#mappingPremiNonMedisNote').text(
+                activePremiId ?
+                formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan terpasang' :
+                'Pilih mapping premi untuk preview.'
+            );
+        }
+
+        function loadMappingPremiOptions() {
+            return $.get(
+                "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.mappingPremiOptions") }}",
+                function(response) {
+                    mappingPremiList = response.data || response || [];
+                    renderMappingPremiOptions();
+                }
+            ).fail(function() {
+                mappingPremiList = [];
+                activePremiId = '';
+                $('#mappingPremiNonMedis')
+                    .empty()
+                    .append('<option value="">Mapping premi gagal dimuat</option>');
+                $('#mappingPremiNonMedisNote').text('Mapping premi gagal dimuat.');
+            });
+        }
+
+        function updateSourcePeriodInfo(sourcePeriod, karcisSourcePeriod, karcisConfigCount) {
             const periode = $('#periodeNonMedis').val() || '-';
             const source = sourcePeriod || periode;
+            const hasKarcis = Number(karcisConfigCount) > 0;
 
             $('#nonMedisSourcePeriod').text(
                 activeType === 'bpjs' ?
                 'Periode hasil ' + periode + ', sumber tindakan BPJS bulan sebelumnya: ' +
-                    source + '.' :
-                'Sumber tindakan Umum mengikuti periode yang dipilih: ' + source + '.'
+                    source + (hasKarcis ? ', karcis BPJS dikecualikan.' : '.') :
+                'Sumber tindakan Umum: ' + source +
+                    (hasKarcis ?
+                        ', tambahan karcis BPJS dari periode ' + (karcisSourcePeriod || source) +
+                        ' memakai nilai hitung BPJS.' :
+                        '.')
             );
         }
 
@@ -76,11 +213,78 @@
             note.text('Generate ' + label + ' pada periode ini terlebih dahulu');
         }
 
+        function mappingValueText(detail) {
+            return detail.jenis_mapping === 'persen' ?
+                formatNumber(detail.nilai_mapping) + '%' :
+                formatRupiah(detail.nilai_mapping);
+        }
+
+        function baseValueText(detail) {
+            return detail.jenis_mapping === 'persen' ?
+                formatRupiah(detail.dasar_hitung) :
+                formatNumber(detail.dasar_hitung) + ' data';
+        }
+
+        function previewFormulaText(detail) {
+            return baseValueText(detail) + ' x ' + mappingValueText(detail) + ' = ' +
+                formatRupiah(detail.hasil_mapping);
+        }
+
+        function renderPreviewDetails(details) {
+            const rows = $('#summaryPreviewRows').empty();
+            const items = details || [];
+
+            $('#summaryPreviewCount').text(formatNumber(items.length) + ' tindakan');
+
+            if (!items.length) {
+                rows.html(
+                    '<tr><td colspan="6" class="non-medis-empty">' +
+                    'Belum ada tindakan yang cocok dengan periode dan mapping premi terpilih.' +
+                    '</td></tr>'
+                );
+                return;
+            }
+
+            items.forEach(function(detail) {
+                rows.append(`
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(detail.nama_jenis_tindakan || '-')}</strong>
+                            <small class="d-block text-muted">${escapeHtml(detail.kode_jenis_tindakan || '-')}</small>
+                        </td>
+                        <td class="text-center">${formatNumber(detail.jumlah_data)}</td>
+                        <td class="text-end">${formatRupiah(detail.total_biaya_rawat)}</td>
+                        <td class="text-end">${baseValueText(detail)}</td>
+                        <td class="text-end">
+                            <span class="non-medis-kind ${escapeHtml(detail.jenis_mapping)}">
+                                ${escapeHtml(detail.jenis_mapping)}
+                            </span>
+                            <small class="d-block text-muted">${mappingValueText(detail)}</small>
+                        </td>
+                        <td class="text-end">
+                            <span class="non-medis-preview-result">${formatRupiah(detail.hasil_mapping)}</span>
+                            <span class="non-medis-preview-formula">${escapeHtml(previewFormulaText(detail))}</span>
+                            ${Number(detail.jumlah_data_karcis_bpjs) > 0 ? `
+                                <small class="d-block text-success">
+                                    +${formatNumber(detail.jumlah_data_karcis_bpjs)} transaksi karcis BPJS
+                                </small>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+
         function renderSummary(data) {
             summaryData = data;
-            updateSourcePeriodInfo(data.periode_sumber);
+            updateSourcePeriodInfo(
+                data.periode_sumber,
+                data.karcis_source_period,
+                data.karcis_config_count
+            );
             renderDependency('#dependencyBhp', data.dependency_bhp, 'BHP');
             renderDependency('#dependencyKamar', data.dependency_kamar, 'Kamar');
+            renderPreviewDetails(data.preview_details || []);
 
             $('#summaryTransaksi').text(formatNumber(data.jumlah_transaksi));
             $('#summaryTindakan').text(
@@ -102,16 +306,20 @@
             const stateText = data.is_locked ?
                 'Data terkunci. Ringkasan menampilkan snapshot perhitungan tersimpan.' :
                 (data.is_generated ?
-                    'Data sudah pernah digenerate. Preview memakai sumber dan mapping terbaru.' :
-                    'Preview dihitung langsung dari sumber Khanza dan mapping aktif.');
+                    'Data sudah pernah digenerate untuk ' + activePremiLabel() + '. Preview memakai sumber dan mapping terbaru.' :
+                    'Preview dihitung dari sumber Khanza dan tindakan pada ' + activePremiLabel() + '.');
+            const karcisText = data.karcis_rule_message ?
+                ' ' + data.karcis_rule_message :
+                '';
             $('#nonMedisSummarySubtitle').text(
                 data.is_locked || data.ready ?
-                stateText :
+                stateText + karcisText :
                 (data.readiness_message ||
                     'BHP dan Kamar Inap wajib tersedia dan terkunci.')
             );
 
             const canGenerate = data.ready &&
+                activePremiId &&
                 Number(data.jumlah_mapping_premi) > 0 &&
                 !data.is_locked;
             $('#btnGenerateNonMedis')
@@ -137,14 +345,20 @@
             $('#summaryBiayaRawat, #summaryMapping, #summaryFinal').text('Rp 0');
             $('#summaryJumlahMapping').text('0 mapping terhitung');
             $('#summaryFormula').text('Rp 0 + Rp 0 + Rp 0 = Rp 0');
+            renderPreviewDetails([]);
             $('#btnGenerateNonMedis').prop('disabled', true);
         }
 
         function loadSummary() {
             const periode = $('#periodeNonMedis').val();
 
-            if (!periode) {
+            if (!periode || !activePremiId) {
                 resetSummary();
+                $('#nonMedisSummarySubtitle').text(
+                    !periode ?
+                    'Pilih periode untuk memulai preview.' :
+                    'Pilih mapping premi sebelum preview dan generate.'
+                );
                 return;
             }
 
@@ -155,7 +369,8 @@
                 url: "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.summary") }}",
                 data: {
                     periode: periode,
-                    jenis_pelayanan: activeType
+                    jenis_pelayanan: activeType,
+                    jnsPremi_id: activePremiId
                 },
                 success: function(response) {
                     renderSummary(response.data || {});
@@ -181,6 +396,7 @@
                 data: function(data) {
                     data.periode = $('#periodeNonMedis').val();
                     data.jenis_pelayanan = activeType;
+                    data.jnsPremi_id = activePremiId;
                 }
             },
             columns: [{
@@ -197,6 +413,14 @@
                         return '<span class="non-medis-badge ' +
                             escapeHtml(row.jenis_pelayanan) + '">' +
                             escapeHtml(data) + '</span>';
+                    }
+                },
+                {
+                    data: 'nama_premi',
+                    render: function(data, type, row) {
+                        return '<strong>' + escapeHtml(data || '-') + '</strong>' +
+                            '<small class="d-block text-muted">' +
+                            escapeHtml(row.kode_premi || '-') + '</small>';
                     }
                 },
                 {
@@ -294,6 +518,65 @@
 
         $('#periodeNonMedis').on('change', refreshAll);
 
+        $('#btnKarcisConfig').on('click', function() {
+            $('#karcisConfigSearch').val('');
+            karcisConfigModal.show();
+            loadKarcisConfig();
+        });
+
+        $('#karcisConfigSearch').on('input', renderKarcisConfigList);
+
+        $('#karcisConfigList').on('change', '.karcis-config-check', function() {
+            const value = Number($(this).val());
+
+            if ($(this).is(':checked')) {
+                if (!karcisSelectedIds.includes(value)) {
+                    karcisSelectedIds.push(value);
+                }
+            } else {
+                karcisSelectedIds = karcisSelectedIds.filter(id => id !== value);
+            }
+
+            renderKarcisConfigList();
+        });
+
+        $('#btnSaveKarcisConfig').on('click', function() {
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateKarcisConfig") }}",
+                method: 'PUT',
+                data: {
+                    jnsTindakan_id: karcisSelectedIds
+                },
+                beforeSend: function() {
+                    $('#btnSaveKarcisConfig').prop('disabled', true);
+                },
+                success: function(response) {
+                    const data = response.data || {};
+                    karcisConfigOptions = data.options || [];
+                    karcisSelectedIds = (data.selected_ids || []).map(Number);
+                    karcisConfigModal.hide();
+                    Swal.fire('Berhasil', response.message, 'success');
+                    refreshAll();
+                },
+                error: function(xhr) {
+                    Swal.fire('Gagal', errorMessage(xhr), 'error');
+                },
+                complete: function() {
+                    $('#btnSaveKarcisConfig').prop('disabled', false);
+                }
+            });
+        });
+
+        $('#mappingPremiNonMedis').on('change', function() {
+            activePremiId = String($(this).val() || '');
+            $('#mappingPremiNonMedisNote').text(
+                activePremiId ?
+                formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan terpasang' :
+                'Pilih mapping premi untuk preview.'
+            );
+            refreshAll();
+        });
+
         $('#btnGenerateNonMedis').on('click', function() {
             if (!summaryData) {
                 return;
@@ -301,6 +584,7 @@
 
             const periode = $('#periodeNonMedis').val();
             const typeLabel = activeType === 'bpjs' ? 'BPJS' : 'UMUM';
+            const premiLabel = activePremiLabel();
 
             Swal.fire({
                 icon: 'question',
@@ -311,6 +595,7 @@
                     '<div class="mb-2">Periode sumber: <strong>' +
                     escapeHtml(summaryData.periode_sumber || periode) + '</strong></div>' +
                     '<div class="mb-2">Jenis: <strong>' + typeLabel + '</strong></div>' +
+                    '<div class="mb-2">Mapping Premi: <strong>' + escapeHtml(premiLabel) + '</strong></div>' +
                     '<div class="p-2 rounded bg-light">' +
                     escapeHtml($('#summaryFormula').text()) +
                     '</div></div>',
@@ -324,7 +609,8 @@
                         method: 'POST',
                         data: {
                             periode: periode,
-                            jenis_pelayanan: activeType
+                            jenis_pelayanan: activeType,
+                            jnsPremi_id: activePremiId
                         }
                     }).catch(function(xhr) {
                         Swal.showValidationMessage(errorMessage(xhr));
@@ -561,7 +847,9 @@
                     $('#detailNonMedisMeta').text(
                         (data.periode || '-') + ' / ' +
                         (data.jenis_pelayanan_label || '-') + ' / Sumber ' +
-                        (data.periode_sumber || '-') + ' / Generate oleh ' +
+                        (data.periode_sumber || '-') + ' / ' +
+                        (data.kode_premi || '-') + ' - ' +
+                        (data.nama_premi || '-') + ' / Generate oleh ' +
                         (data.generate_by_name || '-')
                     );
                     $('#detailJumlahTransaksi').text(
@@ -595,6 +883,6 @@
         });
 
         setDefaultPeriod();
-        refreshAll();
+        loadMappingPremiOptions().always(refreshAll);
     });
 </script>

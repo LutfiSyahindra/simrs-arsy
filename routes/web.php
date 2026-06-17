@@ -13,6 +13,7 @@ use App\Http\Controllers\simrs\master\keuangan\jabatanController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
 use App\Http\Controllers\simrs\master\keuangan\jnsPremiController;
 use App\Http\Controllers\simrs\master\keuangan\jnsTindakanController;
+use App\Http\Controllers\simrs\master\keuangan\plotingPremiController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
@@ -184,6 +185,9 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/hitung-premi/generatePelayananNonMedis', [hitungPremiPelayananNonMedisController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis');
         Route::get('/hitung-premi/generatePelayananNonMedis/table', [hitungPremiPelayananNonMedisController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.table');
+        Route::get('/hitung-premi/generatePelayananNonMedis/mapping-premi-options', [hitungPremiPelayananNonMedisController::class, 'mappingPremiOptions'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.mappingPremiOptions');
+        Route::get('/hitung-premi/generatePelayananNonMedis/karcis-config', [hitungPremiPelayananNonMedisController::class, 'karcisConfig'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.karcisConfig');
+        Route::put('/hitung-premi/generatePelayananNonMedis/karcis-config', [hitungPremiPelayananNonMedisController::class, 'updateKarcisConfig'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateKarcisConfig');
         Route::get('/hitung-premi/generatePelayananNonMedis/summary', [hitungPremiPelayananNonMedisController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.summary');
         Route::post('/hitung-premi/generatePelayananNonMedis', [hitungPremiPelayananNonMedisController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.store');
         Route::get('/hitung-premi/generatePelayananNonMedis/{id}/detail', [hitungPremiPelayananNonMedisController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.detail');
@@ -289,6 +293,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/jnsPremi/{id}/edit', [jnsPremiController::class, 'edit'])->name('masterData.keuangan.jnsPremi.edit');
         Route::put('/jnsPremi/{id}/update', [jnsPremiController::class, 'update'])->name('masterData.keuangan.jnsPremi.update');
         Route::delete('/jnsPremi/{id}/delete', [jnsPremiController::class, 'destroy'])->name('masterData.keuangan.jnsPremi.delete');
+
+        Route::get('/plotingPremi', [plotingPremiController::class, 'plotingPremi'])->name('masterData.keuangan.plotingPremi');
+        Route::get('/plotingPremi/getPlotingPremiTable', [plotingPremiController::class, 'plotingPremiTable'])->name('masterData.keuangan.plotingPremi.getPlotingPremiTable');
+        Route::get('/plotingPremi/generateKode', [plotingPremiController::class, 'generateKodePlotingPremi'])->name('masterData.keuangan.plotingPremi.generateKode');
+        Route::post('/plotingPremi/store', [plotingPremiController::class, 'store'])->name('masterData.keuangan.plotingPremi.store');
+        Route::get('/plotingPremi/{id}/edit', [plotingPremiController::class, 'edit'])->name('masterData.keuangan.plotingPremi.edit');
+        Route::put('/plotingPremi/{id}/update', [plotingPremiController::class, 'update'])->name('masterData.keuangan.plotingPremi.update');
+        Route::delete('/plotingPremi/{id}/delete', [plotingPremiController::class, 'destroy'])->name('masterData.keuangan.plotingPremi.delete');
     });
 
     Route::prefix('simrs/masterData/mapping')->group(function () {

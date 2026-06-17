@@ -105,6 +105,18 @@
             z-index: 1;
         }
 
+        .non-medis-hero-controls {
+            display: grid;
+            flex: 0 0 320px;
+            gap: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .non-medis-hero-controls .non-medis-period {
+            flex: none;
+        }
+
         .non-medis-period label {
             color: #dbeafe;
             display: block;
@@ -117,6 +129,12 @@
 
         .non-medis-period .form-control {
             background: #fff;
+            border: 0;
+            height: 39px;
+        }
+
+        .non-medis-period .form-select {
+            background-color: #fff;
             border: 0;
             height: 39px;
         }
@@ -350,6 +368,75 @@
             font-size: 19px;
         }
 
+        .non-medis-preview {
+            border-top: 1px solid #eef2f7;
+            padding: 14px 17px 17px;
+        }
+
+        .non-medis-preview-head {
+            align-items: center;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .non-medis-preview-title {
+            color: var(--nm-navy);
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .non-medis-preview-note {
+            color: var(--nm-muted);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .non-medis-preview-count {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            color: #1d4ed8;
+            font-size: 10px;
+            font-weight: 800;
+            padding: 5px 9px;
+        }
+
+        .non-medis-preview-table {
+            margin: 0;
+        }
+
+        .non-medis-preview-table th {
+            background: #f8fafc;
+            border-bottom: 1px solid var(--nm-line) !important;
+            color: #64748b;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .non-medis-preview-table td {
+            border-color: #eef2f7;
+            color: #334155;
+            font-size: 11px;
+            vertical-align: middle;
+        }
+
+        .non-medis-preview-result {
+            color: #1d4ed8;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .non-medis-preview-formula {
+            color: #64748b;
+            display: block;
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
         .non-medis-generate {
             align-items: center;
             background: #2563eb;
@@ -361,6 +448,32 @@
             font-weight: 800;
             gap: 6px;
             padding: 10px 15px;
+        }
+
+        .non-medis-panel-actions {
+            align-items: center;
+            display: flex;
+            gap: 8px;
+        }
+
+        .non-medis-config-btn {
+            align-items: center;
+            background: #fff;
+            border: 1px solid var(--nm-line);
+            border-radius: 9px;
+            color: #334155;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 6px;
+            padding: 10px 13px;
+        }
+
+        .non-medis-config-btn:hover,
+        .non-medis-config-btn:focus {
+            background: #f8fafc;
+            border-color: #bfdbfe;
+            color: #1d4ed8;
         }
 
         .non-medis-generate:hover,
@@ -599,6 +712,41 @@
             text-align: center;
         }
 
+        .karcis-config-list {
+            border: 1px solid #e2e8f0;
+            border-radius: 11px;
+            max-height: 430px;
+            overflow: auto;
+        }
+
+        .karcis-config-item {
+            align-items: center;
+            border-bottom: 1px solid #eef2f7;
+            display: flex;
+            gap: 11px;
+            padding: 11px 13px;
+        }
+
+        .karcis-config-item:last-child {
+            border-bottom: 0;
+        }
+
+        .karcis-config-main {
+            min-width: 0;
+        }
+
+        .karcis-config-title {
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .karcis-config-meta {
+            color: #64748b;
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
         @media (max-width: 1199.98px) {
             .non-medis-summary-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -612,11 +760,14 @@
         @media (max-width: 767.98px) {
             .non-medis-hero,
             .non-medis-panel-head,
+            .non-medis-preview-head,
+            .non-medis-panel-actions,
             .non-medis-transaction-toolbar {
                 align-items: stretch;
                 flex-direction: column;
             }
 
+            .non-medis-hero-controls,
             .non-medis-period {
                 flex-basis: auto;
                 width: 100%;
@@ -664,12 +815,23 @@
                     </p>
                 </div>
             </div>
-            <div class="non-medis-period">
-                <label for="periodeNonMedis">Periode Perhitungan</label>
-                <input type="month" id="periodeNonMedis" class="form-control">
-                <small class="d-block mt-1 text-white-50" id="nonMedisSourcePeriod">
-                    Sumber data mengikuti periode yang dipilih.
-                </small>
+            <div class="non-medis-hero-controls">
+                <div class="non-medis-period">
+                    <label for="periodeNonMedis">Periode Perhitungan</label>
+                    <input type="month" id="periodeNonMedis" class="form-control">
+                    <small class="d-block mt-1 text-white-50" id="nonMedisSourcePeriod">
+                        Sumber data mengikuti periode yang dipilih.
+                    </small>
+                </div>
+                <div class="non-medis-period">
+                    <label for="mappingPremiNonMedis">Mapping Premi</label>
+                    <select id="mappingPremiNonMedis" class="form-select">
+                        <option value="">Memuat mapping premi...</option>
+                    </select>
+                    <small class="d-block mt-1 text-white-50" id="mappingPremiNonMedisNote">
+                        Pilih mapping premi untuk preview.
+                    </small>
+                </div>
             </div>
         </section>
 
@@ -698,10 +860,16 @@
                         Memeriksa data periode terpilih...
                     </div>
                 </div>
-                <button type="button" id="btnGenerateNonMedis" class="non-medis-generate" disabled>
-                    <i class="mdi mdi-cog-play-outline"></i>
-                    <span>Generate Premi</span>
-                </button>
+                <div class="non-medis-panel-actions">
+                    <button type="button" id="btnKarcisConfig" class="non-medis-config-btn">
+                        <i class="mdi mdi-ticket-confirmation-outline"></i>
+                        <span>Karcis BPJS</span>
+                    </button>
+                    <button type="button" id="btnGenerateNonMedis" class="non-medis-generate" disabled>
+                        <i class="mdi mdi-cog-play-outline"></i>
+                        <span>Generate Premi</span>
+                    </button>
+                </div>
             </div>
 
             <div class="non-medis-dependencies">
@@ -754,6 +922,39 @@
                 <i class="mdi mdi-function-variant"></i>
                 <span id="summaryFormula">Rp 0 + Rp 0 + Rp 0 = Rp 0</span>
             </div>
+
+            <div class="non-medis-preview">
+                <div class="non-medis-preview-head">
+                    <div>
+                        <div class="non-medis-preview-title">Preview Hasil Tindakan</div>
+                        <div class="non-medis-preview-note">
+                            Perbandingan dasar tindakan sebelum dan setelah nilai hitung mapping premi diterapkan.
+                        </div>
+                    </div>
+                    <span class="non-medis-preview-count" id="summaryPreviewCount">0 tindakan</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover non-medis-preview-table">
+                        <thead>
+                            <tr>
+                                <th>Tindakan</th>
+                                <th class="text-center">Transaksi</th>
+                                <th class="text-end">Total Biaya Rawat</th>
+                                <th class="text-end">Sebelum Hitung</th>
+                                <th class="text-end">Nilai Hitung</th>
+                                <th class="text-end">Setelah Hitung</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryPreviewRows">
+                            <tr>
+                                <td colspan="6" class="non-medis-empty">
+                                    Pilih mapping premi untuk melihat preview tindakan.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <section class="non-medis-panel">
@@ -761,7 +962,7 @@
                 <div>
                     <div class="non-medis-panel-title">Riwayat Generate</div>
                     <div class="non-medis-panel-subtitle">
-                        Hasil tersimpan per periode dan jenis pelayanan.
+                        Hasil tersimpan per periode, jenis pelayanan, dan mapping premi.
                     </div>
                 </div>
                 <span class="non-medis-badge umum" id="activeTypeBadge">UMUM</span>
@@ -774,8 +975,9 @@
                                 <th>No</th>
                                 <th>Periode</th>
                                 <th>Jenis</th>
+                                <th>Premi</th>
                                 <th class="text-center">Transaksi</th>
-                                <th class="text-end">Mapping Premi</th>
+                                <th class="text-end">Hasil Mapping</th>
                                 <th class="text-end">BHP</th>
                                 <th class="text-end">Kamar</th>
                                 <th class="text-end">Total Final</th>
@@ -789,6 +991,47 @@
                 </div>
             </div>
         </section>
+
+        <div class="modal fade" id="modalKarcisConfig" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow-sm">
+                    <div class="modal-header border-0 pb-0">
+                        <div>
+                            <h5 class="modal-title fw-bold">Konfigurasi Karcis BPJS</h5>
+                            <small class="text-muted">
+                                Tindakan terpilih akan masuk ke UMUM dari sumber BPJS, dan dikecualikan dari Generate BPJS.
+                            </small>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="input-group input-group-sm mb-3">
+                            <span class="input-group-text bg-white">
+                                <i class="mdi mdi-magnify text-muted"></i>
+                            </span>
+                            <input type="search" id="karcisConfigSearch" class="form-control"
+                                placeholder="Cari kode atau nama jenis tindakan...">
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">Centang jenis tindakan yang termasuk karcis BPJS.</small>
+                            <span class="badge bg-light text-dark" id="karcisConfigSelectedCount">0 dipilih</span>
+                        </div>
+                        <div class="karcis-config-list" id="karcisConfigList">
+                            <div class="non-medis-empty">
+                                Memuat tindakan...
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 bg-light">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-primary" id="btnSaveKarcisConfig">
+                            <i class="mdi mdi-content-save-outline me-1"></i>
+                            Simpan Konfigurasi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         @include("simrs.backOffice.keuangan.hitungPremi.generatePelayananNonMedis.modal")
     </div>
