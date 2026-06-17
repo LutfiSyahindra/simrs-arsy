@@ -290,6 +290,42 @@
             margin-top: 1px;
         }
 
+        .non-medis-source-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            padding: 12px 17px 0;
+        }
+
+        .non-medis-source-field {
+            background: #f8fafc;
+            border: 1px solid var(--nm-line);
+            border-radius: 11px;
+            padding: 12px;
+        }
+
+        .non-medis-source-field label {
+            color: #475569;
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+        }
+
+        .non-medis-source-field .form-select {
+            font-size: 12px;
+            min-height: 37px;
+        }
+
+        .non-medis-source-note {
+            color: #64748b;
+            display: block;
+            font-size: 10px;
+            margin-top: 6px;
+        }
+
         .non-medis-summary-grid {
             display: grid;
             gap: 11px;
@@ -694,6 +730,16 @@
             color: #1d4ed8;
         }
 
+        .non-medis-provider-name {
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .non-medis-provider-total {
+            background: #f8fafc;
+            font-weight: 800;
+        }
+
         .non-medis-transaction-toolbar {
             align-items: center;
             display: flex;
@@ -774,7 +820,8 @@
             }
 
             .non-medis-type-tabs,
-            .non-medis-dependencies {
+            .non-medis-dependencies,
+            .non-medis-source-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -892,6 +939,27 @@
                         <div class="non-medis-dependency-value" id="dependencyKamarValue">Memeriksa...</div>
                         <div class="non-medis-dependency-note" id="dependencyKamarNote">-</div>
                     </div>
+                </div>
+            </div>
+
+            <div class="non-medis-source-grid">
+                <div class="non-medis-source-field">
+                    <label for="sourceBhpNonMedis">Sumber Data BHP</label>
+                    <select id="sourceBhpNonMedis" class="form-select">
+                        <option value="">Memuat sumber BHP...</option>
+                    </select>
+                    <small class="non-medis-source-note" id="sourceBhpNonMedisNote">
+                        Pilih hasil BHP sesuai ploting premi.
+                    </small>
+                </div>
+                <div class="non-medis-source-field">
+                    <label for="sourceKamarNonMedis">Sumber Data Kamar</label>
+                    <select id="sourceKamarNonMedis" class="form-select">
+                        <option value="">Memuat sumber Kamar...</option>
+                    </select>
+                    <small class="non-medis-source-note" id="sourceKamarNonMedisNote">
+                        Pilih hasil Kamar sesuai ploting premi.
+                    </small>
                 </div>
             </div>
 

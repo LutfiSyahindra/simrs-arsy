@@ -4,6 +4,7 @@ namespace App\Repositories\keuangan\premi;
 
 use App\Models\dbSimrs\generateKamarDetailModel;
 use App\Models\dbSimrs\generateKamarModel;
+use App\Models\dbSimrs\plotingPremiModel;
 use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -96,27 +97,37 @@ class generateKamarRepository
             ->when($jenisKamar, fn ($query) => $query->where('jenis_kamar', $jenisKamar))
             ->orderByDesc('periode')
             ->orderBy('jenis_kamar')
+            ->orderBy('nama_ploting')
             ->get();
     }
 
-    public function findByPeriodAndType(string $periode, string $jenisKamar): ?generateKamarModel
+    public function getPlotingPremi(): Collection
+    {
+        return plotingPremiModel::query()
+            ->select('id', 'kode', 'ploting')
+            ->orderBy('ploting')
+            ->get();
+    }
+
+    public function findByPeriodAndType(string $periode, string $jenisKamar): Collection
     {
         return generateKamarModel::query()
             ->with('lockedBy:id,name')
             ->where('periode', $periode)
             ->where('jenis_kamar', $jenisKamar)
-            ->first();
+            ->orderBy('nama_ploting')
+            ->get();
     }
 
     public function findByPeriodAndTypeForUpdate(
         string $periode,
         string $jenisKamar
-    ): ?generateKamarModel {
+    ): Collection {
         return generateKamarModel::query()
             ->where('periode', $periode)
             ->where('jenis_kamar', $jenisKamar)
             ->lockForUpdate()
-            ->first();
+            ->get();
     }
 
     public function findForUpdate(int $id): ?generateKamarModel
@@ -129,6 +140,7 @@ class generateKamarRepository
     public function saveResult(
         string $periode,
         string $jenisKamar,
+        plotingPremiModel $ploting,
         int $jumlahKamar,
         int $jumlahLamaInap,
         int $nominal
@@ -137,8 +149,11 @@ class generateKamarRepository
             [
                 'periode' => $periode,
                 'jenis_kamar' => $jenisKamar,
+                'plotingPremi_id' => $ploting->id,
             ],
             [
+                'kode_ploting' => $ploting->kode,
+                'nama_ploting' => $ploting->ploting,
                 'jumlah_kamar' => $jumlahKamar,
                 'jumlah_lama_inap' => $jumlahLamaInap,
                 'nominal_hitung' => $nominal,

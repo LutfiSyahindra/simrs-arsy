@@ -28,6 +28,10 @@ class generateBhpService
                 ),
                 'jenis_bhp' => $row->jenis_bhp,
                 'jenis_bhp_label' => $this->typeLabel($row->jenis_bhp),
+                'plotingPremi_id' => $row->plotingPremi_id,
+                'kode_ploting' => $row->kode_ploting,
+                'nama_ploting' => $row->nama_ploting,
+                'ploting_label' => trim(($row->kode_ploting ? $row->kode_ploting.' - ' : '').($row->nama_ploting ?? '-')),
                 'jumlah_bhp' => $row->jumlah_bhp,
                 'nominal_hitung' => $row->nominal_hitung,
                 'total_bhp' => $row->total_bhp,
@@ -42,9 +46,20 @@ class generateBhpService
 
     public function getSummary(?string $periode, string $jenisBhp): array
     {
-        $row = $periode
+        $rows = $periode
             ? $this->generateBhpRepository->findByPeriodAndType($periode, $jenisBhp)
-            : null;
+            : collect();
+        $firstRow = $rows->first();
+        $lockedRows = $rows->where('is_locked', true);
+        $lastLockedRow = $lockedRows->sortByDesc('locked_at')->first();
+        $plotings = $this->generateBhpRepository->getPlotingPremi();
+        $plotingCount = $plotings->count();
+        $nominals = $rows
+            ->pluck('nominal_hitung')
+            ->filter(fn ($value) => (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values();
 
         return [
             'periode' => $periode,
@@ -53,16 +68,21 @@ class generateBhpService
                 : null,
             'jenis_bhp' => $jenisBhp,
             'jenis_bhp_label' => $this->typeLabel($jenisBhp),
-            'jumlah_bhp' => $row?->jumlah_bhp ?? 0,
-            'nominal_hitung' => $row?->nominal_hitung ?? 0,
-            'total_bhp' => $row?->total_bhp ?? 0,
-            'is_locked' => $row?->is_locked ?? false,
-            'locked_at' => optional($row?->locked_at)->format('d-m-Y H:i'),
-            'locked_by_name' => $row?->lockedBy?->name,
+            'jumlah_bhp' => $firstRow?->jumlah_bhp ?? 0,
+            'nominal_hitung' => $firstRow?->nominal_hitung ?? 0,
+            'nominal_is_mixed' => $nominals->count() > 1,
+            'total_bhp' => $rows->sum('total_bhp'),
+            'ploting_count' => $plotingCount,
+            'generated_ploting_count' => $rows->count(),
+            'locked_ploting_count' => $lockedRows->count(),
+            'is_locked' => $lockedRows->isNotEmpty(),
+            'locked_at' => optional($lastLockedRow?->locked_at)->format('d-m-Y H:i'),
+            'locked_by_name' => $lastLockedRow?->lockedBy?->name,
+            'ploting_nominals' => $this->plotingNominalPayload($plotings, $rows),
         ];
     }
 
-    public function generate(string $periode, string $jenisBhp, int $nominal): array
+    public function generate(string $periode, string $jenisBhp, array $nominalByPloting): array
     {
         $typeLabel = $this->typeLabel($jenisBhp);
         $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisBhp);
@@ -70,16 +90,26 @@ class generateBhpService
         return DB::transaction(function () use (
             $periode,
             $jenisBhp,
-            $nominal,
+            $nominalByPloting,
             $typeLabel,
             $sourcePeriod
         ) {
-            $existing = $this->generateBhpRepository
-                ->findByPeriodAndTypeForUpdate($periode, $jenisBhp);
+            $plotings = $this->generateBhpRepository->getPlotingPremi();
 
-            if ($existing?->is_locked) {
+            if ($plotings->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'periode' => "BHP {$typeLabel} periode {$periode} sudah dikunci dan tidak dapat digenerate ulang.",
+                    'ploting' => 'Master Ploting Premi belum tersedia. Tambahkan data ploting terlebih dahulu.',
+                ]);
+            }
+
+            $nominals = $this->normalizeNominals($plotings, $nominalByPloting);
+            $existingRows = $this->generateBhpRepository
+                ->findByPeriodAndTypeForUpdate($periode, $jenisBhp);
+            $lockedRows = $existingRows->where('is_locked', true);
+
+            if ($lockedRows->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'periode' => "BHP {$typeLabel} periode {$periode} memiliki {$lockedRows->count()} ploting yang sudah dikunci dan tidak dapat digenerate ulang.",
                 ]);
             }
 
@@ -91,27 +121,42 @@ class generateBhpService
                 ]);
             }
 
-            $result = $this->generateBhpRepository->saveResult(
+            $results = $plotings->map(function ($ploting) use (
                 $periode,
                 $jenisBhp,
-                $details->count(),
-                $nominal
-            );
+                $details,
+                $nominals
+            ) {
+                $nominal = $nominals[$ploting->id];
+                $result = $this->generateBhpRepository->saveResult(
+                    $periode,
+                    $jenisBhp,
+                    $ploting,
+                    $details->count(),
+                    $nominal
+                );
 
-            $this->generateBhpRepository->replaceDetails($result, $details);
+                $this->generateBhpRepository->replaceDetails($result, $details);
+
+                return $result;
+            });
+            $firstResult = $results->first();
 
             return [
-                'id' => $result->id,
-                'periode' => $result->periode,
+                'id' => $firstResult->id,
+                'periode' => $firstResult->periode,
                 'periode_sumber' => PremiSourcePeriod::resolve(
-                    $result->periode,
-                    $result->jenis_bhp
+                    $firstResult->periode,
+                    $firstResult->jenis_bhp
                 ),
-                'jenis_bhp' => $result->jenis_bhp,
-                'jenis_bhp_label' => $this->typeLabel($result->jenis_bhp),
-                'jumlah_bhp' => $result->jumlah_bhp,
-                'nominal_hitung' => $result->nominal_hitung,
-                'total_bhp' => $result->total_bhp,
+                'jenis_bhp' => $firstResult->jenis_bhp,
+                'jenis_bhp_label' => $this->typeLabel($firstResult->jenis_bhp),
+                'jumlah_bhp' => $details->count(),
+                'nominal_hitung' => $firstResult->nominal_hitung,
+                'nominal_is_mixed' => collect($nominals)->unique()->count() > 1,
+                'total_bhp' => $results->sum('total_bhp'),
+                'ploting_count' => $plotings->count(),
+                'generated_count' => $results->count(),
             ];
         });
     }
@@ -137,6 +182,10 @@ class generateBhpService
             ),
             'jenis_bhp' => $result->jenis_bhp,
             'jenis_bhp_label' => $this->typeLabel($result->jenis_bhp),
+            'plotingPremi_id' => $result->plotingPremi_id,
+            'kode_ploting' => $result->kode_ploting,
+            'nama_ploting' => $result->nama_ploting,
+            'ploting_label' => trim(($result->kode_ploting ? $result->kode_ploting.' - ' : '').($result->nama_ploting ?? '-')),
             'jumlah_bhp' => $result->jumlah_bhp,
             'nominal_hitung' => $result->nominal_hitung,
             'total_bhp' => $result->total_bhp,
@@ -209,6 +258,54 @@ class generateBhpService
             'locked_at' => optional($result->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $result->lockedBy?->name,
         ];
+    }
+
+    private function normalizeNominals($plotings, array $nominalByPloting): array
+    {
+        $errors = [];
+        $nominals = [];
+
+        foreach ($plotings as $ploting) {
+            $rawNominal = $nominalByPloting[$ploting->id]
+                ?? $nominalByPloting[(string) $ploting->id]
+                ?? null;
+            $nominal = (int) preg_replace('/\D/', '', (string) $rawNominal);
+
+            if ($nominal < 1) {
+                $errors["nominal_hitung.{$ploting->id}"] =
+                    "Nominal hitung {$ploting->ploting} wajib lebih dari Rp 0.";
+
+                continue;
+            }
+
+            $nominals[$ploting->id] = $nominal;
+        }
+
+        if (! empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $nominals;
+    }
+
+    private function plotingNominalPayload($plotings, $rows): array
+    {
+        $rowsByPloting = $rows->keyBy('plotingPremi_id');
+
+        return $plotings
+            ->map(function ($ploting) use ($rowsByPloting) {
+                $row = $rowsByPloting->get($ploting->id);
+
+                return [
+                    'id' => (int) $ploting->id,
+                    'kode' => $ploting->kode,
+                    'ploting' => $ploting->ploting,
+                    'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                    'nominal_hitung' => (int) ($row?->nominal_hitung ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function typeLabel(string $jenisBhp): string

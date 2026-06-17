@@ -11,8 +11,7 @@ class hitungPremiBhpController extends Controller
 {
     public function __construct(
         protected generateBhpService $generateBhpService
-    ) {
-    }
+    ) {}
 
     public function generateBhp()
     {
@@ -38,7 +37,7 @@ class hitungPremiBhpController extends Controller
             ->addColumn('actions', function ($row) use ($canUnlock) {
                 $actions = '
                     <button type="button" class="btn btn-outline-primary btn-detail-bhp"
-                        data-id="' . $row['id'] . '" title="Lihat detail">
+                        data-id="'.$row['id'].'" title="Lihat detail">
                         <i class="mdi mdi-eye-outline"></i>
                     </button>
                 ';
@@ -46,14 +45,14 @@ class hitungPremiBhpController extends Controller
                 if (! $row['is_locked']) {
                     $actions .= '
                         <button type="button" class="btn btn-outline-warning btn-lock-bhp"
-                            data-id="' . $row['id'] . '" title="Kunci data">
+                            data-id="'.$row['id'].'" title="Kunci data">
                             <i class="mdi mdi-lock-outline"></i>
                         </button>
                     ';
                 } elseif ($canUnlock) {
                     $actions .= '
                         <button type="button" class="btn btn-outline-success btn-unlock-bhp"
-                            data-id="' . $row['id'] . '" title="Buka kunci">
+                            data-id="'.$row['id'].'" title="Buka kunci">
                             <i class="mdi mdi-lock-open-variant-outline"></i>
                         </button>
                     ';
@@ -66,7 +65,7 @@ class hitungPremiBhpController extends Controller
                     ';
                 }
 
-                return '<div class="bhp-row-actions">' . $actions . '</div>';
+                return '<div class="bhp-row-actions">'.$actions.'</div>';
             })
             ->rawColumns(['actions'])
             ->make(true);
@@ -93,18 +92,19 @@ class hitungPremiBhpController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_bhp' => ['required', 'in:umum,bpjs'],
-            'nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
+            'nominal_hitung' => ['required', 'array'],
+            'nominal_hitung.*' => ['required', 'integer', 'min:1', 'max:999999999999'],
         ]);
 
         $result = $this->generateBhpService->generate(
             $validated['periode'],
             $validated['jenis_bhp'],
-            (int) $validated['nominal_hitung']
+            $validated['nominal_hitung']
         );
 
         return response()->json([
             'status' => true,
-            'message' => "BHP {$result['jenis_bhp_label']} berhasil digenerate.",
+            'message' => "BHP {$result['jenis_bhp_label']} berhasil digenerate untuk {$result['generated_count']} ploting.",
             'data' => $result,
         ]);
     }

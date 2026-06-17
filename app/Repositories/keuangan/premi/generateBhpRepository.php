@@ -4,6 +4,7 @@ namespace App\Repositories\keuangan\premi;
 
 use App\Models\dbSimrs\generateBhpDetailModel;
 use App\Models\dbSimrs\generateBhpModel;
+use App\Models\dbSimrs\plotingPremiModel;
 use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -84,32 +85,43 @@ class generateBhpRepository
     public function getResults(?string $periode = null, ?string $jenisBhp = null): Collection
     {
         return generateBhpModel::query()
-            ->with('lockedBy:id,name')
+            ->with(['lockedBy:id,name', 'generateBy:id,name'])
             ->withCount('details')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when($jenisBhp, fn ($query) => $query->where('jenis_bhp', $jenisBhp))
             ->orderByDesc('periode')
             ->orderBy('jenis_bhp')
+            ->orderBy('nama_ploting')
             ->get();
     }
 
-    public function findByPeriodAndType(string $periode, string $jenisBhp): ?generateBhpModel
+    public function getPlotingPremi(): Collection
+    {
+        return plotingPremiModel::query()
+            ->select('id', 'kode', 'ploting')
+            ->orderBy('ploting')
+            ->get();
+    }
+
+    public function findByPeriodAndType(string $periode, string $jenisBhp): Collection
     {
         return generateBhpModel::query()
+            ->with('lockedBy:id,name')
             ->where('periode', $periode)
             ->where('jenis_bhp', $jenisBhp)
-            ->first();
+            ->orderBy('nama_ploting')
+            ->get();
     }
 
     public function findByPeriodAndTypeForUpdate(
         string $periode,
         string $jenisBhp
-    ): ?generateBhpModel {
+    ): Collection {
         return generateBhpModel::query()
             ->where('periode', $periode)
             ->where('jenis_bhp', $jenisBhp)
             ->lockForUpdate()
-            ->first();
+            ->get();
     }
 
     public function findForUpdate(int $id): ?generateBhpModel
@@ -122,6 +134,7 @@ class generateBhpRepository
     public function saveResult(
         string $periode,
         string $jenisBhp,
+        plotingPremiModel $ploting,
         int $jumlah,
         int $nominal
     ): generateBhpModel {
@@ -129,8 +142,11 @@ class generateBhpRepository
             [
                 'periode' => $periode,
                 'jenis_bhp' => $jenisBhp,
+                'plotingPremi_id' => $ploting->id,
             ],
             [
+                'kode_ploting' => $ploting->kode,
+                'nama_ploting' => $ploting->ploting,
                 'jumlah_bhp' => $jumlah,
                 'nominal_hitung' => $nominal,
                 'total_bhp' => $jumlah * $nominal,

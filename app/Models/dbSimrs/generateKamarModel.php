@@ -13,6 +13,9 @@ class generateKamarModel extends Model
 
     protected $fillable = [
         'jenis_kamar',
+        'plotingPremi_id',
+        'kode_ploting',
+        'nama_ploting',
         'jumlah_kamar',
         'jumlah_lama_inap',
         'nominal_hitung',
@@ -25,6 +28,7 @@ class generateKamarModel extends Model
     ];
 
     protected $casts = [
+        'plotingPremi_id' => 'integer',
         'jumlah_kamar' => 'integer',
         'jumlah_lama_inap' => 'integer',
         'nominal_hitung' => 'integer',
@@ -46,5 +50,10 @@ class generateKamarModel extends Model
     public function generateBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'generate_by');
+    }
+
+    public function plotingPremi(): BelongsTo
+    {
+        return $this->belongsTo(plotingPremiModel::class, 'plotingPremi_id');
     }
 }

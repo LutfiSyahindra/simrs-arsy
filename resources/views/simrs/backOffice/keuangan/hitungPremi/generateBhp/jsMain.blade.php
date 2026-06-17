@@ -30,6 +30,9 @@
             }
         };
         let activeType = 'umum';
+        let activeSummary = {
+            ploting_nominals: []
+        };
 
         function formatRupiah(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID').format(Number(value) || 0);
@@ -37,6 +40,64 @@
 
         function escapeHtml(value) {
             return $('<div>').text(value ?? '').html();
+        }
+
+        function formatInputNumber(value) {
+            const numeric = String(value || '').replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+
+            return numeric ? new Intl.NumberFormat('id-ID').format(Number(numeric)) : '';
+        }
+
+        function nominalSummaryText(data) {
+            return data.nominal_is_mixed ? 'Beragam' : formatRupiah(data.nominal_hitung);
+        }
+
+        function renderPlotingNominalInputs(plotingNominals) {
+            const items = Array.isArray(plotingNominals) ? plotingNominals : [];
+            const container = $('#plotingNominalContainer');
+
+            if (!items.length) {
+                container.html(`
+                    <div class="alert alert-warning mb-0 py-2">
+                        Master Ploting Premi belum tersedia. Tambahkan ploting terlebih dahulu.
+                    </div>
+                `);
+                $('#btnSubmitGenerateBhp').prop('disabled', true);
+
+                return;
+            }
+
+            $('#btnSubmitGenerateBhp').prop('disabled', false);
+            container.html(items.map(function(item) {
+                const id = Number(item.id || 0);
+                const text = item.text || item.ploting || '-';
+                const kode = item.kode ? item.kode : '';
+                const nominal = Number(item.nominal_hitung || 0) > 0 ?
+                    formatInputNumber(item.nominal_hitung) :
+                    '';
+
+                return `
+                    <div class="border rounded-2 p-2">
+                        <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${escapeHtml(text)}</div>
+                                <small class="text-muted">${escapeHtml(kode || 'Ploting Premi')}</small>
+                            </div>
+                            <div class="input-group input-group-sm" style="max-width: 220px;">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text"
+                                    class="form-control ploting-nominal-input text-end"
+                                    name="nominal_hitung[${id}]"
+                                    data-ploting-id="${id}"
+                                    value="${escapeHtml(nominal)}"
+                                    inputmode="numeric"
+                                    autocomplete="off"
+                                    placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join(''));
         }
 
         function getErrorMessage(xhr, fallback) {
@@ -109,28 +170,40 @@
                 },
                 success: function(response) {
                     const data = response.data || {};
+                    activeSummary = data;
+                    const generatedPloting = Number(data.generated_ploting_count || 0);
+                    const plotingCount = Number(data.ploting_count || 0);
                     $('#summaryJumlahBhp').text((data.jumlah_bhp || 0) + ' pasien');
-                    $('#summaryNominalBhp').text(formatRupiah(data.nominal_hitung));
+                    $('#summaryNominalBhp').text(nominalSummaryText(data));
                     $('#summaryTotalBhp').text(formatRupiah(data.total_bhp));
                     $('#summaryPeriode').text(
                         (data.periode || '-') + ' / ' + (data.jenis_bhp_label || '-') +
-                        ' / Sumber ' + (data.periode_sumber || '-')
+                        ' / Sumber ' + (data.periode_sumber || '-') +
+                        ' / ' + generatedPloting + ' dari ' + plotingCount + ' ploting'
                     );
-                    $('#summaryFormulaBhp').text(
+                    $('#summaryFormulaBhp').text(data.nominal_is_mixed ?
+                        (data.jumlah_bhp || 0) +
+                        ' pasien x nominal masing-masing ploting' :
                         (data.jumlah_bhp || 0) + ' pasien x ' +
-                        formatRupiah(data.nominal_hitung)
+                        formatRupiah(data.nominal_hitung) + ' x ' +
+                        generatedPloting + ' ploting'
                     );
                     updateLockState(data);
                 },
                 error: function() {
+                    activeSummary = {
+                        ploting_nominals: []
+                    };
                     $('#summaryJumlahBhp').text('0 pasien');
                     $('#summaryNominalBhp').text('Rp 0');
                     $('#summaryTotalBhp').text('Rp 0');
                     $('#summaryPeriode').text('-');
-                    $('#summaryFormulaBhp').text('0 pasien x Rp 0');
+                    $('#summaryFormulaBhp').text('0 pasien x Rp 0 x 0 ploting');
                     updateLockState({
                         is_locked: false,
-                        jumlah_bhp: 0
+                        jumlah_bhp: 0,
+                        generated_ploting_count: 0,
+                        ploting_count: 0
                     });
                 }
             });
@@ -138,12 +211,15 @@
 
         function updateLockState(data) {
             const isLocked = Boolean(data.is_locked);
-            const hasResult = Number(data.jumlah_bhp || 0) > 0;
+            const generatedPloting = Number(data.generated_ploting_count || 0);
+            const plotingCount = Number(data.ploting_count || 0);
+            const hasResult = generatedPloting > 0;
             const status = $('#activeBhpLockStatus');
             const generateButton = $('#btnGenerateBhp');
             const lockCard = $('#summaryLockCard');
             const lockedBy = data.locked_by_name || '';
             const lockedAt = data.locked_at || '';
+            const plotingInfo = generatedPloting + ' dari ' + plotingCount + ' ploting';
 
             status.toggleClass('d-none', !hasResult);
             status.toggleClass('is-locked', isLocked);
@@ -174,10 +250,15 @@
 
             if (!hasResult) {
                 $('#summaryLockValue').text('Belum Ada Data');
-                $('#summaryLockNote').text('Generate data terlebih dahulu');
+                $('#summaryLockNote').text(
+                    plotingCount > 0 ? 'Generate data terlebih dahulu' :
+                    'Master Ploting Premi belum tersedia'
+                );
                 $('#heroActiveStatus').text('Belum ada hasil generate');
                 $('#actionStatusMessage').text(
-                    'Belum ada hasil generate untuk konteks yang dipilih.'
+                    plotingCount > 0 ?
+                    'Belum ada hasil generate untuk konteks yang dipilih.' :
+                    'Tambahkan Master Ploting Premi terlebih dahulu sebelum generate.'
                 );
                 return;
             }
@@ -185,12 +266,13 @@
             if (isLocked) {
                 $('#summaryLockValue').text('Terkunci');
                 $('#summaryLockNote').text(
-                    [lockedBy, lockedAt].filter(Boolean).join(' / ') || 'Data terlindungi'
+                    ([lockedBy, lockedAt].filter(Boolean).join(' / ') || 'Data terlindungi') +
+                    ' / ' + plotingInfo
                 );
-                $('#heroActiveStatus').text('Data terkunci dan tidak dapat digenerate ulang');
+                $('#heroActiveStatus').text('Ada ploting terkunci dan tidak dapat digenerate ulang');
                 $('#actionStatusMessage').html(
                     '<i class="mdi mdi-lock me-1"></i>' +
-                    'Data sudah dikunci' +
+                    (data.locked_ploting_count || 0) + ' ploting sudah dikunci' +
                     (lockedBy ? ' oleh <strong>' + escapeHtml(lockedBy) + '</strong>' : '') +
                     '.'
                 );
@@ -198,11 +280,12 @@
             }
 
             $('#summaryLockValue').text('Belum Dikunci');
-            $('#summaryLockNote').text('Data masih dapat digenerate ulang');
-            $('#heroActiveStatus').text('Data tersedia dan masih dapat diperbarui');
+            $('#summaryLockNote').text('Data masih dapat digenerate ulang / ' + plotingInfo);
+            $('#heroActiveStatus').text('Data tersedia untuk ' + plotingInfo);
             $('#actionStatusMessage').html(
                 '<i class="mdi mdi-check-circle-outline me-1"></i>' +
-                'Hasil tersedia dan masih dapat digenerate ulang.'
+                'Hasil tersedia untuk <strong>' + escapeHtml(plotingInfo) +
+                '</strong> dan masih dapat digenerate ulang.'
             );
         }
 
@@ -267,6 +350,16 @@
 
                         return '<span class="badge ' + badgeClass + '">' +
                             escapeHtml(data || '-') + '</span>';
+                    }
+                },
+                {
+                    data: 'ploting_label',
+                    name: 'nama_ploting',
+                    render: function(data, type, row) {
+                        return `
+                            <strong class="text-dark">${escapeHtml(row.nama_ploting || '-')}</strong>
+                            <small class="d-block text-muted">${escapeHtml(row.kode_ploting || '-')}</small>
+                        `;
                     }
                 },
                 {
@@ -498,22 +591,24 @@
             $('#jenisGenerateBhpLabel').val(config.label);
             $('#periodeGenerateBhp').val(periode);
             $('#periodeGenerateSourceInfo').text(
-                'Data sumber: ' + getSourcePeriod(periode, activeType) +
-                (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.')
+                        'Data sumber: ' + getSourcePeriod(periode, activeType) +
+                (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.') +
+                ' Hasil akan dibuat untuk seluruh Master Ploting Premi.'
             );
-            $('#nominalHitungBhp').val('').removeClass('is-invalid');
+            renderPlotingNominalInputs(activeSummary.ploting_nominals || []);
             $('#nominalHitungBhpError').text('');
             generateModal.show();
 
             setTimeout(function() {
-                $('#nominalHitungBhp').trigger('focus');
+                $('.ploting-nominal-input:first').trigger('focus');
             }, 250);
         });
 
-        $('#nominalHitungBhp').on('input', function() {
+        $('#plotingNominalContainer').on('input', '.ploting-nominal-input', function() {
             const numeric = this.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
-            this.value = numeric ? new Intl.NumberFormat('id-ID').format(Number(numeric)) : '';
+            this.value = formatInputNumber(numeric);
             $(this).removeClass('is-invalid');
+            $('#nominalHitungBhpError').text('');
         });
 
         $('#formGenerateBhp').on('submit', function(event) {
@@ -521,15 +616,28 @@
 
             const submitButton = $('#btnSubmitGenerateBhp');
             const originalHtml = submitButton.html();
-            const nominal = $('#nominalHitungBhp').val().replace(/\D/g, '');
+            const nominalPayload = {};
+            let firstInvalidInput = null;
             const jenisBhp = $('#jenisGenerateBhp').val();
             const typeLabel = typeConfig[jenisBhp].label;
 
-            if (!nominal || Number(nominal) < 1) {
-                $('#nominalHitungBhp')
-                    .addClass('is-invalid')
-                    .trigger('focus');
-                $('#nominalHitungBhpError').text('Nominal hitung wajib lebih dari Rp 0.');
+            $('.ploting-nominal-input').each(function() {
+                const input = $(this);
+                const plotingId = input.data('ploting-id');
+                const nominal = this.value.replace(/\D/g, '');
+                nominalPayload[plotingId] = nominal;
+
+                if (!nominal || Number(nominal) < 1) {
+                    input.addClass('is-invalid');
+                    firstInvalidInput = firstInvalidInput || input;
+                }
+            });
+
+            if (firstInvalidInput) {
+                firstInvalidInput.trigger('focus');
+                $('#nominalHitungBhpError').text(
+                    'Semua nominal hitung per ploting wajib lebih dari Rp 0.'
+                );
                 return;
             }
 
@@ -539,7 +647,7 @@
                 data: {
                     periode: $('#periodeGenerateBhp').val(),
                     jenis_bhp: jenisBhp,
-                    nominal_hitung: nominal
+                    nominal_hitung: nominalPayload
                 },
                 beforeSend: function() {
                     submitButton.prop('disabled', true).html(
@@ -709,13 +817,15 @@
                 success: function(response) {
                     const data = response.data || {};
                     $('#modalDetailBhpLabel').text(
-                        'Detail Generate BHP ' + (data.jenis_bhp_label || '')
+                        'Detail Generate BHP ' + (data.jenis_bhp_label || '') +
+                        ' / ' + (data.ploting_label || '-')
                     );
                     $('#detailBhpHeader').toggleClass('is-bpjs', data.jenis_bhp === 'bpjs');
                     $('#detailBhpTypeBadge').text(data.jenis_bhp_label || '-');
                     $('#detailBhpPeriode').text(
                         (data.periode || '-') + ' / Sumber ' +
-                        (data.periode_sumber || '-')
+                        (data.periode_sumber || '-') + ' / Ploting ' +
+                        (data.ploting_label || '-')
                     );
                     $('#detailBhpJumlah').text((data.jumlah_bhp || 0) + ' pasien');
                     $('#detailBhpNominal').text(formatRupiah(data.nominal_hitung));

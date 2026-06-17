@@ -80,6 +80,31 @@
                         </div>
                     </div>
 
+                    <div class="non-medis-detail-section">
+                        <div class="non-medis-detail-section-head">
+                            <div>
+                                <div class="non-medis-detail-section-title">Jumlah Data per Penjamin</div>
+                                <small class="text-muted" id="detailProviderMeta">
+                                    Pilih mapping untuk melihat rekap penjamin.
+                                </small>
+                            </div>
+                            <span class="badge bg-light text-dark" id="detailProviderCount">0 penjamin</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover non-medis-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Penjamin</th>
+                                        <th>Kode</th>
+                                        <th class="text-center">Jumlah Data</th>
+                                        <th class="text-end">Biaya Rawat</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailProviderRows"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <div class="non-medis-detail-section mb-0">
                         <div class="non-medis-detail-section-head">
                             <div>

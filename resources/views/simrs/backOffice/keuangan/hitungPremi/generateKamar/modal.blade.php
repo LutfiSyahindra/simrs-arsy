@@ -5,7 +5,7 @@
             <div class="modal-header border-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-bold" id="modalGenerateBhpLabel">Generate Kamar</h5>
-                    <small class="text-muted">Masukkan nominal per hari inap yang akan dihitung</small>
+                    <small class="text-muted">Masukkan nominal per hari inap untuk tiap ploting</small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
             </div>
@@ -13,8 +13,8 @@
             <form id="formGenerateBhp">
                 <div class="modal-body">
                     <div class="bhp-modal-info mb-3">
-                        Data periode yang sama akan diperbarui dan detail pasien akan disesuaikan dengan data
-                        terbaru dari Khanza.
+                        Data periode yang sama akan diperbarui untuk seluruh Master Ploting Premi, dan detail
+                        pasien akan disesuaikan dengan data terbaru dari Khanza.
                     </div>
 
                     <div class="mb-3">
@@ -30,14 +30,12 @@
                     </div>
 
                     <div>
-                        <label for="nominalHitungBhp" class="form-label">Nominal Hitung</label>
-                        <div class="input-group">
-                            <span class="input-group-text">Rp</span>
-                            <input type="text" id="nominalHitungBhp" class="form-control"
-                                inputmode="numeric" placeholder="Contoh: 25.000" autocomplete="off" required>
-                        </div>
-                        <div class="invalid-feedback" id="nominalHitungBhpError"></div>
-                        <small class="text-muted">Total premi kamar = total hari inap x nominal per hari.</small>
+                        <label class="form-label">Nominal Hitung per Ploting</label>
+                        <div id="plotingNominalContainer" class="d-grid gap-2"></div>
+                        <div class="invalid-feedback d-block" id="nominalHitungBhpError"></div>
+                        <small class="text-muted">
+                            Total premi kamar per ploting = total hari inap x nominal per hari masing-masing ploting.
+                        </small>
                     </div>
                 </div>
 

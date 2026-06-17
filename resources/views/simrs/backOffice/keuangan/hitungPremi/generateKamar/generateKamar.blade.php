@@ -1707,6 +1707,7 @@
                             <th class="text-center" width="6%">No</th>
                             <th>Periode</th>
                             <th>Jenis</th>
+                            <th>Ploting</th>
                             <th class="text-center">Jumlah Kamar</th>
                             <th class="text-center">Total Hari Inap</th>
                             <th class="text-end">Nominal Hitung</th>

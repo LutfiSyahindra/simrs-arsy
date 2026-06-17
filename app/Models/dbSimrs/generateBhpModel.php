@@ -13,6 +13,9 @@ class generateBhpModel extends Model
 
     protected $fillable = [
         'jenis_bhp',
+        'plotingPremi_id',
+        'kode_ploting',
+        'nama_ploting',
         'jumlah_bhp',
         'nominal_hitung',
         'total_bhp',
@@ -20,10 +23,11 @@ class generateBhpModel extends Model
         'is_locked',
         'locked_at',
         'locked_by',
-        'generate_by'
+        'generate_by',
     ];
 
     protected $casts = [
+        'plotingPremi_id' => 'integer',
         'jumlah_bhp' => 'integer',
         'nominal_hitung' => 'integer',
         'total_bhp' => 'integer',
@@ -44,5 +48,10 @@ class generateBhpModel extends Model
     public function generateBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'generate_by');
+    }
+
+    public function plotingPremi(): BelongsTo
+    {
+        return $this->belongsTo(plotingPremiModel::class, 'plotingPremi_id');
     }
 }

@@ -92,18 +92,19 @@ class hitungPremiKamarController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_kamar' => ['required', 'in:umum,bpjs'],
-            'nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
+            'nominal_hitung' => ['required', 'array'],
+            'nominal_hitung.*' => ['required', 'integer', 'min:1', 'max:999999999999'],
         ]);
 
         $result = $this->generateKamarService->generate(
             $validated['periode'],
             $validated['jenis_kamar'],
-            (int) $validated['nominal_hitung']
+            $validated['nominal_hitung']
         );
 
         return response()->json([
             'status' => true,
-            'message' => "Kamar {$result['jenis_kamar_label']} berhasil digenerate.",
+            'message' => "Kamar {$result['jenis_kamar_label']} berhasil digenerate untuk {$result['generated_count']} ploting.",
             'data' => $result,
         ]);
     }

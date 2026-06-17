@@ -50,7 +50,9 @@ class generatePelayananNonMedisRepository
     public function getDependencies(
         string $periode,
         string $jenisPelayanan,
-        bool $forUpdate = false
+        bool $forUpdate = false,
+        ?int $generateBhpId = null,
+        ?int $generateKamarId = null
     ): array {
         $bhpQuery = generateBhpModel::query()
             ->where('periode', $periode)
@@ -58,6 +60,22 @@ class generatePelayananNonMedisRepository
         $kamarQuery = generateKamarModel::query()
             ->where('periode', $periode)
             ->where('jenis_kamar', $jenisPelayanan);
+
+        if ($generateBhpId) {
+            $bhpQuery->whereKey($generateBhpId);
+        } else {
+            $bhpQuery
+                ->orderByRaw("CASE WHEN nama_ploting = 'Non Medis' THEN 0 ELSE 1 END")
+                ->orderBy('nama_ploting');
+        }
+
+        if ($generateKamarId) {
+            $kamarQuery->whereKey($generateKamarId);
+        } else {
+            $kamarQuery
+                ->orderByRaw("CASE WHEN nama_ploting = 'Non Medis' THEN 0 ELSE 1 END")
+                ->orderBy('nama_ploting');
+        }
 
         if ($forUpdate) {
             $bhpQuery->lockForUpdate();
@@ -70,12 +88,27 @@ class generatePelayananNonMedisRepository
         ];
     }
 
+    public function getDependencyOptions(string $periode, string $jenisPelayanan): array
+    {
+        return [
+            'bhp' => generateBhpModel::query()
+                ->where('periode', $periode)
+                ->where('jenis_bhp', $jenisPelayanan)
+                ->orderBy('nama_ploting')
+                ->get(),
+            'kamar' => generateKamarModel::query()
+                ->where('periode', $periode)
+                ->where('jenis_kamar', $jenisPelayanan)
+                ->orderBy('nama_ploting')
+                ->get(),
+        ];
+    }
+
     public function calculate(
         string $periode,
         string $jenisPelayanan,
         int $jnsPremiId
-    ): array
-    {
+    ): array {
         $karcisTindakanIds = $this->getKarcisTindakanIds();
         $mappings = $this->getCalculationMappings(
             $jenisPelayanan,
@@ -300,8 +333,7 @@ class generatePelayananNonMedisRepository
         string $jenisPelayanan,
         int $jnsPremiId,
         Collection $karcisTindakanIds
-    ): Collection
-    {
+    ): Collection {
         $valueColumn = $jenisPelayanan === 'bpjs'
             ? 'mp.nilai_bpjs'
             : 'mp.nilai_umum';
@@ -516,7 +548,12 @@ class generatePelayananNonMedisRepository
         ?int $jnsPremiId = null
     ): Collection {
         return premiPelayananNonMedisModel::query()
-            ->with(['lockedBy:id,name', 'generateBy:id,name'])
+            ->with([
+                'lockedBy:id,name',
+                'generateBy:id,name',
+                'generateBhp:id,kode_ploting,nama_ploting',
+                'generateKamar:id,kode_ploting,nama_ploting',
+            ])
             ->withCount('details')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when(
@@ -537,6 +574,10 @@ class generatePelayananNonMedisRepository
     ): ?premiPelayananNonMedisModel {
         return premiPelayananNonMedisModel::query()
             ->with('lockedBy:id,name')
+            ->with([
+                'generateBhp:id,kode_ploting,nama_ploting',
+                'generateKamar:id,kode_ploting,nama_ploting',
+            ])
             ->with([
                 'details' => fn ($query) => $query
                     ->select([
@@ -636,7 +677,12 @@ class generatePelayananNonMedisRepository
     public function findWithDetails(int $id): ?premiPelayananNonMedisModel
     {
         return premiPelayananNonMedisModel::query()
-            ->with(['lockedBy:id,name', 'generateBy:id,name'])
+            ->with([
+                'lockedBy:id,name',
+                'generateBy:id,name',
+                'generateBhp:id,kode_ploting,nama_ploting',
+                'generateKamar:id,kode_ploting,nama_ploting',
+            ])
             ->with([
                 'details' => fn ($query) => $query
                     ->orderBy('nama_jenis_tindakan')

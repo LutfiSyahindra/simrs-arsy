@@ -20,8 +20,7 @@ class generatePelayananNonMedisService
         ?string $periode = null,
         ?string $jenis = null,
         ?int $jnsPremiId = null
-    )
-    {
+    ) {
         return $this->repository
             ->getResults($periode, $jenis, $jnsPremiId)
             ->map(fn ($row) => [
@@ -82,13 +81,40 @@ class generatePelayananNonMedisService
         );
     }
 
-    public function getSummary(string $periode, string $jenis, int $jnsPremiId): array
-    {
-        $dependencies = $this->repository->getDependencies($periode, $jenis);
+    public function getSummary(
+        string $periode,
+        string $jenis,
+        int $jnsPremiId,
+        ?int $generateBhpId = null,
+        ?int $generateKamarId = null
+    ): array {
         $existing = $this->repository->findByPeriodAndType(
             $periode,
             $jenis,
             $jnsPremiId
+        );
+        $dependencyOptions = $this->repository->getDependencyOptions($periode, $jenis);
+        if ($existing?->is_locked) {
+            $generateBhpId = $existing->generate_bhp_id;
+            $generateKamarId = $existing->generate_kamar_inap_id;
+        } else {
+            $generateBhpId = $this->resolveDependencyId(
+                $generateBhpId,
+                $existing?->generate_bhp_id,
+                $dependencyOptions['bhp']
+            );
+            $generateKamarId = $this->resolveDependencyId(
+                $generateKamarId,
+                $existing?->generate_kamar_inap_id,
+                $dependencyOptions['kamar']
+            );
+        }
+        $dependencies = $this->repository->getDependencies(
+            $periode,
+            $jenis,
+            false,
+            $generateBhpId,
+            $generateKamarId
         );
         $selectedPremi = $this->repository->findPremi($jnsPremiId);
         $calculation = null;
@@ -132,8 +158,18 @@ class generatePelayananNonMedisService
                 $dependencies['kamar'],
                 'total_lama_inap'
             ),
+            'dependency_options' => [
+                'bhp' => $dependencyOptions['bhp']
+                    ->map(fn ($row) => $this->sourceOptionPayload($row, 'total_bhp'))
+                    ->values(),
+                'kamar' => $dependencyOptions['kamar']
+                    ->map(fn ($row) => $this->sourceOptionPayload($row, 'total_lama_inap'))
+                    ->values(),
+            ],
+            'selected_generate_bhp_id' => $dependencies['bhp']?->id,
+            'selected_generate_kamar_inap_id' => $dependencies['kamar']?->id,
             'ready' => $dependenciesReady,
-            'readiness_message' => $this->readinessMessage($dependencies),
+            'readiness_message' => $this->readinessMessage($dependencies, $dependencyOptions),
             'is_generated' => (bool) $existing,
             'jumlah_transaksi' => $calculation['jumlah_transaksi']
                 ?? $existing?->jumlah_transaksi
@@ -170,9 +206,20 @@ class generatePelayananNonMedisService
         ];
     }
 
-    public function generate(string $periode, string $jenis, int $jnsPremiId): array
-    {
-        return DB::transaction(function () use ($periode, $jenis, $jnsPremiId) {
+    public function generate(
+        string $periode,
+        string $jenis,
+        int $jnsPremiId,
+        int $generateBhpId,
+        int $generateKamarId
+    ): array {
+        return DB::transaction(function () use (
+            $periode,
+            $jenis,
+            $jnsPremiId,
+            $generateBhpId,
+            $generateKamarId
+        ) {
             $existing = $this->repository
                 ->findByPeriodAndTypeForUpdate($periode, $jenis, $jnsPremiId);
 
@@ -185,7 +232,9 @@ class generatePelayananNonMedisService
             $dependencies = $this->repository->getDependencies(
                 $periode,
                 $jenis,
-                true
+                true,
+                $generateBhpId,
+                $generateKamarId
             );
             $missing = collect([
                 'BHP' => $dependencies['bhp'],
@@ -237,7 +286,7 @@ class generatePelayananNonMedisService
             );
             $this->repository->replaceDetails($result, $calculation['details']);
 
-            return $this->resultPayload($result->fresh());
+            return $this->resultPayload($result->fresh(['generateBhp', 'generateKamar']));
         });
     }
 
@@ -345,6 +394,10 @@ class generatePelayananNonMedisService
             'total_bhp' => $result->total_bhp,
             'total_kamar_inap' => $result->total_kamar_inap,
             'total_final' => $result->total_final,
+            'generate_bhp_id' => $result->generate_bhp_id,
+            'generate_kamar_inap_id' => $result->generate_kamar_inap_id,
+            'generate_bhp_label' => $this->sourceLabel($result->generateBhp),
+            'generate_kamar_label' => $this->sourceLabel($result->generateKamar),
         ];
     }
 
@@ -353,10 +406,58 @@ class generatePelayananNonMedisService
         return [
             'exists' => (bool) $row,
             'id' => $row?->id,
+            'plotingPremi_id' => $row?->plotingPremi_id,
+            'kode_ploting' => $row?->kode_ploting,
+            'nama_ploting' => $row?->nama_ploting,
+            'ploting_label' => $this->sourceLabel($row),
             'total' => $row?->{$totalField} ?? 0,
+            'nominal_hitung' => $row?->nominal_hitung ?? 0,
             'is_locked' => $row?->is_locked ?? false,
             'updated_at' => optional($row?->updated_at)->format('d-m-Y H:i'),
         ];
+    }
+
+    private function resolveDependencyId(?int $requestedId, ?int $existingId, $options): ?int
+    {
+        $optionIds = $options->pluck('id')->map(fn ($id) => (int) $id);
+
+        if ($requestedId && $optionIds->contains($requestedId)) {
+            return $requestedId;
+        }
+
+        if ($existingId && $optionIds->contains((int) $existingId)) {
+            return (int) $existingId;
+        }
+
+        if ($options->count() === 1) {
+            return (int) $options->first()->id;
+        }
+
+        return null;
+    }
+
+    private function sourceOptionPayload($row, string $totalField): array
+    {
+        return [
+            'id' => (int) $row->id,
+            'plotingPremi_id' => $row->plotingPremi_id,
+            'kode_ploting' => $row->kode_ploting,
+            'nama_ploting' => $row->nama_ploting,
+            'ploting_label' => $this->sourceLabel($row),
+            'total' => $row->{$totalField},
+            'nominal_hitung' => $row->nominal_hitung,
+            'is_locked' => (bool) $row->is_locked,
+            'updated_at' => optional($row->updated_at)->format('d-m-Y H:i'),
+        ];
+    }
+
+    private function sourceLabel($row): string
+    {
+        if (! $row) {
+            return '-';
+        }
+
+        return trim(($row->kode_ploting ? $row->kode_ploting.' - ' : '').($row->nama_ploting ?? '-'));
     }
 
     private function dependenciesAreLocked(array $dependencies): bool
@@ -367,8 +468,25 @@ class generatePelayananNonMedisService
         );
     }
 
-    private function readinessMessage(array $dependencies): string
+    private function readinessMessage(array $dependencies, ?array $dependencyOptions = null): string
     {
+        $notSelected = collect([
+            'BHP' => [
+                'dependency' => $dependencies['bhp'],
+                'options' => $dependencyOptions['bhp'] ?? collect(),
+            ],
+            'Kamar Inap' => [
+                'dependency' => $dependencies['kamar'],
+                'options' => $dependencyOptions['kamar'] ?? collect(),
+            ],
+        ])->filter(
+            fn ($item) => ! $item['dependency'] && $item['options']->isNotEmpty()
+        )->keys();
+
+        if ($notSelected->isNotEmpty()) {
+            return 'Pilih sumber data '.$notSelected->implode(' dan ').' terlebih dahulu.';
+        }
+
         $missing = collect([
             'BHP' => $dependencies['bhp'],
             'Kamar Inap' => $dependencies['kamar'],

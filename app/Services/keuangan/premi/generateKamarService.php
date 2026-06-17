@@ -29,6 +29,10 @@ class generateKamarService
                 ),
                 'jenis_kamar' => $row->jenis_kamar,
                 'jenis_kamar_label' => $this->typeLabel($row->jenis_kamar),
+                'plotingPremi_id' => $row->plotingPremi_id,
+                'kode_ploting' => $row->kode_ploting,
+                'nama_ploting' => $row->nama_ploting,
+                'ploting_label' => trim(($row->kode_ploting ? $row->kode_ploting.' - ' : '').($row->nama_ploting ?? '-')),
                 'jumlah_kamar' => $row->jumlah_kamar,
                 'jumlah_lama_inap' => $row->jumlah_lama_inap,
                 'nominal_hitung' => $row->nominal_hitung,
@@ -44,9 +48,20 @@ class generateKamarService
 
     public function getSummary(?string $periode, string $jenisKamar): array
     {
-        $row = $periode
+        $rows = $periode
             ? $this->generateKamarRepository->findByPeriodAndType($periode, $jenisKamar)
-            : null;
+            : collect();
+        $firstRow = $rows->first();
+        $lockedRows = $rows->where('is_locked', true);
+        $lastLockedRow = $lockedRows->sortByDesc('locked_at')->first();
+        $plotings = $this->generateKamarRepository->getPlotingPremi();
+        $plotingCount = $plotings->count();
+        $nominals = $rows
+            ->pluck('nominal_hitung')
+            ->filter(fn ($value) => (int) $value > 0)
+            ->map(fn ($value) => (int) $value)
+            ->unique()
+            ->values();
 
         return [
             'periode' => $periode,
@@ -55,17 +70,22 @@ class generateKamarService
                 : null,
             'jenis_kamar' => $jenisKamar,
             'jenis_kamar_label' => $this->typeLabel($jenisKamar),
-            'jumlah_kamar' => $row?->jumlah_kamar ?? 0,
-            'jumlah_lama_inap' => $row?->jumlah_lama_inap ?? 0,
-            'nominal_hitung' => $row?->nominal_hitung ?? 0,
-            'total_lama_inap' => $row?->total_lama_inap ?? 0,
-            'is_locked' => $row?->is_locked ?? false,
-            'locked_at' => optional($row?->locked_at)->format('d-m-Y H:i'),
-            'locked_by_name' => $row?->lockedBy?->name,
+            'jumlah_kamar' => $firstRow?->jumlah_kamar ?? 0,
+            'jumlah_lama_inap' => $firstRow?->jumlah_lama_inap ?? 0,
+            'nominal_hitung' => $firstRow?->nominal_hitung ?? 0,
+            'nominal_is_mixed' => $nominals->count() > 1,
+            'total_lama_inap' => $rows->sum('total_lama_inap'),
+            'ploting_count' => $plotingCount,
+            'generated_ploting_count' => $rows->count(),
+            'locked_ploting_count' => $lockedRows->count(),
+            'is_locked' => $lockedRows->isNotEmpty(),
+            'locked_at' => optional($lastLockedRow?->locked_at)->format('d-m-Y H:i'),
+            'locked_by_name' => $lastLockedRow?->lockedBy?->name,
+            'ploting_nominals' => $this->plotingNominalPayload($plotings, $rows),
         ];
     }
 
-    public function generate(string $periode, string $jenisKamar, int $nominal): array
+    public function generate(string $periode, string $jenisKamar, array $nominalByPloting): array
     {
         $typeLabel = $this->typeLabel($jenisKamar);
         $sourcePeriod = PremiSourcePeriod::resolve($periode, $jenisKamar);
@@ -73,16 +93,26 @@ class generateKamarService
         return DB::transaction(function () use (
             $periode,
             $jenisKamar,
-            $nominal,
+            $nominalByPloting,
             $typeLabel,
             $sourcePeriod
         ) {
-            $existing = $this->generateKamarRepository
-                ->findByPeriodAndTypeForUpdate($periode, $jenisKamar);
+            $plotings = $this->generateKamarRepository->getPlotingPremi();
 
-            if ($existing?->is_locked) {
+            if ($plotings->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'periode' => "Kamar {$typeLabel} periode {$periode} sudah dikunci dan tidak dapat digenerate ulang.",
+                    'ploting' => 'Master Ploting Premi belum tersedia. Tambahkan data ploting terlebih dahulu.',
+                ]);
+            }
+
+            $nominals = $this->normalizeNominals($plotings, $nominalByPloting);
+            $existingRows = $this->generateKamarRepository
+                ->findByPeriodAndTypeForUpdate($periode, $jenisKamar);
+            $lockedRows = $existingRows->where('is_locked', true);
+
+            if ($lockedRows->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'periode' => "Kamar {$typeLabel} periode {$periode} memiliki {$lockedRows->count()} ploting yang sudah dikunci dan tidak dapat digenerate ulang.",
                 ]);
             }
 
@@ -95,17 +125,36 @@ class generateKamarService
             }
 
             $jumlahLamaInap = (int) $details->sum('lama');
-            $result = $this->generateKamarRepository->saveResult(
+            $results = $plotings->map(function ($ploting) use (
                 $periode,
                 $jenisKamar,
-                $details->count(),
+                $details,
                 $jumlahLamaInap,
-                $nominal
-            );
+                $nominals
+            ) {
+                $nominal = $nominals[$ploting->id];
+                $result = $this->generateKamarRepository->saveResult(
+                    $periode,
+                    $jenisKamar,
+                    $ploting,
+                    $details->count(),
+                    $jumlahLamaInap,
+                    $nominal
+                );
 
-            $this->generateKamarRepository->replaceDetails($result, $details);
+                $this->generateKamarRepository->replaceDetails($result, $details);
 
-            return $this->resultPayload($result);
+                return $result;
+            });
+            $firstResult = $results->first();
+
+            return [
+                ...$this->resultPayload($firstResult),
+                'total_lama_inap' => $results->sum('total_lama_inap'),
+                'nominal_is_mixed' => collect($nominals)->unique()->count() > 1,
+                'ploting_count' => $plotings->count(),
+                'generated_count' => $results->count(),
+            ];
         });
     }
 
@@ -198,6 +247,10 @@ class generateKamarService
             ),
             'jenis_kamar' => $result->jenis_kamar,
             'jenis_kamar_label' => $this->typeLabel($result->jenis_kamar),
+            'plotingPremi_id' => $result->plotingPremi_id,
+            'kode_ploting' => $result->kode_ploting,
+            'nama_ploting' => $result->nama_ploting,
+            'ploting_label' => trim(($result->kode_ploting ? $result->kode_ploting.' - ' : '').($result->nama_ploting ?? '-')),
             'jumlah_kamar' => $result->jumlah_kamar,
             'jumlah_lama_inap' => $result->jumlah_lama_inap,
             'nominal_hitung' => $result->nominal_hitung,
@@ -213,6 +266,54 @@ class generateKamarService
             'locked_at' => optional($result->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $result->lockedBy?->name,
         ];
+    }
+
+    private function normalizeNominals($plotings, array $nominalByPloting): array
+    {
+        $errors = [];
+        $nominals = [];
+
+        foreach ($plotings as $ploting) {
+            $rawNominal = $nominalByPloting[$ploting->id]
+                ?? $nominalByPloting[(string) $ploting->id]
+                ?? null;
+            $nominal = (int) preg_replace('/\D/', '', (string) $rawNominal);
+
+            if ($nominal < 1) {
+                $errors["nominal_hitung.{$ploting->id}"] =
+                    "Nominal hitung {$ploting->ploting} wajib lebih dari Rp 0.";
+
+                continue;
+            }
+
+            $nominals[$ploting->id] = $nominal;
+        }
+
+        if (! empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $nominals;
+    }
+
+    private function plotingNominalPayload($plotings, $rows): array
+    {
+        $rowsByPloting = $rows->keyBy('plotingPremi_id');
+
+        return $plotings
+            ->map(function ($ploting) use ($rowsByPloting) {
+                $row = $rowsByPloting->get($ploting->id);
+
+                return [
+                    'id' => (int) $ploting->id,
+                    'kode' => $ploting->kode,
+                    'ploting' => $ploting->ploting,
+                    'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                    'nominal_hitung' => (int) ($row?->nominal_hitung ?? 0),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function typeLabel(string $jenisKamar): string

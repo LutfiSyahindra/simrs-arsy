@@ -14,6 +14,8 @@
         let karcisConfigOptions = [];
         let karcisSelectedIds = [];
         let summaryData = null;
+        let selectedBhpSourceId = '';
+        let selectedKamarSourceId = '';
         let detailMappings = [];
         let selectedMappingId = '';
 
@@ -202,6 +204,7 @@
                 card.addClass(data.is_locked ? 'ready' : 'unlocked');
                 value.text(formatRupiah(data.total));
                 note.text(
+                    (data.ploting_label ? data.ploting_label + ' / ' : '') +
                     (data.is_locked ? 'Terkunci' : 'Belum dikunci') +
                     (data.updated_at ? ' / ' + data.updated_at : '')
                 );
@@ -211,6 +214,80 @@
             card.addClass('missing');
             value.text('Belum tersedia');
             note.text('Generate ' + label + ' pada periode ini terlebih dahulu');
+        }
+
+        function sourceOptionText(item) {
+            return (item.ploting_label || '-') + ' / ' +
+                formatRupiah(item.total) + ' / ' +
+                (item.is_locked ? 'Terkunci' : 'Belum dikunci');
+        }
+
+        function renderSourceSelect(selectId, options, selectedId, emptyText) {
+            const select = $(selectId);
+            const current = selectedId ? String(selectedId) : '';
+
+            select.empty().append(
+                $('<option>', {
+                    value: '',
+                    text: emptyText
+                })
+            );
+
+            (options || []).forEach(function(item) {
+                select.append(
+                    $('<option>', {
+                        value: item.id,
+                        text: sourceOptionText(item)
+                    })
+                );
+            });
+
+            select.val(current);
+            select.prop('disabled', !(options || []).length);
+        }
+
+        function renderDependencySources(data) {
+            const options = data.dependency_options || {};
+
+            selectedBhpSourceId = data.selected_generate_bhp_id ?
+                String(data.selected_generate_bhp_id) :
+                '';
+            selectedKamarSourceId = data.selected_generate_kamar_inap_id ?
+                String(data.selected_generate_kamar_inap_id) :
+                '';
+
+            renderSourceSelect(
+                '#sourceBhpNonMedis',
+                options.bhp || [],
+                selectedBhpSourceId,
+                'Pilih sumber BHP'
+            );
+            renderSourceSelect(
+                '#sourceKamarNonMedis',
+                options.kamar || [],
+                selectedKamarSourceId,
+                'Pilih sumber Kamar'
+            );
+
+            $('#sourceBhpNonMedisNote').text(
+                (options.bhp || []).length ?
+                formatNumber((options.bhp || []).length) + ' sumber BHP tersedia' :
+                'Generate BHP terlebih dahulu pada periode dan jenis ini.'
+            );
+            $('#sourceKamarNonMedisNote').text(
+                (options.kamar || []).length ?
+                formatNumber((options.kamar || []).length) + ' sumber Kamar tersedia' :
+                'Generate Kamar terlebih dahulu pada periode dan jenis ini.'
+            );
+        }
+
+        function resetDependencySources() {
+            selectedBhpSourceId = '';
+            selectedKamarSourceId = '';
+            renderSourceSelect('#sourceBhpNonMedis', [], '', 'Pilih sumber BHP');
+            renderSourceSelect('#sourceKamarNonMedis', [], '', 'Pilih sumber Kamar');
+            $('#sourceBhpNonMedisNote').text('Pilih periode dan mapping premi terlebih dahulu.');
+            $('#sourceKamarNonMedisNote').text('Pilih periode dan mapping premi terlebih dahulu.');
         }
 
         function mappingValueText(detail) {
@@ -277,6 +354,7 @@
 
         function renderSummary(data) {
             summaryData = data;
+            renderDependencySources(data);
             updateSourcePeriodInfo(
                 data.periode_sumber,
                 data.karcis_source_period,
@@ -320,6 +398,8 @@
 
             const canGenerate = data.ready &&
                 activePremiId &&
+                selectedBhpSourceId &&
+                selectedKamarSourceId &&
                 Number(data.jumlah_mapping_premi) > 0 &&
                 !data.is_locked;
             $('#btnGenerateNonMedis')
@@ -340,6 +420,7 @@
             updateSourcePeriodInfo();
             renderDependency('#dependencyBhp', null, 'BHP');
             renderDependency('#dependencyKamar', null, 'Kamar');
+            resetDependencySources();
             $('#summaryTransaksi').text('0');
             $('#summaryTindakan').text('0 jenis tindakan');
             $('#summaryBiayaRawat, #summaryMapping, #summaryFinal').text('Rp 0');
@@ -370,7 +451,9 @@
                 data: {
                     periode: periode,
                     jenis_pelayanan: activeType,
-                    jnsPremi_id: activePremiId
+                    jnsPremi_id: activePremiId,
+                    generate_bhp_id: selectedBhpSourceId,
+                    generate_kamar_inap_id: selectedKamarSourceId
                 },
                 success: function(response) {
                     renderSummary(response.data || {});
@@ -506,6 +589,8 @@
 
         $('.non-medis-type-tab').on('click', function() {
             activeType = $(this).data('type');
+            selectedBhpSourceId = '';
+            selectedKamarSourceId = '';
             $('.non-medis-type-tab').removeClass('active');
             $(this).addClass('active');
             $('#activeTypeBadge')
@@ -516,7 +601,21 @@
             refreshAll();
         });
 
-        $('#periodeNonMedis').on('change', refreshAll);
+        $('#periodeNonMedis').on('change', function() {
+            selectedBhpSourceId = '';
+            selectedKamarSourceId = '';
+            refreshAll();
+        });
+
+        $('#sourceBhpNonMedis').on('change', function() {
+            selectedBhpSourceId = String($(this).val() || '');
+            loadSummary();
+        });
+
+        $('#sourceKamarNonMedis').on('change', function() {
+            selectedKamarSourceId = String($(this).val() || '');
+            loadSummary();
+        });
 
         $('#btnKarcisConfig').on('click', function() {
             $('#karcisConfigSearch').val('');
@@ -596,6 +695,10 @@
                     escapeHtml(summaryData.periode_sumber || periode) + '</strong></div>' +
                     '<div class="mb-2">Jenis: <strong>' + typeLabel + '</strong></div>' +
                     '<div class="mb-2">Mapping Premi: <strong>' + escapeHtml(premiLabel) + '</strong></div>' +
+                    '<div class="mb-2">Sumber BHP: <strong>' +
+                    escapeHtml(summaryData.dependency_bhp?.ploting_label || '-') + '</strong></div>' +
+                    '<div class="mb-2">Sumber Kamar: <strong>' +
+                    escapeHtml(summaryData.dependency_kamar?.ploting_label || '-') + '</strong></div>' +
                     '<div class="p-2 rounded bg-light">' +
                     escapeHtml($('#summaryFormula').text()) +
                     '</div></div>',
@@ -610,7 +713,9 @@
                         data: {
                             periode: periode,
                             jenis_pelayanan: activeType,
-                            jnsPremi_id: activePremiId
+                            jnsPremi_id: activePremiId,
+                            generate_bhp_id: selectedBhpSourceId,
+                            generate_kamar_inap_id: selectedKamarSourceId
                         }
                     }).catch(function(xhr) {
                         Swal.showValidationMessage(errorMessage(xhr));
@@ -740,6 +845,82 @@
             });
         }
 
+        function renderProviderSummary(transactions, detail) {
+            const rows = $('#detailProviderRows').empty();
+
+            if (!detail) {
+                $('#detailProviderMeta').text('Pilih mapping untuk melihat rekap penjamin.');
+                $('#detailProviderCount').text('0 penjamin');
+                rows.html(
+                    '<tr><td colspan="4" class="non-medis-empty">Belum ada mapping dipilih.</td></tr>'
+                );
+                return;
+            }
+
+            const groups = new Map();
+
+            transactions.forEach(function(item) {
+                const kode = item.kd_pj || '-';
+                const nama = item.nama_penjamin || kode || 'Tanpa Penjamin';
+                const key = kode + '|' + nama;
+
+                if (!groups.has(key)) {
+                    groups.set(key, {
+                        kode: kode,
+                        nama: nama,
+                        jumlah: 0,
+                        total_biaya: 0
+                    });
+                }
+
+                const group = groups.get(key);
+                group.jumlah += 1;
+                group.total_biaya += Number(item.biaya_rawat) || 0;
+            });
+
+            const summaries = Array.from(groups.values()).sort(function(a, b) {
+                if (b.jumlah !== a.jumlah) {
+                    return b.jumlah - a.jumlah;
+                }
+
+                return a.nama.localeCompare(b.nama);
+            });
+
+            $('#detailProviderCount').text(formatNumber(summaries.length) + ' penjamin');
+            $('#detailProviderMeta').text(
+                formatNumber(transactions.length) + ' transaksi dikelompokkan / ' +
+                mappingLabel(detail)
+            );
+
+            if (!summaries.length) {
+                rows.html(
+                    '<tr><td colspan="4" class="non-medis-empty">Rekap penjamin tidak ditemukan.</td></tr>'
+                );
+                return;
+            }
+
+            summaries.forEach(function(item) {
+                rows.append(`
+                    <tr>
+                        <td class="non-medis-provider-name">${escapeHtml(item.nama)}</td>
+                        <td>${escapeHtml(item.kode)}</td>
+                        <td class="text-center fw-semibold">${formatNumber(item.jumlah)}</td>
+                        <td class="text-end">${formatRupiah(item.total_biaya)}</td>
+                    </tr>
+                `);
+            });
+
+            rows.append(`
+                <tr class="non-medis-provider-total">
+                    <td colspan="2">Total</td>
+                    <td class="text-center">${formatNumber(transactions.length)}</td>
+                    <td class="text-end">${formatRupiah(
+                        summaries.reduce((total, item) => total + item.total_biaya, 0)
+                    )}</td>
+                </tr>
+            `);
+        }
+
         function renderTransactions() {
             const rows = $('#detailTransactionRows').empty();
             const detail = selectedMapping();
@@ -752,6 +933,7 @@
                 rows.html(
                     '<tr><td colspan="8" class="non-medis-empty">Belum ada mapping dipilih.</td></tr>'
                 );
+                renderProviderSummary([], null);
                 return;
             }
 
@@ -773,6 +955,8 @@
                 formatNumber((detail.data_tindakan || []).length) +
                 ' transaksi / ' + mappingLabel(detail)
             );
+
+            renderProviderSummary(transactions, detail);
 
             if (!transactions.length) {
                 rows.html(
