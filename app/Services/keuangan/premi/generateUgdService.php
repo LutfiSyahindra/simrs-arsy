@@ -219,6 +219,28 @@ class generateUgdService
         });
     }
 
+    public function lockAll(string $periode, string $jenisUgd, User $user): array
+    {
+        return DB::transaction(function () use ($periode, $jenisUgd, $user) {
+            $results = $this->repository->getUnlockedForPeriodAndType($periode, $jenisUgd);
+
+            if ($results->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Tidak ada data UGD terbuka yang bisa dikunci.',
+                ]);
+            }
+
+            $lockedCount = $this->repository->updateManyLock($results, $user->id);
+
+            return [
+                'periode' => $periode,
+                'jenis_ugd' => $jenisUgd,
+                'jenis_ugd_label' => $this->typeLabel($jenisUgd),
+                'locked_count' => $lockedCount,
+            ];
+        });
+    }
+
     public function unlock(int $id, User $user): array
     {
         if (! $user->hasRole('Admin')) {
@@ -243,6 +265,25 @@ class generateUgdService
             return $this->lockPayload(
                 $this->repository->updateLock($result, false)
             );
+        });
+    }
+
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $result = $this->repository->findForUpdate($id);
+
+            if (! $result) {
+                abort(404, 'Data generate UGD tidak ditemukan.');
+            }
+
+            if ($result->is_locked) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data UGD yang sudah terkunci tidak dapat dihapus.',
+                ]);
+            }
+
+            $this->repository->deleteResult($result);
         });
     }
 

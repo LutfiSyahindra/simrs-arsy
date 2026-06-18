@@ -230,6 +230,7 @@
 
         .vk-refresh-btn,
         .vk-copy-btn,
+        .vk-lock-all-btn,
         .vk-generate-btn {
             align-items: center;
             border-radius: 9px;
@@ -241,7 +242,8 @@
         }
 
         .vk-refresh-btn,
-        .vk-copy-btn {
+        .vk-copy-btn,
+        .vk-lock-all-btn {
             background: #fff;
             border: 1px solid var(--vk-line);
             color: #475569;
@@ -255,6 +257,16 @@
         .vk-copy-btn:hover {
             background: #fff1f2;
             color: #9f1239;
+        }
+
+        .vk-lock-all-btn {
+            border-color: #fde68a;
+            color: #92400e;
+        }
+
+        .vk-lock-all-btn:hover {
+            background: #fffbeb;
+            color: #78350f;
         }
 
         .vk-generate-btn {
@@ -304,6 +316,47 @@
 
         .vk-summary-card.total .vk-summary-value {
             color: #fff;
+        }
+
+        .vk-ploting-summary {
+            border-top: 1px solid #eef2f7;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            padding: 15px 17px;
+        }
+
+        .vk-ploting-item {
+            background: #f8fafc;
+            border: 1px solid var(--vk-line);
+            border-radius: 10px;
+            padding: 11px;
+        }
+
+        .vk-ploting-name {
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .vk-ploting-meta {
+            color: var(--vk-muted);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .vk-ploting-total {
+            color: var(--vk-rose);
+            font-size: 17px;
+            font-weight: 900;
+            margin-top: 7px;
+        }
+
+        .vk-ploting-empty {
+            color: var(--vk-muted);
+            font-size: 12px;
+            grid-column: 1 / -1;
+            padding: 4px 0;
         }
 
         .vk-filter-bar {
@@ -617,6 +670,10 @@
                         <i class="mdi mdi-content-copy"></i>
                         Copy Bulan Berikutnya
                     </button>
+                    <button type="button" class="vk-lock-all-btn" id="btnLockAllVk">
+                        <i class="mdi mdi-lock-check-outline"></i>
+                        Kunci Semua
+                    </button>
                     <button type="button" class="vk-generate-btn" id="btnOpenGenerateVk">
                         <i class="mdi mdi-plus-circle-outline"></i>
                         Generate VK
@@ -640,6 +697,9 @@
                     <div class="vk-summary-label">Total VK</div>
                     <div class="vk-summary-value" id="summaryTotalVk">Rp 0</div>
                 </div>
+            </div>
+            <div class="vk-ploting-summary" id="summaryPlotingVk">
+                <div class="vk-ploting-empty">Belum ada total per ploting.</div>
             </div>
         </section>
 

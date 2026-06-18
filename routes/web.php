@@ -200,8 +200,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateUgd/ploting-options', [hitungPremiUgdController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateUgd.plotingOptions');
         Route::get('/hitung-premi/generateUgd/copy-preview', [hitungPremiUgdController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateUgd.copyPreview');
         Route::post('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateUgd.store');
+        Route::post('/hitung-premi/generateUgd/lock-all', [hitungPremiUgdController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateUgd.lockAll');
         Route::post('/hitung-premi/generateUgd/{id}/lock', [hitungPremiUgdController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateUgd.lock');
         Route::post('/hitung-premi/generateUgd/{id}/unlock', [hitungPremiUgdController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateUgd.unlock');
+        Route::delete('/hitung-premi/generateUgd/{id}/delete', [hitungPremiUgdController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateUgd.delete');
 
         Route::get('/hitung-premi/generateVk', [hitungPremiVkController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateVk');
         Route::get('/hitung-premi/generateVk/table', [hitungPremiVkController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateVk.table');
@@ -210,8 +212,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateVk/ploting-options', [hitungPremiVkController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.plotingOptions');
         Route::get('/hitung-premi/generateVk/copy-preview', [hitungPremiVkController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateVk.copyPreview');
         Route::post('/hitung-premi/generateVk', [hitungPremiVkController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateVk.store');
+        Route::post('/hitung-premi/generateVk/lock-all', [hitungPremiVkController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateVk.lockAll');
         Route::post('/hitung-premi/generateVk/{id}/lock', [hitungPremiVkController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateVk.lock');
         Route::post('/hitung-premi/generateVk/{id}/unlock', [hitungPremiVkController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateVk.unlock');
+        Route::delete('/hitung-premi/generateVk/{id}/delete', [hitungPremiVkController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateVk.delete');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');

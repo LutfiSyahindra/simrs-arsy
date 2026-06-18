@@ -291,6 +291,29 @@
             });
         }
 
+        function renderPlotingSummary(items) {
+            const container = $('#summaryPlotingUgd');
+            const rows = items || [];
+
+            if (!rows.length) {
+                container.html('<div class="ugd-ploting-empty">Belum ada total per ploting.</div>');
+                return;
+            }
+
+            container.html(rows.map(function(item) {
+                return '' +
+                    '<div class="ugd-ploting-item">' +
+                    '   <div class="ugd-ploting-name">' + escapeHtml(item.ploting_label || '-') + '</div>' +
+                    '   <div class="ugd-ploting-meta">' +
+                    formatNumber(item.generated_count || 0) + ' data / ' +
+                    formatNumber(item.jumlah_pasien || 0) + ' pasien / ' +
+                    formatNumber(item.locked_count || 0) + ' terkunci' +
+                    '   </div>' +
+                    '   <div class="ugd-ploting-total">' + formatRupiah(item.total_ugd || 0) + '</div>' +
+                    '</div>';
+            }).join(''));
+        }
+
         function loadSummary() {
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateUgd.summary") }}",
@@ -304,6 +327,7 @@
                     $('#summaryPasienUgd').text(formatNumber(data.jumlah_pasien));
                     $('#summaryDataUgd').text(formatNumber(data.generated_count));
                     $('#summaryTotalUgd').text(formatRupiah(data.total_ugd));
+                    renderPlotingSummary(data.ploting_summaries);
                     $('#summaryUgdSubtitle').text(
                         'Jenis ' + (data.jenis_ugd_label || typeConfig[activeType]) +
                         ' / ' + formatNumber(data.locked_count || 0) + ' data terkunci'
@@ -312,6 +336,7 @@
                 error: function() {
                     $('#summaryDokterUgd, #summaryPasienUgd, #summaryDataUgd').text('0');
                     $('#summaryTotalUgd').text('Rp 0');
+                    renderPlotingSummary([]);
                     $('#summaryUgdSubtitle').text('Ringkasan gagal dimuat.');
                 }
             });
@@ -588,13 +613,13 @@
                     invalid = true;
                 }
 
-                if (!jumlahPasien || Number(jumlahPasien) < 1) {
-                    showRowError(row, 'jumlah', 'Jumlah pasien wajib lebih dari 0.');
+                if (jumlahPasien === '' || Number(jumlahPasien) < 0) {
+                    showRowError(row, 'jumlah', 'Jumlah pasien minimal 0.');
                     invalid = true;
                 }
 
-                if (!nominal || Number(nominal) < 1) {
-                    showRowError(row, 'nominal', 'Nominal hitung wajib lebih dari Rp 0.');
+                if (nominal === '' || Number(nominal) < 0) {
+                    showRowError(row, 'nominal', 'Nominal hitung minimal Rp 0.');
                     invalid = true;
                 }
 
@@ -692,6 +717,8 @@
         });
 
         $('#btnCopyNextMonthUgd').on('click', loadCopyPreview);
+
+        $('#btnLockAllUgd').on('click', lockAllResults);
 
         $('#btnAddGenerateUgdRow').on('click', function() {
             addGenerateRow(null);
@@ -802,12 +829,75 @@
             });
         }
 
+        function lockAllResults() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Kunci semua data UGD?',
+                text: 'Semua data UGD ' + typeConfig[activeType] + ' periode ' + $('#periodeUgd').val() +
+                    ' yang masih terbuka akan dikunci.',
+                showCancelButton: true,
+                confirmButtonText: 'Kunci Semua',
+                cancelButtonText: 'Batal',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    return $.ajax({
+                        url: "{{ route("backOffice.keuangan.hitungPremi.generateUgd.lockAll") }}",
+                        method: 'POST',
+                        data: {
+                            periode: $('#periodeUgd').val(),
+                            jenis_ugd: activeType
+                        }
+                    }).catch(function(xhr) {
+                        Swal.showValidationMessage(errorMessage(xhr));
+                    });
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    Swal.fire('Berhasil', result.value.message, 'success');
+                    refreshAll();
+                }
+            });
+        }
+
+        function deleteResult(id) {
+            const template =
+                "{{ route("backOffice.keuangan.hitungPremi.generateUgd.delete", ["id" => "__ID__"]) }}";
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Hapus data UGD?',
+                text: 'Data yang dihapus tidak bisa dikembalikan.',
+                showCancelButton: true,
+                confirmButtonText: 'Hapus Data',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#dc3545',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    return $.ajax({
+                        url: template.replace('__ID__', id),
+                        method: 'DELETE'
+                    }).catch(function(xhr) {
+                        Swal.showValidationMessage(errorMessage(xhr));
+                    });
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    Swal.fire('Berhasil', result.value.message, 'success');
+                    refreshAll();
+                }
+            });
+        }
+
         $('#tableGenerateUgd').on('click', '.btn-lock-ugd', function() {
             changeLock($(this).data('id'), 'lock');
         });
 
         $('#tableGenerateUgd').on('click', '.btn-unlock-ugd', function() {
             changeLock($(this).data('id'), 'unlock');
+        });
+
+        $('#tableGenerateUgd').on('click', '.btn-delete-ugd', function() {
+            deleteResult($(this).data('id'));
         });
 
         $('#tableGenerateUgd').on('click', '.btn-edit-ugd', function() {

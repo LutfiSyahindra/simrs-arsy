@@ -231,7 +231,8 @@
         }
 
         .ugd-refresh-btn,
-        .ugd-copy-btn {
+        .ugd-copy-btn,
+        .ugd-lock-all-btn {
             align-items: center;
             background: #fff;
             border: 1px solid var(--ugd-line);
@@ -252,6 +253,16 @@
         .ugd-copy-btn:hover {
             background: #e0f2fe;
             color: #075985;
+        }
+
+        .ugd-lock-all-btn {
+            border-color: #fde68a;
+            color: #92400e;
+        }
+
+        .ugd-lock-all-btn:hover {
+            background: #fffbeb;
+            color: #78350f;
         }
 
         .ugd-summary-grid {
@@ -294,6 +305,47 @@
 
         .ugd-summary-card.total .ugd-summary-value {
             color: #fff;
+        }
+
+        .ugd-ploting-summary {
+            border-top: 1px solid #eef2f7;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            padding: 15px 17px;
+        }
+
+        .ugd-ploting-item {
+            background: #f8fafc;
+            border: 1px solid var(--ugd-line);
+            border-radius: 10px;
+            padding: 11px;
+        }
+
+        .ugd-ploting-name {
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .ugd-ploting-meta {
+            color: var(--ugd-muted);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .ugd-ploting-total {
+            color: var(--ugd-teal);
+            font-size: 17px;
+            font-weight: 900;
+            margin-top: 7px;
+        }
+
+        .ugd-ploting-empty {
+            color: var(--ugd-muted);
+            font-size: 12px;
+            grid-column: 1 / -1;
+            padding: 4px 0;
         }
 
         .ugd-generate-btn {
@@ -616,6 +668,10 @@
                         <i class="mdi mdi-content-copy"></i>
                         Copy Bulan Berikutnya
                     </button>
+                    <button type="button" class="ugd-lock-all-btn" id="btnLockAllUgd">
+                        <i class="mdi mdi-lock-check-outline"></i>
+                        Kunci Semua
+                    </button>
                     <button type="button" class="ugd-generate-btn" id="btnOpenGenerateUgd">
                         <i class="mdi mdi-plus-circle-outline"></i>
                         Generate UGD
@@ -639,6 +695,9 @@
                     <div class="ugd-summary-label">Total UGD</div>
                     <div class="ugd-summary-value" id="summaryTotalUgd">Rp 0</div>
                 </div>
+            </div>
+            <div class="ugd-ploting-summary" id="summaryPlotingUgd">
+                <div class="ugd-ploting-empty">Belum ada total per ploting.</div>
             </div>
         </section>
 

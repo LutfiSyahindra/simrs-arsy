@@ -212,6 +212,28 @@ class generateVkService
         });
     }
 
+    public function lockAll(string $periode, string $jenisVk, User $user): array
+    {
+        return DB::transaction(function () use ($periode, $jenisVk, $user) {
+            $results = $this->repository->getUnlockedForPeriodAndType($periode, $jenisVk);
+
+            if ($results->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Tidak ada data VK terbuka yang bisa dikunci.',
+                ]);
+            }
+
+            $lockedCount = $this->repository->updateManyLock($results, $user->id);
+
+            return [
+                'periode' => $periode,
+                'jenis_vk' => $jenisVk,
+                'jenis_vk_label' => $this->typeLabel($jenisVk),
+                'locked_count' => $lockedCount,
+            ];
+        });
+    }
+
     public function unlock(int $id, User $user): array
     {
         if (! $user->hasRole('Admin')) {
@@ -236,6 +258,25 @@ class generateVkService
             return $this->lockPayload(
                 $this->repository->updateLock($result, false)
             );
+        });
+    }
+
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $result = $this->repository->findForUpdate($id);
+
+            if (! $result) {
+                abort(404, 'Data generate VK tidak ditemukan.');
+            }
+
+            if ($result->is_locked) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data VK yang sudah terkunci tidak dapat dihapus.',
+                ]);
+            }
+
+            $this->repository->deleteResult($result);
         });
     }
 

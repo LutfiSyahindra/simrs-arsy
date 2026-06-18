@@ -38,7 +38,31 @@ class generateUgdRepository
             'total_ugd' => $rows->sum('total_ugd'),
             'generated_count' => $rows->count(),
             'locked_count' => $rows->where('is_locked', true)->count(),
+            'ploting_summaries' => $this->plotingSummaries($rows),
         ];
+    }
+
+    private function plotingSummaries(Collection $rows): array
+    {
+        return $rows
+            ->groupBy(fn ($row) => $row->plotingPremi_id ?: 'tanpa-ploting')
+            ->map(function (Collection $items) {
+                $first = $items->first();
+
+                return [
+                    'plotingPremi_id' => $first?->plotingPremi_id,
+                    'kode_ploting' => $first?->kode_ploting,
+                    'nama_ploting' => $first?->nama_ploting,
+                    'ploting_label' => trim(($first?->kode_ploting ? $first->kode_ploting.' - ' : '').($first?->nama_ploting ?? 'Tanpa Ploting')),
+                    'generated_count' => $items->count(),
+                    'jumlah_pasien' => $items->sum('jumlah_pasien'),
+                    'total_ugd' => $items->sum('total_ugd'),
+                    'locked_count' => $items->where('is_locked', true)->count(),
+                ];
+            })
+            ->sortBy(fn ($item) => strtolower($item['ploting_label']))
+            ->values()
+            ->toArray();
     }
 
     public function getDokterOptions(?string $keyword = null): Collection
@@ -133,6 +157,16 @@ class generateUgdRepository
             ->find($id);
     }
 
+    public function getUnlockedForPeriodAndType(string $periode, string $jenisUgd): Collection
+    {
+        return generateUgdModel::query()
+            ->where('periode', $periode)
+            ->where('jenis_ugd', $jenisUgd)
+            ->where('is_locked', false)
+            ->lockForUpdate()
+            ->get();
+    }
+
     public function updateLock(
         generateUgdModel $result,
         bool $isLocked,
@@ -149,5 +183,27 @@ class generateUgdRepository
         return generateUgdModel::query()
             ->with('lockedBy:id,name')
             ->findOrFail($result->id);
+    }
+
+    public function updateManyLock(Collection $results, int $userId): int
+    {
+        $ids = $results->pluck('id')->values();
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return DB::table('generate_ugd')
+            ->whereIn('id', $ids)
+            ->update([
+                'is_locked' => true,
+                'locked_at' => now(),
+                'locked_by' => $userId,
+            ]);
+    }
+
+    public function deleteResult(generateUgdModel $result): void
+    {
+        $result->delete();
     }
 }

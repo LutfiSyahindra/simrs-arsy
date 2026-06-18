@@ -45,6 +45,10 @@ class hitungPremiUgdController extends Controller
                                 data-id="'.$row['id'].'" title="Kunci data">
                                 <i class="mdi mdi-lock-outline"></i>
                             </button>
+                            <button type="button" class="btn btn-outline-danger btn-delete-ugd"
+                                data-id="'.$row['id'].'" title="Hapus data">
+                                <i class="mdi mdi-delete-outline"></i>
+                            </button>
                         </div>
                     ';
                 }
@@ -156,8 +160,8 @@ class hitungPremiUgdController extends Controller
             'jenis_ugd' => ['required', 'in:umum,bpjs'],
             'kd_dokter' => ['required', 'string', 'max:20'],
             'plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
-            'jumlah_pasien' => ['required', 'integer', 'min:1', 'max:999999'],
-            'nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
+            'jumlah_pasien' => ['required', 'integer', 'min:0', 'max:999999'],
+            'nominal_hitung' => ['required', 'integer', 'min:0', 'max:999999999999'],
         ]);
 
         $result = $this->service->generate(
@@ -185,12 +189,41 @@ class hitungPremiUgdController extends Controller
         ]);
     }
 
+    public function lockAll(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+            'jenis_ugd' => ['required', 'in:umum,bpjs'],
+        ]);
+        $result = $this->service->lockAll(
+            $validated['periode'],
+            $validated['jenis_ugd'],
+            $request->user()
+        );
+
+        return response()->json([
+            'status' => true,
+            'message' => "{$result['locked_count']} data UGD {$result['jenis_ugd_label']} berhasil dikunci.",
+            'data' => $result,
+        ]);
+    }
+
     public function unlock(Request $request, int $id)
     {
         return response()->json([
             'status' => true,
             'message' => 'Kunci data UGD berhasil dibuka.',
             'data' => $this->service->unlock($id, $request->user()),
+        ]);
+    }
+
+    public function destroy(int $id)
+    {
+        $this->service->delete($id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data UGD berhasil dihapus.',
         ]);
     }
 }

@@ -247,6 +247,29 @@
             });
         }
 
+        function renderPlotingSummary(items) {
+            const container = $('#summaryPlotingVk');
+            const rows = items || [];
+
+            if (!rows.length) {
+                container.html('<div class="vk-ploting-empty">Belum ada total per ploting.</div>');
+                return;
+            }
+
+            container.html(rows.map(function(item) {
+                return '' +
+                    '<div class="vk-ploting-item">' +
+                    '   <div class="vk-ploting-name">' + escapeHtml(item.ploting_label || '-') + '</div>' +
+                    '   <div class="vk-ploting-meta">' +
+                    formatNumber(item.generated_count || 0) + ' data / ' +
+                    formatNumber(item.jumlah_tindakan || 0) + ' jumlah / ' +
+                    formatNumber(item.locked_count || 0) + ' terkunci' +
+                    '   </div>' +
+                    '   <div class="vk-ploting-total">' + formatRupiah(item.total_vk || 0) + '</div>' +
+                    '</div>';
+            }).join(''));
+        }
+
         function loadSummary() {
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.summary") }}",
@@ -260,6 +283,7 @@
                     $('#summaryJumlahVk').text(formatNumber(data.total_jumlah_tindakan));
                     $('#summaryDataVk').text(formatNumber(data.generated_count));
                     $('#summaryTotalVk').text(formatRupiah(data.total_vk));
+                    renderPlotingSummary(data.ploting_summaries);
                     $('#summaryVkSubtitle').text(
                         'Jenis ' + (data.jenis_vk_label || typeConfig[activeType]) +
                         ' / ' + formatNumber(data.locked_count || 0) + ' data terkunci'
@@ -268,6 +292,7 @@
                 error: function() {
                     $('#summaryTindakanVk, #summaryJumlahVk, #summaryDataVk').text('0');
                     $('#summaryTotalVk').text('Rp 0');
+                    renderPlotingSummary([]);
                     $('#summaryVkSubtitle').text('Ringkasan gagal dimuat.');
                 }
             });
@@ -560,13 +585,13 @@
                     invalid = true;
                 }
 
-                if (!jumlahTindakan || Number(jumlahTindakan) < 1) {
-                    showRowError(row, 'jumlah', 'Jumlah tindakan wajib lebih dari 0.');
+                if (jumlahTindakan === '' || Number(jumlahTindakan) < 0) {
+                    showRowError(row, 'jumlah', 'Jumlah tindakan minimal 0.');
                     invalid = true;
                 }
 
-                if (!nominal || Number(nominal) < 1) {
-                    showRowError(row, 'nominal', 'Nominal hitung wajib lebih dari Rp 0.');
+                if (nominal === '' || Number(nominal) < 0) {
+                    showRowError(row, 'nominal', 'Nominal hitung minimal Rp 0.');
                     invalid = true;
                 }
 
@@ -664,6 +689,8 @@
         });
 
         $('#btnCopyNextMonthVk').on('click', loadCopyPreview);
+
+        $('#btnLockAllVk').on('click', lockAllResults);
 
         $('#btnAddGenerateVkRow').on('click', function() {
             addGenerateRow(null);
@@ -779,12 +806,75 @@
             });
         }
 
+        function lockAllResults() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Kunci semua data VK?',
+                text: 'Semua data VK ' + typeConfig[activeType] + ' periode ' + $('#periodeVk').val() +
+                    ' yang masih terbuka akan dikunci.',
+                showCancelButton: true,
+                confirmButtonText: 'Kunci Semua',
+                cancelButtonText: 'Batal',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    return $.ajax({
+                        url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.lockAll") }}",
+                        method: 'POST',
+                        data: {
+                            periode: $('#periodeVk').val(),
+                            jenis_vk: activeType
+                        }
+                    }).catch(function(xhr) {
+                        Swal.showValidationMessage(errorMessage(xhr));
+                    });
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    Swal.fire('Berhasil', result.value.message, 'success');
+                    refreshAll();
+                }
+            });
+        }
+
+        function deleteResult(id) {
+            const template =
+                "{{ route("backOffice.keuangan.hitungPremi.generateVk.delete", ["id" => "__ID__"]) }}";
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Hapus data VK?',
+                text: 'Data yang dihapus tidak bisa dikembalikan.',
+                showCancelButton: true,
+                confirmButtonText: 'Hapus Data',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#dc3545',
+                showLoaderOnConfirm: true,
+                preConfirm: function() {
+                    return $.ajax({
+                        url: template.replace('__ID__', id),
+                        method: 'DELETE'
+                    }).catch(function(xhr) {
+                        Swal.showValidationMessage(errorMessage(xhr));
+                    });
+                }
+            }).then(function(result) {
+                if (result.isConfirmed && result.value) {
+                    Swal.fire('Berhasil', result.value.message, 'success');
+                    refreshAll();
+                }
+            });
+        }
+
         $('#tableGenerateVk').on('click', '.btn-lock-vk', function() {
             changeLock($(this).data('id'), 'lock');
         });
 
         $('#tableGenerateVk').on('click', '.btn-unlock-vk', function() {
             changeLock($(this).data('id'), 'unlock');
+        });
+
+        $('#tableGenerateVk').on('click', '.btn-delete-vk', function() {
+            deleteResult($(this).data('id'));
         });
 
         $('#tableGenerateVk').on('click', '.btn-edit-vk', function() {
