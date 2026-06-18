@@ -162,7 +162,7 @@ class tindakanMappingRepository
     {
         $keyword = trim($keyword);
 
-        if (mb_strlen($keyword) < 3) {
+        if (mb_strlen($keyword) < 2) {
             return collect();
         }
 

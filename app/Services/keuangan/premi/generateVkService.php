@@ -79,7 +79,7 @@ class generateVkService
     public function generate(
         string $periode,
         string $jenisVk,
-        string $sourceKey,
+        string $namaTindakan,
         int $plotingId,
         int $jumlahTindakan,
         int $nominal
@@ -88,7 +88,7 @@ class generateVkService
             fn () => $this->generateRow(
                 $periode,
                 $jenisVk,
-                $sourceKey,
+                $namaTindakan,
                 $plotingId,
                 $jumlahTindakan,
                 $nominal
@@ -106,13 +106,13 @@ class generateVkService
             $seen = [];
 
             foreach ($entries as $index => $entry) {
-                $sourceKey = (string) $entry['source_key'];
+                $namaTindakan = $this->normalizeManualName((string) $entry['nm_tindakan']);
                 $plotingId = (int) $entry['plotingPremi_id'];
-                $key = $sourceKey.'|'.$plotingId;
+                $key = mb_strtolower($namaTindakan).'|'.$plotingId;
 
                 if (isset($seen[$key])) {
                     throw ValidationException::withMessages([
-                        "entries.{$index}.source_key" => 'Tindakan dan ploting tidak boleh duplikat dalam satu generate.',
+                        "entries.{$index}.nm_tindakan" => 'Tindakan dan ploting tidak boleh duplikat dalam satu generate.',
                     ]);
                 }
 
@@ -120,7 +120,7 @@ class generateVkService
                 $results[] = $this->generateRow(
                     $periode,
                     $jenisVk,
-                    $sourceKey,
+                    $namaTindakan,
                     $plotingId,
                     (int) $entry['jumlah_tindakan'],
                     (int) $entry['nominal_hitung'],
@@ -143,21 +143,19 @@ class generateVkService
     private function generateRow(
         string $periode,
         string $jenisVk,
-        string $sourceKey,
+        string $namaTindakan,
         int $plotingId,
         int $jumlahTindakan,
         int $nominal,
         string $errorPrefix = ''
     ): array {
-        $tindakan = $this->tindakanMappingService
-            ->findTindakanByKeys([$sourceKey])
-            ->get($sourceKey);
-
-        if (! $tindakan) {
+        if ($this->normalizeManualName($namaTindakan) === '') {
             throw ValidationException::withMessages([
-                $errorPrefix.'source_key' => 'Tindakan tidak ditemukan di data Khanza.',
+                $errorPrefix.'nm_tindakan' => 'Tindakan wajib diisi.',
             ]);
         }
+
+        $tindakan = $this->manualTindakanPayload($namaTindakan);
 
         $ploting = $this->repository->findPloting($plotingId);
 
@@ -177,7 +175,7 @@ class generateVkService
 
         if ($existing?->is_locked) {
             throw ValidationException::withMessages([
-                $errorPrefix.'source_key' => 'Data VK tindakan dan ploting ini sudah dikunci.',
+                $errorPrefix.'nm_tindakan' => 'Data VK tindakan dan ploting ini sudah dikunci.',
             ]);
         }
 
@@ -250,7 +248,7 @@ class generateVkService
             'jenis_vk_label' => $this->typeLabel($row->jenis_vk),
             'source_key' => $row->source_key,
             'sumber_tindakan' => $row->sumber_tindakan,
-            'sumber_label' => $this->tindakanMappingService->sourceLabel($row->sumber_tindakan),
+            'sumber_label' => $this->sourceLabel($row->sumber_tindakan),
             'kd_tindakan' => $row->kd_tindakan,
             'nm_tindakan' => $row->nm_tindakan,
             'kd_pj' => $row->kd_pj,
@@ -259,7 +257,9 @@ class generateVkService
             'parent_kd_tindakan' => $row->parent_kd_tindakan,
             'parent_nm_tindakan' => $row->parent_nm_tindakan,
             'parent_label' => $this->parentLabel($row->parent_kd_tindakan, $row->parent_nm_tindakan),
-            'display_text' => trim($row->kd_tindakan.' - '.$row->nm_tindakan),
+            'display_text' => $row->sumber_tindakan === 'MANUAL'
+                ? $row->nm_tindakan
+                : trim($row->kd_tindakan.' - '.$row->nm_tindakan),
             'plotingPremi_id' => $row->plotingPremi_id,
             'kode_ploting' => $row->kode_ploting,
             'nama_ploting' => $row->nama_ploting,
@@ -288,6 +288,35 @@ class generateVkService
     private function typeLabel(string $jenisVk): string
     {
         return $jenisVk === 'bpjs' ? 'BPJS' : 'Umum';
+    }
+
+    private function manualTindakanPayload(string $namaTindakan): array
+    {
+        $namaTindakan = $this->normalizeManualName($namaTindakan);
+        $hash = substr(hash('sha1', mb_strtolower($namaTindakan)), 0, 16);
+
+        return [
+            'source_key' => 'manual:'.$hash,
+            'sumber_tindakan' => 'MANUAL',
+            'kd_tindakan' => 'MAN-'.$hash,
+            'nm_tindakan' => $namaTindakan,
+            'kd_pj' => null,
+            'nm_pj' => null,
+            'parent_kd_tindakan' => null,
+            'parent_nm_tindakan' => null,
+        ];
+    }
+
+    private function normalizeManualName(string $namaTindakan): string
+    {
+        return preg_replace('/\s+/', ' ', trim($namaTindakan)) ?: '';
+    }
+
+    private function sourceLabel(string $source): string
+    {
+        return $source === 'MANUAL'
+            ? 'Manual'
+            : $this->tindakanMappingService->sourceLabel($source);
     }
 
     private function parentLabel($parentKode, $parentNama): string

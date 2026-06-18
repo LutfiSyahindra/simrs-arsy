@@ -134,8 +134,8 @@ class hitungPremiUgdController extends Controller
                 'entries' => ['required', 'array', 'min:1', 'max:300'],
                 'entries.*.kd_dokter' => ['required', 'string', 'max:20'],
                 'entries.*.plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
-                'entries.*.jumlah_pasien' => ['required', 'integer', 'min:1', 'max:999999'],
-                'entries.*.nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
+                'entries.*.jumlah_pasien' => ['required', 'integer', 'min:0', 'max:999999'],
+                'entries.*.nominal_hitung' => ['required', 'integer', 'min:0', 'max:999999999999'],
             ]);
 
             $result = $this->service->generateMany(

@@ -112,7 +112,7 @@
         }
 
         function tindakanText(row) {
-            return row.display_text || ((row.kd_tindakan || '-') + ' - ' + (row.nm_tindakan || '-'));
+            return row.display_text || row.nm_tindakan || '';
         }
 
         function rowTotal(row) {
@@ -187,91 +187,6 @@
             return plotingOptionsRequest;
         }
 
-        function tindakanSelectHtml(rowData) {
-            if (!rowData) {
-                return '';
-            }
-
-            return '<option value="' + escapeHtml(rowData.source_key) + '" selected>' +
-                escapeHtml(tindakanText(rowData)) +
-                '</option>';
-        }
-
-        function sourceOptionTemplate(item) {
-            if (item.loading) {
-                return item.text;
-            }
-
-            const source = item.sumber_label || item.sumber_tindakan || '-';
-            const parent = item.parent_label && item.parent_label !== '-' ?
-                '<div class="vk-action-option-meta">Judul: ' + escapeHtml(item.parent_label) + '</div>' : '';
-            const pj = item.pj_label && item.pj_label !== '-' ?
-                '<div class="vk-action-option-meta">PJ: ' + escapeHtml(item.pj_label) + '</div>' : '';
-
-            return $(
-                '<div class="vk-action-option">' +
-                '   <span class="vk-source-badge mb-1">' + escapeHtml(source) + '</span>' +
-                '   <div class="vk-action-option-title">' +
-                escapeHtml(item.kd_tindakan || '-') + ' - ' + escapeHtml(item.nm_tindakan || '-') +
-                '   </div>' +
-                parent +
-                pj +
-                '</div>'
-            );
-        }
-
-        function sourceSelectionTemplate(item) {
-            return escapeHtml(item.display_text || item.text || item.id || '');
-        }
-
-        function initTindakanSelect(select) {
-            if (!$.fn.select2) {
-                return;
-            }
-
-            select.select2({
-                dropdownParent: $('#modalGenerateVk'),
-                width: '100%',
-                placeholder: 'Ketik minimal 3 huruf tindakan',
-                allowClear: true,
-                minimumInputLength: 3,
-                ajax: {
-                    url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.tindakanOptions") }}",
-                    dataType: 'json',
-                    delay: 350,
-                    data: function(params) {
-                        return {
-                            q: params.term || ''
-                        };
-                    },
-                    processResults: function(response) {
-                        return {
-                            results: response.results || [],
-                            pagination: response.pagination || {
-                                more: false
-                            }
-                        };
-                    }
-                },
-                templateResult: sourceOptionTemplate,
-                templateSelection: sourceSelectionTemplate,
-                escapeMarkup: function(markup) {
-                    return markup;
-                },
-                language: {
-                    inputTooShort: function() {
-                        return 'Ketik minimal 3 huruf tindakan';
-                    },
-                    noResults: function() {
-                        return 'Tindakan tidak ditemukan';
-                    },
-                    searching: function() {
-                        return 'Mencari tindakan...';
-                    }
-                }
-            });
-        }
-
         function addGenerateRow(rowData) {
             rowCounter += 1;
             const selectedPloting = rowData ? String(rowData.plotingPremi_id || '') : '';
@@ -280,9 +195,9 @@
                 '   <div class="vk-row-number"></div>' +
                 '   <div class="vk-row-field">' +
                 '       <label>Tindakan</label>' +
-                '       <select class="form-select tindakan-generate-vk-row" style="width:100%;">' +
-                tindakanSelectHtml(rowData) +
-                '       </select>' +
+                '       <input type="text" class="form-control tindakan-generate-vk-row" autocomplete="off" maxlength="255" placeholder="Ketik nama tindakan" value="' +
+                escapeHtml(rowData ? tindakanText(rowData) : '') +
+                '">' +
                 '       <div class="invalid-feedback d-block row-error tindakan-error"></div>' +
                 '   </div>' +
                 '   <div class="vk-row-field">' +
@@ -317,7 +232,6 @@
             row.find('.ploting-generate-vk-row').data('selected', selectedPloting);
             $('#generateVkRows').append(row);
             fillPlotingSelect(row.find('.ploting-generate-vk-row'), selectedPloting);
-            initTindakanSelect(row.find('.tindakan-generate-vk-row'));
             refreshRowNumbers();
             updatePreviewTotal();
         }
@@ -395,9 +309,12 @@
                     render: function(data, type, row) {
                         const parent = row.parent_label && row.parent_label !== '-' ?
                             '<small class="d-block text-muted">Judul: ' + escapeHtml(row.parent_label) + '</small>' : '';
+                        const kode = row.sumber_tindakan === 'MANUAL' ?
+                            '<small class="d-block text-muted">Input manual</small>' :
+                            '<small class="d-block text-muted">' + escapeHtml(row.kd_tindakan || '-') + '</small>';
 
                         return '<strong>' + escapeHtml(data || '-') + '</strong>' +
-                            '<small class="d-block text-muted">' + escapeHtml(row.kd_tindakan || '-') + '</small>' +
+                            kode +
                             parent;
                     }
                 },
@@ -627,14 +544,14 @@
 
             $('#generateVkRows .vk-input-row').each(function() {
                 const row = $(this);
-                const tindakan = row.find('.tindakan-generate-vk-row').val();
+                const tindakan = String(row.find('.tindakan-generate-vk-row').val() || '').trim();
                 const ploting = row.find('.ploting-generate-vk-row').val();
                 const jumlahTindakan = numeric(row.find('.jumlah-tindakan-generate-vk').val());
                 const nominal = numeric(row.find('.nominal-generate-vk').val());
-                const key = tindakan + '|' + ploting;
+                const key = tindakan.toLowerCase().replace(/\s+/g, ' ') + '|' + ploting;
 
                 if (!tindakan) {
-                    showRowError(row, 'tindakan', 'Tindakan wajib dipilih.');
+                    showRowError(row, 'tindakan', 'Tindakan wajib diisi.');
                     invalid = true;
                 }
 
@@ -663,7 +580,7 @@
                 }
 
                 entries.push({
-                    source_key: tindakan,
+                    nm_tindakan: tindakan,
                     plotingPremi_id: ploting,
                     jumlah_tindakan: jumlahTindakan,
                     nominal_hitung: nominal
@@ -698,7 +615,7 @@
                     return;
                 }
 
-                if (field === 'source_key') {
+                if (field === 'nm_tindakan' || field === 'source_key') {
                     showRowError(row, 'tindakan', message);
                     handled = true;
                 } else if (field === 'plotingPremi_id') {
@@ -757,6 +674,11 @@
             $(this).removeClass('is-invalid');
             $(this).closest('.vk-row-field').find('.row-error').text('');
             updatePreviewTotal();
+        });
+
+        $('#generateVkRows').on('input', '.tindakan-generate-vk-row', function() {
+            $(this).removeClass('is-invalid');
+            $(this).closest('.vk-row-field').find('.row-error').text('');
         });
 
         $('#generateVkRows').on('change', 'select', function() {

@@ -135,10 +135,10 @@ class hitungPremiVkController extends Controller
                 'periode' => ['required', 'date_format:Y-m'],
                 'jenis_vk' => ['required', 'in:umum,bpjs'],
                 'entries' => ['required', 'array', 'min:1', 'max:300'],
-                'entries.*.source_key' => ['required', 'string', 'max:160'],
+                'entries.*.nm_tindakan' => ['required', 'string', 'max:255'],
                 'entries.*.plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
-                'entries.*.jumlah_tindakan' => ['required', 'integer', 'min:1', 'max:999999'],
-                'entries.*.nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
+                'entries.*.jumlah_tindakan' => ['required', 'integer', 'min:0', 'max:999999'],
+                'entries.*.nominal_hitung' => ['required', 'integer', 'min:0', 'max:999999999999'],
             ]);
 
             $result = $this->service->generateMany(
@@ -157,7 +157,7 @@ class hitungPremiVkController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_vk' => ['required', 'in:umum,bpjs'],
-            'source_key' => ['required', 'string', 'max:160'],
+            'nm_tindakan' => ['required', 'string', 'max:255'],
             'plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
             'jumlah_tindakan' => ['required', 'integer', 'min:1', 'max:999999'],
             'nominal_hitung' => ['required', 'integer', 'min:1', 'max:999999999999'],
@@ -166,7 +166,7 @@ class hitungPremiVkController extends Controller
         $result = $this->service->generate(
             $validated['periode'],
             $validated['jenis_vk'],
-            $validated['source_key'],
+            $validated['nm_tindakan'],
             (int) $validated['plotingPremi_id'],
             (int) $validated['jumlah_tindakan'],
             (int) $validated['nominal_hitung']
