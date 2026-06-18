@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">7</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">8</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -452,27 +452,54 @@
             </article>
 
             <article class="generator-menu-card" style="--card-color: #7c3aed; --card-soft: #ede9fe;"
-                data-title="Generate Premi Dokter" data-search="generate premi dokter operator visite jasa medis">
+                data-title="Generate Premi UGD" data-search="generate premi ugd dokter umum bpjs manual pasien">
                 <div class="generator-menu-accent"></div>
                 <div class="generator-menu-body">
                     <div class="generator-menu-head">
                         <div class="generator-menu-icon"><i class="mdi mdi-doctor"></i></div>
-                        <span class="generator-menu-status preparation">Persiapan</span>
+                        <span class="generator-menu-status">Siap</span>
                     </div>
-                    <h5 class="generator-menu-title">Generate Premi Dokter</h5>
+                    <h5 class="generator-menu-title">Generate Premi UGD</h5>
                     <p class="generator-menu-description">
-                        Memproses distribusi premi dokter dari tindakan, visite, dan jasa medis.
+                        Input manual jumlah pasien UGD per dokter, jenis pelayanan, dan ploting premi.
                     </p>
                     <div class="generator-menu-source">
                         <i class="mdi mdi-database-outline"></i>
-                        Pelayanan dokter dan jasa medis
+                        Data real pelayanan UGD manual
                     </div>
                 </div>
                 <div class="generator-menu-footer">
-                    <span class="generator-menu-code">Dokter</span>
-                    <button type="button" class="btn-open-generator" disabled>
-                        Segera Hadir <i class="mdi mdi-progress-clock"></i>
-                    </button>
+                    <span class="generator-menu-code">UGD</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateUgd") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #be123c; --card-soft: #ffe4e6;"
+                data-title="Generate Premi VK" data-search="generate premi vk tindakan umum bpjs manual tindakan">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-mother-nurse"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi VK</h5>
+                    <p class="generator-menu-description">
+                        Input manual jumlah tindakan VK berdasarkan tindakan Khanza, jenis pelayanan, dan ploting premi.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        Data tindakan Khanza dan input VK manual
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">VK</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateVk") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
                 </div>
             </article>
 

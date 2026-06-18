@@ -1,11 +1,12 @@
 <?php
 
-
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiPelayananNonMedisController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiUgdController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiVkController;
 use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
@@ -18,13 +19,11 @@ use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
 use App\Http\Controllers\simrs\master\keuangan\unitController;
-use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
 use App\Http\Controllers\simrs\master\mapping\mappingPremiController;
+use App\Http\Controllers\simrs\master\mapping\mappingSkorController;
 use App\Http\Controllers\simrs\master\mapping\mappingTindakanController;
 use App\Http\Controllers\simrs\master\mapping\mappingUnitController;
 use App\Http\Controllers\simrs\master\mapping\masppingController;
-use App\Http\Controllers\simrs\master\masterDataKeuanganController;
-use App\Http\Controllers\simrs\Pelayanan\anjungan\anjunganAdmisiController;
 use App\Http\Controllers\simrs\Pelayanan\anjungan\AnjunganController;
 use App\Http\Controllers\simrs\Pelayanan\display\ApotekController;
 use App\Http\Controllers\simrs\Pelayanan\display\DisplayAdmisiController;
@@ -118,7 +117,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/petugasPanggilpoli-ws/getDataDokter', [poliPanggilController::class, 'getDataDokter'])->name('pelayanan.petugasPanggil.getDataDokter');
         Route::get('/petugasPanggilpoli-ws/getDataPasien', [poliPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.getDataPasien');
         Route::post('/petugasPanggilpoli-ws/panggilPasien', [poliPanggilController::class, 'panggilPasien'])->name('pelayanan.petugasPanggil.panggilPasien');
-        
+
         // PIPP
         Route::get('/petugasPanggilpipp/pippPanggil', [pippPanggilController::class, 'index'])->name('pelayanan.petugasPanggil.pipp.pippPanggil');
         Route::get('/petugasPanggilpipp/dataPasien', [pippPanggilController::class, 'getDataPasien'])->name('pelayanan.petugasPanggil.pipp.pippPanggil.dataPasien');
@@ -194,6 +193,26 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generatePelayananNonMedis/{id}/lock', [hitungPremiPelayananNonMedisController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.lock');
         Route::post('/hitung-premi/generatePelayananNonMedis/{id}/unlock', [hitungPremiPelayananNonMedisController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.unlock');
 
+        Route::get('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateUgd');
+        Route::get('/hitung-premi/generateUgd/table', [hitungPremiUgdController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateUgd.table');
+        Route::get('/hitung-premi/generateUgd/summary', [hitungPremiUgdController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateUgd.summary');
+        Route::get('/hitung-premi/generateUgd/dokter-options', [hitungPremiUgdController::class, 'dokterOptions'])->name('backOffice.keuangan.hitungPremi.generateUgd.dokterOptions');
+        Route::get('/hitung-premi/generateUgd/ploting-options', [hitungPremiUgdController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateUgd.plotingOptions');
+        Route::get('/hitung-premi/generateUgd/copy-preview', [hitungPremiUgdController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateUgd.copyPreview');
+        Route::post('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateUgd.store');
+        Route::post('/hitung-premi/generateUgd/{id}/lock', [hitungPremiUgdController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateUgd.lock');
+        Route::post('/hitung-premi/generateUgd/{id}/unlock', [hitungPremiUgdController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateUgd.unlock');
+
+        Route::get('/hitung-premi/generateVk', [hitungPremiVkController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateVk');
+        Route::get('/hitung-premi/generateVk/table', [hitungPremiVkController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateVk.table');
+        Route::get('/hitung-premi/generateVk/summary', [hitungPremiVkController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateVk.summary');
+        Route::get('/hitung-premi/generateVk/tindakan-options', [hitungPremiVkController::class, 'tindakanOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.tindakanOptions');
+        Route::get('/hitung-premi/generateVk/ploting-options', [hitungPremiVkController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.plotingOptions');
+        Route::get('/hitung-premi/generateVk/copy-preview', [hitungPremiVkController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateVk.copyPreview');
+        Route::post('/hitung-premi/generateVk', [hitungPremiVkController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateVk.store');
+        Route::post('/hitung-premi/generateVk/{id}/lock', [hitungPremiVkController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateVk.lock');
+        Route::post('/hitung-premi/generateVk/{id}/unlock', [hitungPremiVkController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateVk.unlock');
+
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');
         Route::get('/penggajian/getPenggajianDetail', [penggajianController::class, 'getPenggajianDetail'])->name('backOffice.keuangan.penggajian.getPenggajianDetail');
@@ -203,7 +222,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/penggajian/slip-whatsapp/send', [penggajianController::class, 'kirimSlipGajiWhatsappTahap1'])->name('backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1');
         Route::get('/penggajian/gajitahap1/{id}/detail', [PenggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
         Route::get('/penggajian/gajitahap1/{id}/export-pdf', [PenggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
-        
+
     });
 
     Route::prefix('simrs/masterData/keuangan')->group(function () {
@@ -236,12 +255,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/tunjanganPegawai/import', [tunjanganPegawaiController::class, 'importTunjanganPegawai'])->name('masterData.keuangan.tunjangan.importTunjanganPegawai');
         Route::get('/tunjanganPegawai/getPegawai', [tunjanganPegawaiController::class, 'getPegawai'])->name('masterData.keuangan.tunjangan.getPegawai');
         Route::post('/tunjanganPegawai/store', [tunjanganPegawaiController::class, 'store'])->name('masterData.keuangan.tunjanganPegawai.store');
-        Route::put('/tunjangan/update-inline/{id}',[TunjanganPegawaiController::class, 'updateInline'])->name('masterData.keuangan.tunjanganPegawai.updateInline');
+        Route::put('/tunjangan/update-inline/{id}', [TunjanganPegawaiController::class, 'updateInline'])->name('masterData.keuangan.tunjanganPegawai.updateInline');
         Route::put('/tunjangan/bulk-update', [TunjanganPegawaiController::class, 'bulkUpdate'])->name('masterData.keuangan.tunjanganPegawai.bulkUpdate');
         Route::delete('/tunjanganPegawai/{id}/delete', [tunjanganPegawaiController::class, 'destroy'])->name('masterData.keuangan.tunjanganPegawai.delete');
-        Route::get('/tunjangan/by-pegawai/{nik}',[TunjanganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.tunjanganPegawai.getByPegawai');
-        Route::post('/tunjangan/distribusi',[TunjanganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.tunjangan.distribusi');
-        Route::post('/tunjangan/preview-distribusi',[TunjanganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.tunjangan.previewDistribusi');
+        Route::get('/tunjangan/by-pegawai/{nik}', [TunjanganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.tunjanganPegawai.getByPegawai');
+        Route::post('/tunjangan/distribusi', [TunjanganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.tunjangan.distribusi');
+        Route::post('/tunjangan/preview-distribusi', [TunjanganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.tunjangan.previewDistribusi');
         Route::get('/tunjanganPegawai/getJabatan', [tunjanganPegawaiController::class, 'getJabatan'])->name('masterData.keuangan.tunjanganPegawai.getJabatan');
         Route::get('/tunjanganPegawai/getProfesi', [tunjanganPegawaiController::class, 'getProfesi'])->name('masterData.keuangan.tunjanganPegawai.getProfesi');
         Route::get('/tunjanganPegawai/getGapokById/{nik}', [tunjanganPegawaiController::class, 'getGapokById'])->name('masterData.keuangan.tunjanganPegawai.getGapokById');
@@ -262,7 +281,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/profesi/{id}/update', [profesiController::class, 'update'])->name('masterData.keuangan.profesi.update');
         Route::delete('/profesi/{id}/delete', [profesiController::class, 'destroy'])->name('masterData.keuangan.profesi.delete');
 
-        Route ::get('/skor', [skorController::class, 'skor'])->name('masterData.keuangan.skor');
+        Route::get('/skor', [skorController::class, 'skor'])->name('masterData.keuangan.skor');
         Route::get('/skor/getSkorTable', [skorController::class, 'skorTable'])->name('masterData.keuangan.skor.getSkorTable');
         Route::get('/skor/generateKode', [skorController::class, 'generateKodeSkor'])->name('masterData.keuangan.skor.generateKode');
         Route::post('/skor/store', [skorController::class, 'store'])->name('masterData.keuangan.skor.store');
@@ -337,6 +356,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingTindakan', [mappingTindakanController::class, 'mappingTindakan'])->name('masterData.mapping.mappingTindakan');
         Route::get('/mappingTindakan/getTindakanTable', [mappingTindakanController::class, 'tindakanTable'])->name('masterData.mapping.mappingTindakan.getTindakanTable');
         Route::get('/mappingTindakan/guideJenisTindakan', [mappingTindakanController::class, 'guideJenisTindakan'])->name('masterData.mapping.mappingTindakan.guideJenisTindakan');
+        Route::get('/mappingTindakan/source-options', [mappingTindakanController::class, 'sourceOptions'])->name('masterData.mapping.mappingTindakan.sourceOptions');
         Route::get('/mappingTindakan/searchTindakan', [mappingTindakanController::class, 'searchTindakan'])->name('masterData.mapping.mappingTindakan.searchTindakan');
         Route::get('/mappingTindakan/by-jenis/{id}', [mappingTindakanController::class, 'getByJenisTindakan'])->name('masterData.mapping.mappingTindakan.byJenis');
         Route::post('/mappingTindakan/store', [mappingTindakanController::class, 'storeTindakan'])->name('masterData.mapping.mappingTindakan.store');

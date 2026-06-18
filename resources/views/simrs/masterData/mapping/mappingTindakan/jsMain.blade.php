@@ -6,9 +6,12 @@
         const deleteTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.delete", ":id") }}";
         const storeTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.store") }}";
         const searchTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.searchTindakan") }}";
+        const sourceOptionsUrl = "{{ route("masterData.mapping.mappingTindakan.sourceOptions") }}";
 
         let jenisList = [];
         let jenisListRequest = null;
+        let sourceList = [];
+        let sourceListRequest = null;
         let selectedTindakanMap = new Map();
         let searchTindakanTimer = null;
         let sourceSearchRequest = null;
@@ -88,6 +91,44 @@
             return options;
         }
 
+        function loadSources() {
+            if (sourceList.length) {
+                return $.Deferred().resolve(sourceList).promise();
+            }
+
+            if (sourceListRequest) {
+                return sourceListRequest;
+            }
+
+            sourceListRequest = $.ajax({
+                url: sourceOptionsUrl,
+                method: 'GET',
+                success: function(res) {
+                    sourceList = res || [];
+                },
+                complete: function() {
+                    sourceListRequest = null;
+                }
+            });
+
+            return sourceListRequest;
+        }
+
+        function sourceOptions(selectedId = '') {
+            let options = '<option value="">Semua sumber</option>';
+
+            sourceList.forEach(function(item) {
+                const selected = String(item.id) === String(selectedId) ? 'selected' : '';
+                options += `
+                    <option value="${item.id}" ${selected}>
+                        ${escapeHtml(item.id)} - ${escapeHtml(item.text)}
+                    </option>
+                `;
+            });
+
+            return options;
+        }
+
         function resetValidation() {
             modal.find('.form-control, .form-select').removeClass('is-invalid');
             modal.find('.invalid-feedback').text('');
@@ -96,6 +137,7 @@
         function resetModal() {
             $('#tindakanForm')[0].reset();
             $('#jenisTindakanSelect').html(jenisOptions()).val('').trigger('change');
+            $('#sourceTindakanFilter').html(sourceOptions()).val('').prop('disabled', true);
             $('#searchTindakanSource').val('').prop('disabled', true);
             $('#clearSearchTindakanSource').prop('disabled', true);
             setSourceSelectAllDisabled();
@@ -142,15 +184,19 @@
                 `<div class="tindakan-source-meta">Judul: ${escapeHtml(item.parent_label)}</div>` : '';
             const pj = item.pj_label && item.pj_label !== '-' ?
                 `<div class="tindakan-source-meta">PJ: ${escapeHtml(item.pj_label)}</div>` : '';
+            const sourceKey = item.source_key ?
+                `<div class="tindakan-source-meta">Source key: ${escapeHtml(item.source_key)}</div>` : '';
 
             return $(`
                 <div class="tindakan-source-option">
                     <div>
                         <span class="tindakan-source-badge">${escapeHtml(item.sumber_label || '-')}</span>
+                        <span class="tindakan-source-badge active">Aktif</span>
                     </div>
                     <div class="tindakan-source-title">
                         ${escapeHtml(item.kd_tindakan || '-')} - ${escapeHtml(item.nm_tindakan || '-')}
                     </div>
+                    ${sourceKey}
                     ${parent}
                     ${pj}
                 </div>
@@ -179,8 +225,11 @@
                     dataType: 'json',
                     delay: 350,
                     data: function(params) {
+                        const editor = select.closest('.tindakan-inline-editor');
+
                         return {
-                            q: params.term || ''
+                            q: params.term || '',
+                            source: editor.find('.inline-source-filter').val() || ''
                         };
                     },
                     processResults: function(data) {
@@ -257,6 +306,7 @@
                 .html([...selectedTindakanMap.values()].map(function(item) {
                     return `
                         <span class="tindakan-selected-chip">
+                            <span class="tindakan-source-badge">${escapeHtml(item.sumber_label || item.sumber_tindakan || '-')}</span>
                             ${escapeHtml(item.kd_tindakan || '-')} - ${escapeHtml(item.nm_tindakan || '-')}
                             <button type="button" class="tindakan-selected-remove"
                                 data-source-key="${escapeHtml(item.source_key)}" title="Hapus pilihan">
@@ -284,7 +334,7 @@
                 setSourceSelectAllDisabled();
                 $('#sourceTindakanChecklist').html(`
                     <div class="tindakan-source-empty">
-                        Ketik minimal 3 huruf untuk mencari tindakan.
+                        Pilih sumber bila perlu, lalu ketik minimal 3 huruf untuk mencari tindakan aktif.
                     </div>
                 `);
                 return;
@@ -324,10 +374,16 @@
                 return;
             }
 
-            setSourceResultInfo(formatAngka(items.length) + ' hasil');
+            const sourceLabel = $('#sourceTindakanFilter option:selected').text() || 'Semua sumber';
+            setSourceResultInfo(formatAngka(items.length) + ' hasil / ' + sourceLabel);
             $('#sourceTindakanChecklist').html(items.map(function(item) {
                 const checked = selectedTindakanMap.has(item.source_key) ? 'checked' : '';
                 const checkedClass = checked ? ' is-checked' : '';
+                const sourceKey = item.source_key ? `
+                    <span class="tindakan-source-meta d-block">
+                        Source key: ${escapeHtml(item.source_key)}
+                    </span>
+                ` : '';
                 const parent = item.parent_label && item.parent_label !== '-' ? `
                     <span class="tindakan-source-meta d-block">
                         Judul: ${escapeHtml(item.parent_label)}
@@ -345,9 +401,11 @@
                             value="${escapeHtml(item.source_key)}" ${checked}>
                         <span>
                             <span class="tindakan-source-badge mb-1">${escapeHtml(item.sumber_label || '-')}</span>
+                            <span class="tindakan-source-badge active mb-1">Aktif</span>
                             <span class="tindakan-source-title d-block">
                                 ${escapeHtml(item.kd_tindakan || '-')} - ${escapeHtml(item.nm_tindakan || '-')}
                             </span>
+                            ${sourceKey}
                             ${parent}
                             ${pj}
                         </span>
@@ -384,7 +442,8 @@
                 url: searchTindakanUrl,
                 method: 'GET',
                 data: {
-                    q: query
+                    q: query,
+                    source: $('#sourceTindakanFilter').val()
                 },
                 success: function(response) {
                     lastSourceResults = response.results || [];
@@ -486,6 +545,7 @@
                             <div class="skor-score-card tindakan-mapped-card"
                                 data-id="${item.id}"
                                 data-source-key="${escapeHtml(item.source_key)}"
+                                data-source="${escapeHtml(item.sumber_tindakan || '')}"
                                 data-display-text="${escapeHtml(item.display_text)}"
                                 data-search="${escapeHtml(searchText)}">
                                 <div class="skor-score-icon">
@@ -607,12 +667,19 @@
                     </div>
 
                     <div class="row g-2 align-items-end">
-                        <div class="col-lg-8">
+                        <div class="col-lg-3">
+                            <label class="form-label mb-1">Sumber</label>
+                            <select class="form-select form-select-sm inline-source-filter">
+                                ${sourceOptions()}
+                            </select>
+                        </div>
+
+                        <div class="col-lg-6">
                             <label class="form-label mb-1">Tindakan</label>
                             <select class="form-select form-select-sm inline-source-key"></select>
                         </div>
 
-                        <div class="col-lg-4">
+                        <div class="col-lg-3">
                             <div class="d-flex gap-2 justify-content-end">
                                 <button type="button" class="btn btn-sm btn-primary save-inline-tindakan">
                                     <i class="mdi mdi-content-save-outline"></i>
@@ -628,12 +695,15 @@
             `;
         }
 
-        function showInlineEditor(panel, mode, data = {}) {
+        async function showInlineEditor(panel, mode, data = {}) {
+            await loadSources();
+
             const slot = panel.find('.skor-editor-slot');
 
             slot.html(renderInlineEditor(mode, data));
 
             const select = slot.find('.inline-source-key');
+            slot.find('.inline-source-filter').val(data.sumber_tindakan || '');
 
             if (data.source_key) {
                 select.append(new Option(data.display_text || data.source_key, data.source_key, true, true));
@@ -726,8 +796,9 @@
             resetModal();
 
             try {
-                await loadJenis();
+                await $.when(loadJenis(), loadSources());
                 $('#jenisTindakanSelect').html(jenisOptions());
+                $('#sourceTindakanFilter').html(sourceOptions()).val('').prop('disabled', true);
                 initSelect2('#jenisTindakanSelect', modal, 'Pilih Jenis Tindakan');
                 $('#searchTindakanSource').prop('disabled', true);
                 $('#clearSearchTindakanSource').prop('disabled', true);
@@ -748,6 +819,7 @@
 
         $('#jenisTindakanSelect').on('change', function() {
             const hasJenis = Boolean($(this).val());
+            $('#sourceTindakanFilter').prop('disabled', !hasJenis);
             $('#searchTindakanSource').val('').prop('disabled', !hasJenis);
             $('#clearSearchTindakanSource').prop('disabled', true);
             setSourceSelectAllDisabled();
@@ -770,6 +842,14 @@
             searchTindakanTimer = setTimeout(function() {
                 searchSourceTindakan(keyword);
             }, 350);
+        });
+
+        $('#sourceTindakanFilter').on('change', function() {
+            const keyword = $('#searchTindakanSource').val();
+
+            lastSourceResults = [];
+            setSourceSelectAllDisabled();
+            searchSourceTindakan(keyword);
         });
 
         $('#clearSearchTindakanSource').on('click', function() {
@@ -944,12 +1024,18 @@
             showInlineEditor(panel, 'edit', {
                 id: card.data('id'),
                 source_key: card.data('source-key'),
+                sumber_tindakan: card.data('source'),
                 display_text: card.data('display-text')
             });
         });
 
         $(document).on('click', '.cancel-inline-tindakan', function() {
             $(this).closest('.skor-expand-panel').find('.skor-editor-slot').empty();
+        });
+
+        $(document).on('change', '.inline-source-filter', function() {
+            const editor = $(this).closest('.tindakan-inline-editor');
+            editor.find('.inline-source-key').val(null).trigger('change');
         });
 
         $(document).on('click', '.save-inline-tindakan', function() {

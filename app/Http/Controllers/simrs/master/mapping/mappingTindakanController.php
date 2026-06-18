@@ -43,12 +43,18 @@ class mappingTindakanController extends Controller
         return response()->json($this->tindakanMappingService->guideJenisTindakan());
     }
 
+    public function sourceOptions()
+    {
+        return response()->json($this->tindakanMappingService->sourceOptions());
+    }
+
     public function searchTindakan(Request $request)
     {
         $keyword = $request->input('q', $request->input('term', ''));
+        $source = $request->input('source');
 
         return response()->json([
-            'results' => $this->tindakanMappingService->searchTindakan($keyword),
+            'results' => $this->tindakanMappingService->searchTindakan($keyword, $source),
             'pagination' => [
                 'more' => false,
             ],

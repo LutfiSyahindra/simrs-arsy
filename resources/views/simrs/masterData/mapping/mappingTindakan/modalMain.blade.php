@@ -40,6 +40,18 @@
             padding: 2px 8px;
         }
 
+        .tindakan-source-badge.active {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .tindakan-source-filter-grid {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: 190px minmax(0, 1fr) 38px;
+        }
+
         .tindakan-modal-shell {
             overflow: hidden;
         }
@@ -292,6 +304,10 @@
                 flex-direction: column;
             }
 
+            .tindakan-source-filter-grid {
+                grid-template-columns: 1fr;
+            }
+
             .tindakan-result-info {
                 width: 100%;
                 text-align: center;
@@ -392,13 +408,18 @@
                                         </span>
                                     </div>
 
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-white border-end-0">
-                                            <i class="mdi mdi-magnify text-muted"></i>
-                                        </span>
-                                        <input type="text" id="searchTindakanSource"
-                                            class="form-control border-start-0" placeholder="Ketik minimal 3 huruf..."
-                                            disabled>
+                                    <div class="tindakan-source-filter-grid">
+                                        <select id="sourceTindakanFilter" class="form-select form-select-sm" disabled>
+                                            <option value="">Semua sumber</option>
+                                        </select>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-white border-end-0">
+                                                <i class="mdi mdi-magnify text-muted"></i>
+                                            </span>
+                                            <input type="text" id="searchTindakanSource"
+                                                class="form-control border-start-0"
+                                                placeholder="Ketik kode/nama tindakan minimal 3 huruf..." disabled>
+                                        </div>
                                         <button type="button" class="btn btn-light border" id="clearSearchTindakanSource"
                                             disabled>
                                             <i class="mdi mdi-close"></i>

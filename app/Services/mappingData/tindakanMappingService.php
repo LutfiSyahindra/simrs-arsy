@@ -42,9 +42,19 @@ class tindakanMappingService
         });
     }
 
-    public function searchTindakan(string $keyword)
+    public function sourceOptions()
     {
-        return $this->tindakanMappingRepository->searchTindakan($keyword)->map(function ($item) {
+        return collect(tindakanMappingRepository::SEARCHABLE_SOURCES)
+            ->map(fn ($source) => [
+                'id' => $source,
+                'text' => $this->tindakanMappingRepository->sourceLabel($source),
+            ])
+            ->values();
+    }
+
+    public function searchTindakan(string $keyword, ?string $source = null)
+    {
+        return $this->tindakanMappingRepository->searchTindakan($keyword, $source)->map(function ($item) {
             $formatted = $this->formatSourceItem($item);
 
             return array_merge($formatted, [

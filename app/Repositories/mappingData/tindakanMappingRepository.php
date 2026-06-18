@@ -27,6 +27,16 @@ class tindakanMappingRepository
         'FARMASI' => 'Farmasi',
     ];
 
+    public const SEARCHABLE_SOURCES = [
+        'RAJAL',
+        'RANAP',
+        'LAB',
+        'LAB_DETAIL',
+        'RAD',
+        'OPERASI',
+        'FARMASI',
+    ];
+
     protected $tindakanRajalModel, $tindakanRanapModel, $tindakanLabModel, $tindakanRadModel, $detailTindakanLabModel, $tindakanOperasiModel, $tindakanFarmasiModel, $penjaminModel, $mappingTindakanModel, $masterJnsTindakanModel;
 
     public function __construct(TindakanRajalModel $TindakanRajalModel, TindakanRanapModel $TindakanRanapModel, TindakanLabModel $TindakanLabModel, TindakanRadModel $TindakanRadModel, DetailTindakanLabModel $DetailTindakanLabModel, TindakanOperasiModel $TindakanOperasiModel, TindakanFarmasiModel $TindakanFarmasiModel, PenjaminModel $PenjaminModel, mappingTindakanModel $MappingTindakanModel, jnsTindakanModel $MasterJnsTindakanModel)
@@ -148,7 +158,7 @@ class tindakanMappingRepository
         return $this->mappingTindakanModel::where('id', $id)->delete();
     }
 
-    public function searchTindakan(string $keyword, int $limit = 500)
+    public function searchTindakan(string $keyword, ?string $source = null, int $limit = 500)
     {
         $keyword = trim($keyword);
 
@@ -156,11 +166,14 @@ class tindakanMappingRepository
             return collect();
         }
 
-        $perSourceLimit = max(500, (int) ceil($limit / count(self::SOURCE_LABELS)) + 2);
+        $sources = $this->normalizeSearchSources($source);
+        $perSourceLimit = $source
+            ? $limit
+            : max(500, (int) ceil($limit / count($sources)) + 2);
         $rows = collect();
 
-        foreach (array_keys(self::SOURCE_LABELS) as $source) {
-            $rows = $rows->merge($this->fetchSourceRows($source, $keyword, [], $perSourceLimit));
+        foreach ($sources as $sourceName) {
+            $rows = $rows->merge($this->fetchSourceRows($sourceName, $keyword, [], $perSourceLimit));
         }
 
         return $rows
@@ -205,6 +218,17 @@ class tindakanMappingRepository
         return self::SOURCE_LABELS[$source] ?? $source;
     }
 
+    protected function normalizeSearchSources(?string $source): array
+    {
+        $source = strtoupper(trim((string) $source));
+
+        if ($source !== '' && in_array($source, self::SEARCHABLE_SOURCES, true)) {
+            return [$source];
+        }
+
+        return self::SEARCHABLE_SOURCES;
+    }
+
     protected function fetchSourceRows(string $source, ?string $keyword = null, array $codes = [], int $limit = 15)
     {
         $query = $this->sourceQuery($source);
@@ -241,6 +265,7 @@ class tindakanMappingRepository
         return match ($source) {
             'RAJAL' => $db->table($this->tindakanRajalModel->getTable() . ' as t')
                 ->leftJoin($penjabTable . ' as pj', 'pj.kd_pj', '=', 't.kd_pj')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'RAJAL' as sumber_tindakan"),
                     't.kd_jenis_prw as kd_tindakan',
@@ -252,6 +277,7 @@ class tindakanMappingRepository
                 ]),
             'RANAP' => $db->table($this->tindakanRanapModel->getTable() . ' as t')
                 ->leftJoin($penjabTable . ' as pj', 'pj.kd_pj', '=', 't.kd_pj')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'RANAP' as sumber_tindakan"),
                     't.kd_jenis_prw as kd_tindakan',
@@ -263,6 +289,7 @@ class tindakanMappingRepository
                 ]),
             'LAB' => $db->table($this->tindakanLabModel->getTable() . ' as t')
                 ->leftJoin($penjabTable . ' as pj', 'pj.kd_pj', '=', 't.kd_pj')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'LAB' as sumber_tindakan"),
                     't.kd_jenis_prw as kd_tindakan',
@@ -275,6 +302,7 @@ class tindakanMappingRepository
             'LAB_DETAIL' => $db->table($this->detailTindakanLabModel->getTable() . ' as d')
                 ->join($this->tindakanLabModel->getTable() . ' as l', 'l.kd_jenis_prw', '=', 'd.kd_jenis_prw')
                 ->leftJoin($penjabTable . ' as pj', 'pj.kd_pj', '=', 'l.kd_pj')
+                ->where('l.status', '1')
                 ->select([
                     DB::raw("'LAB_DETAIL' as sumber_tindakan"),
                     'd.id_template as kd_tindakan',
@@ -286,6 +314,7 @@ class tindakanMappingRepository
                 ]),
             'RAD' => $db->table($this->tindakanRadModel->getTable() . ' as t')
                 ->leftJoin($penjabTable . ' as pj', 'pj.kd_pj', '=', 't.kd_pj')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'RAD' as sumber_tindakan"),
                     't.kd_jenis_prw as kd_tindakan',
@@ -296,6 +325,7 @@ class tindakanMappingRepository
                     DB::raw('null as parent_nm_tindakan'),
                 ]),
             'OPERASI' => $db->table($this->tindakanOperasiModel->getTable() . ' as t')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'OPERASI' as sumber_tindakan"),
                     't.kode_paket as kd_tindakan',
@@ -306,6 +336,7 @@ class tindakanMappingRepository
                     't.kategori as parent_nm_tindakan',
                 ]),
             'FARMASI' => $db->table($this->tindakanFarmasiModel->getTable() . ' as t')
+                ->where('t.status', '1')
                 ->select([
                     DB::raw("'FARMASI' as sumber_tindakan"),
                     't.kode_brng as kd_tindakan',
