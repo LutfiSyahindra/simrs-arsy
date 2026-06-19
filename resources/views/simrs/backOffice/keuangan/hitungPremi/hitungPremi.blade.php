@@ -504,27 +504,28 @@
             </article>
 
             <article class="generator-menu-card" style="--card-color: #0891b2; --card-soft: #cffafe;"
-                data-title="Generate Premi Paramedis" data-search="generate premi paramedis perawat unit pelayanan">
+                data-title="Generate Premi Operasi" data-search="generate premi operasi tindakan bedah">
                 <div class="generator-menu-accent"></div>
                 <div class="generator-menu-body">
                     <div class="generator-menu-head">
-                        <div class="generator-menu-icon"><i class="mdi mdi-account-heart-outline"></i></div>
-                        <span class="generator-menu-status preparation">Persiapan</span>
+                        <div class="generator-menu-icon"><i class="mdi mdi-knife "></i></div>
+                        <span class="generator-menu-status">Siap</span>
                     </div>
-                    <h5 class="generator-menu-title">Generate Premi Paramedis</h5>
+                    <h5 class="generator-menu-title">Generate Premi Operasi</h5>
                     <p class="generator-menu-description">
-                        Memproses pembagian premi untuk perawat dan tenaga paramedis berdasarkan pelayanan.
+                        Memproses pembagian premi untuk tenaga medis yang terlibat dalam tindakan operasi.
                     </p>
                     <div class="generator-menu-source">
                         <i class="mdi mdi-database-outline"></i>
-                        Pelayanan paramedis dan unit kerja
+                        Pelayanan paramedis dan unit kerja Operasi
                     </div>
                 </div>
                 <div class="generator-menu-footer">
-                    <span class="generator-menu-code">Paramedis</span>
-                    <button type="button" class="btn-open-generator" disabled>
-                        Segera Hadir <i class="mdi mdi-progress-clock"></i>
-                    </button>
+                    <span class="generator-menu-code">Operasi</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateOperasi") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
                 </div>
             </article>
 
