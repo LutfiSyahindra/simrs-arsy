@@ -102,11 +102,51 @@ class mappingPremiController extends Controller
         }
     }
 
+    public function updatePembagi(Request $request, string $id)
+    {
+        try {
+            if (! $this->premiMappingService->findPremiById((int) $id)) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Jenis premi tidak ditemukan',
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'pembagi' => 'required|integer|min:1|max:2147483647',
+            ], [
+                'pembagi.required' => 'Pembagi wajib diisi',
+                'pembagi.integer' => 'Pembagi harus berupa bilangan bulat',
+                'pembagi.min' => 'Pembagi minimal 1',
+                'pembagi.max' => 'Pembagi terlalu besar',
+            ]);
+
+            $this->premiMappingService->updatePremiPembagi((int) $id, (int) $validated['pembagi']);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Pembagi jenis premi berhasil diperbarui',
+                'pembagi' => (int) $validated['pembagi'],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function store(Request $request)
     {
         try {
             $validated = $request->validate([
                 'jnsPremi_id' => 'required|integer|exists:master_jenis_premi,id',
+                'pembagi' => 'required|integer|min:1|max:2147483647',
                 'mappings' => 'required|array|min:1',
                 'mappings.*.jnsTindakan_id' => 'required|integer|distinct|exists:master_jenis_tindakan,id',
                 'mappings.*.jenis' => 'required|in:persen,nominal',
@@ -115,6 +155,10 @@ class mappingPremiController extends Controller
             ], [
                 'jnsPremi_id.required' => 'Jenis premi wajib dipilih',
                 'jnsPremi_id.exists' => 'Jenis premi tidak ditemukan',
+                'pembagi.required' => 'Pembagi wajib diisi',
+                'pembagi.integer' => 'Pembagi harus berupa bilangan bulat',
+                'pembagi.min' => 'Pembagi minimal 1',
+                'pembagi.max' => 'Pembagi terlalu besar',
                 'mappings.required' => 'Jenis tindakan wajib ditambahkan',
                 'mappings.min' => 'Jenis tindakan wajib ditambahkan',
                 'mappings.*.jnsTindakan_id.required' => 'Jenis tindakan wajib dipilih',
@@ -157,10 +201,12 @@ class mappingPremiController extends Controller
             }
 
             $this->premiMappingService->create($premiId, $validated['mappings']);
+            $this->premiMappingService->updatePremiPembagi($premiId, (int) $validated['pembagi']);
 
             return response()->json([
                 'status' => true,
                 'message' => 'Mapping premi berhasil disimpan',
+                'pembagi' => (int) $validated['pembagi'],
             ]);
         } catch (ValidationException $e) {
             return response()->json([

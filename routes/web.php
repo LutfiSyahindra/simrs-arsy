@@ -379,6 +379,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingTindakan/searchTindakan', [mappingTindakanController::class, 'searchTindakan'])->name('masterData.mapping.mappingTindakan.searchTindakan');
         Route::get('/mappingTindakan/by-jenis/{id}', [mappingTindakanController::class, 'getByJenisTindakan'])->name('masterData.mapping.mappingTindakan.byJenis');
         Route::post('/mappingTindakan/store', [mappingTindakanController::class, 'storeTindakan'])->name('masterData.mapping.mappingTindakan.store');
+        Route::post('/mappingTindakan/copy', [mappingTindakanController::class, 'copyTindakan'])->name('masterData.mapping.mappingTindakan.copy');
+        Route::delete('/mappingTindakan/bulk-delete', [mappingTindakanController::class, 'bulkDestroyTindakan'])->name('masterData.mapping.mappingTindakan.bulkDelete');
         Route::get('/mappingTindakan/{id}/edit', [mappingTindakanController::class, 'editTindakan'])->name('masterData.mapping.mappingTindakan.edit');
         Route::put('/mappingTindakan/{id}/update', [mappingTindakanController::class, 'updateTindakan'])->name('masterData.mapping.mappingTindakan.update');
         Route::delete('/mappingTindakan/{id}/delete', [mappingTindakanController::class, 'destroyTindakan'])->name('masterData.mapping.mappingTindakan.delete');
@@ -391,6 +393,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/mappingPremi/by-premi/{id}', [mappingPremiController::class, 'getByPremi'])->name('masterData.mapping.mappingPremi.byPremi');
         Route::get('/mappingPremi/by-premi/{id}/pegawai', [mappingPremiController::class, 'getPegawaiByPremi'])->name('masterData.mapping.mappingPremi.byPremi.pegawai');
         Route::put('/mappingPremi/by-premi/{id}/pegawai', [mappingPremiController::class, 'updatePegawai'])->name('masterData.mapping.mappingPremi.updatePegawai');
+        Route::put('/mappingPremi/by-premi/{id}/pembagi', [mappingPremiController::class, 'updatePembagi'])->name('masterData.mapping.mappingPremi.updatePembagi');
         Route::post('/mappingPremi/store', [mappingPremiController::class, 'store'])->name('masterData.mapping.mappingPremi.store');
         Route::put('/mappingPremi/{id}/update', [mappingPremiController::class, 'update'])->name('masterData.mapping.mappingPremi.update');
         Route::delete('/mappingPremi/{id}/delete', [mappingPremiController::class, 'destroy'])->name('masterData.mapping.mappingPremi.delete');

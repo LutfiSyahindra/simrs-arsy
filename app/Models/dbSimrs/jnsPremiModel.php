@@ -11,7 +11,11 @@ class jnsPremiModel extends Model
 
     protected $table = 'master_jenis_premi';
 
-    protected $fillable = ['kode', 'jenis'];
+    protected $fillable = ['kode', 'jenis', 'pembagi'];
+
+    protected $casts = [
+        'pembagi' => 'integer',
+    ];
 
     public function mappingPremi()
     {

@@ -242,6 +242,52 @@ class mappingTindakanController extends Controller
         return $this->updateTindakan($request, $id);
     }
 
+    public function copyTindakan(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'target_jnsTindakan_id' => 'required|integer|exists:master_jenis_tindakan,id',
+                'mapping_ids' => 'required|array|min:1',
+                'mapping_ids.*' => 'required|integer|distinct|exists:mapping_tindakan,id',
+            ], [
+                'target_jnsTindakan_id.required' => 'Jenis tindakan tujuan wajib dipilih',
+                'target_jnsTindakan_id.exists' => 'Jenis tindakan tujuan tidak ditemukan',
+                'mapping_ids.required' => 'Rincian tindakan wajib dipilih',
+                'mapping_ids.min' => 'Rincian tindakan wajib dipilih',
+                'mapping_ids.*.exists' => 'Ada rincian tindakan yang tidak ditemukan',
+            ]);
+
+            $result = $this->tindakanMappingService->copyToJenis(
+                (int) $validated['target_jnsTindakan_id'],
+                $validated['mapping_ids']
+            );
+
+            $message = $result['copied'] > 0
+                ? $result['copied'] . ' rincian tindakan berhasil dicopy'
+                : 'Tidak ada rincian baru yang dicopy';
+
+            if ($result['skipped'] > 0) {
+                $message .= ', ' . $result['skipped'] . ' dilewati karena sudah ada di tujuan';
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => $message,
+                'data' => $result,
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function destroyTindakan(string $id)
     {
         try {
@@ -252,6 +298,60 @@ class mappingTindakanController extends Controller
                 'success' => true,
                 'message' => 'Mapping tindakan berhasil dihapus',
             ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function bulkDestroyTindakan(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'jnsTindakan_id' => 'required|integer|exists:master_jenis_tindakan,id',
+                'delete_all' => 'nullable|boolean',
+                'mapping_ids' => 'nullable|array',
+                'mapping_ids.*' => 'integer|distinct|exists:mapping_tindakan,id',
+            ], [
+                'jnsTindakan_id.required' => 'Jenis tindakan wajib dipilih',
+                'jnsTindakan_id.exists' => 'Jenis tindakan tidak ditemukan',
+                'mapping_ids.*.exists' => 'Ada rincian tindakan yang tidak ditemukan',
+            ]);
+
+            $deleteAll = filter_var($validated['delete_all'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+            if (!$deleteAll && empty($validated['mapping_ids'])) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Rincian tindakan wajib dipilih',
+                    'errors' => [
+                        'mapping_ids' => ['Rincian tindakan wajib dipilih'],
+                    ],
+                ], 422);
+            }
+
+            $deleted = $deleteAll
+                ? $this->tindakanMappingService->deleteAllByJenis((int) $validated['jnsTindakan_id'])
+                : $this->tindakanMappingService->deleteSelected(
+                    (int) $validated['jnsTindakan_id'],
+                    $validated['mapping_ids'] ?? []
+                );
+
+            return response()->json([
+                'status' => true,
+                'success' => true,
+                'message' => $deleted . ' rincian tindakan berhasil dihapus',
+                'data' => [
+                    'deleted' => $deleted,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'status' => false,
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,

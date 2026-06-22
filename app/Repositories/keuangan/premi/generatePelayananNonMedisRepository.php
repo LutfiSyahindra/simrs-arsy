@@ -191,6 +191,7 @@ class generatePelayananNonMedisRepository
             ->filter(fn (array $detail) => $detail['jumlah_data'] > 0)
             ->sortBy('nama_jenis_tindakan')
             ->values();
+        $pembagi = max(1, (int) ($selectedPremi?->pembagi ?? 1));
 
         return [
             'transactions' => $transactions,
@@ -198,6 +199,7 @@ class generatePelayananNonMedisRepository
             'jnsPremi_id' => $jnsPremiId,
             'kode_premi' => $selectedPremi?->kode_premi,
             'nama_premi' => $selectedPremi?->nama_premi,
+            'pembagi' => $pembagi,
             'jumlah_transaksi' => $transactions->count(),
             'jumlah_jenis_tindakan' => $transactions
                 ->pluck('jnsTindakan_id')
@@ -324,7 +326,7 @@ class generatePelayananNonMedisRepository
     public function findPremi(int $jnsPremiId)
     {
         return DB::table('master_jenis_premi')
-            ->select('id', 'kode', 'jenis')
+            ->select('id', 'kode', 'jenis', 'pembagi')
             ->where('id', $jnsPremiId)
             ->first();
     }
@@ -352,6 +354,7 @@ class generatePelayananNonMedisRepository
                 'mp.jenis as jenis_mapping',
                 'mp.nilai_umum',
                 'mp.nilai_bpjs',
+                'jp.pembagi',
                 DB::raw("{$valueColumn} as nilai_mapping"),
                 'jp.kode as kode_premi',
                 'jp.jenis as nama_premi',
@@ -626,6 +629,7 @@ class generatePelayananNonMedisRepository
         $totalBhp = (float) $dependencies['bhp']->total_bhp;
         $totalKamar = (float) $dependencies['kamar']->total_lama_inap;
         $totalMapping = (float) $calculation['total_mapping_premi'];
+        $pembagi = max(1, (int) ($calculation['pembagi'] ?? 1));
 
         return premiPelayananNonMedisModel::query()->updateOrCreate(
             [
@@ -645,7 +649,7 @@ class generatePelayananNonMedisRepository
                 'total_mapping_premi' => $totalMapping,
                 'total_bhp' => $totalBhp,
                 'total_kamar_inap' => $totalKamar,
-                'total_final' => round($totalMapping + $totalBhp + $totalKamar, 2),
+                'total_final' => round(($totalMapping + $totalBhp + $totalKamar) / $pembagi, 2),
                 'generate_by' => Auth::id(),
             ]
         );

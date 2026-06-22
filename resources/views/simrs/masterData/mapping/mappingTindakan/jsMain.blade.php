@@ -5,6 +5,8 @@
         const updateTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.update", ":id") }}";
         const deleteTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.delete", ":id") }}";
         const storeTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.store") }}";
+        const copyTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.copy") }}";
+        const bulkDeleteTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.bulkDelete") }}";
         const searchTindakanUrl = "{{ route("masterData.mapping.mappingTindakan.searchTindakan") }}";
         const sourceOptionsUrl = "{{ route("masterData.mapping.mappingTindakan.sourceOptions") }}";
 
@@ -80,6 +82,25 @@
             let options = '<option value="">-- Pilih Jenis Tindakan --</option>';
 
             jenisList.forEach(function(item) {
+                const selected = String(item.id) === String(selectedId) ? 'selected' : '';
+                options += `
+                    <option value="${item.id}" ${selected}>
+                        ${escapeHtml(item.kode)} - ${escapeHtml(item.jenis)}
+                    </option>
+                `;
+            });
+
+            return options;
+        }
+
+        function copyTargetOptions(sourceJenisId, selectedId = null) {
+            let options = '<option value="">-- Pilih Tujuan Copy --</option>';
+
+            jenisList.forEach(function(item) {
+                if (String(item.id) === String(sourceJenisId)) {
+                    return;
+                }
+
                 const selected = String(item.id) === String(selectedId) ? 'selected' : '';
                 options += `
                     <option value="${item.id}" ${selected}>
@@ -464,7 +485,9 @@
 
         function renderDetailPanel(data) {
             return `
-                <div class="skor-expand-panel" data-jenis-id="${data.id}">
+                <div class="skor-expand-panel" data-jenis-id="${data.id}"
+                    data-jenis-code="${escapeHtml(data.kode || '-')}"
+                    data-jenis-name="${escapeHtml(data.jenis || '-')}">
                     <div class="skor-expand-head">
                         <div class="skor-panel-title">
                             <div class="text-muted small fw-semibold">RINCIAN MAPPING TINDAKAN</div>
@@ -479,6 +502,10 @@
                             <button type="button" class="btn btn-sm btn-primary btn-inline-add-tindakan">
                                 <i class="mdi mdi-plus"></i>
                                 Tambah
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-copy-mapping-tindakan">
+                                <i class="mdi mdi-content-copy"></i>
+                                Copy
                             </button>
                         </div>
                     </div>
@@ -496,9 +523,33 @@
                             </button>
                         </div>
 
-                        <span class="tindakan-detail-count">
-                            <span class="tindakan-filter-count">${formatAngka(data.jumlah_tindakan || 0)} tampil</span>
-                        </span>
+                        <div class="tindakan-bulk-tools">
+                            <div class="form-check mb-0">
+                                <input class="form-check-input check-all-mapped-visible" type="checkbox"
+                                    id="checkMapped-${data.id}" disabled>
+                                <label class="form-check-label small fw-semibold" for="checkMapped-${data.id}">
+                                    Pilih yang tampil
+                                </label>
+                            </div>
+
+                            <span class="tindakan-bulk-selected">
+                                <span class="mapped-selected-count">0</span> dipilih
+                            </span>
+
+                            <button type="button" class="btn btn-sm btn-outline-danger delete-selected-mapping-tindakan" disabled>
+                                <i class="mdi mdi-trash-can-outline"></i>
+                                Hapus Dipilih
+                            </button>
+
+                            <button type="button" class="btn btn-sm btn-danger delete-all-mapping-tindakan" disabled>
+                                <i class="mdi mdi-delete-sweep-outline"></i>
+                                Hapus Semua
+                            </button>
+
+                            <span class="tindakan-detail-count">
+                                <span class="tindakan-filter-count">${formatAngka(data.jumlah_tindakan || 0)} tampil</span>
+                            </span>
+                        </div>
                     </div>
                     <div class="tindakan-list">
                         <div class="text-muted small py-2">
@@ -546,8 +597,17 @@
                                 data-id="${item.id}"
                                 data-source-key="${escapeHtml(item.source_key)}"
                                 data-source="${escapeHtml(item.sumber_tindakan || '')}"
+                                data-source-label="${escapeHtml(item.sumber_label || '-')}"
                                 data-display-text="${escapeHtml(item.display_text)}"
+                                data-title="${escapeHtml((item.kd_tindakan || '-') + ' - ' + (item.nm_tindakan || '-'))}"
+                                data-parent-label="${escapeHtml(item.parent_label || '-')}"
+                                data-pj-label="${escapeHtml(item.pj_label || '-')}"
                                 data-search="${escapeHtml(searchText)}">
+                                <label class="tindakan-mapped-check-wrap" title="Pilih tindakan">
+                                    <input type="checkbox" class="form-check-input mapped-tindakan-check"
+                                        value="${escapeHtml(item.id)}">
+                                </label>
+
                                 <div class="skor-score-icon">
                                     <i class="mdi mdi-medical-bag"></i>
                                 </div>
@@ -602,6 +662,7 @@
             panel.find('.tindakan-filter-count').text(formatAngka(visibleCount) + ' tampil');
             panel.find('.tindakan-filter-empty').toggleClass('d-none', cards.length === 0 || visibleCount > 0);
             panel.find('.clear-mapped-search').prop('disabled', !query);
+            updateMappedBulkState(panel);
         }
 
         function updatePanelTotals(panel, items) {
@@ -611,6 +672,111 @@
             panel.closest('tr').prev('tr').find('td').last().html(
                 `<span class="fw-bold text-primary">${formatAngka(count)} tindakan</span>`
             );
+        }
+
+        function mappedSelectedIds(panel) {
+            return panel.find('.mapped-tindakan-check:checked').map(function() {
+                return $(this).val();
+            }).get();
+        }
+
+        function updateMappedBulkState(panel) {
+            const cards = panel.find('.tindakan-mapped-card');
+            const checks = panel.find('.mapped-tindakan-check');
+            const visibleChecks = checks.filter(function() {
+                return $(this).closest('.tindakan-mapped-card').is(':visible');
+            });
+            const selectedCount = checks.filter(':checked').length;
+            const visibleSelectedCount = visibleChecks.filter(':checked').length;
+
+            panel.find('.mapped-selected-count').text(formatAngka(selectedCount));
+            panel.find('.delete-selected-mapping-tindakan').prop('disabled', selectedCount === 0);
+            panel.find('.delete-all-mapping-tindakan').prop('disabled', cards.length === 0);
+            panel.find('.check-all-mapped-visible').prop({
+                disabled: visibleChecks.length === 0,
+                checked: visibleChecks.length > 0 && visibleSelectedCount === visibleChecks.length,
+                indeterminate: visibleSelectedCount > 0 && visibleSelectedCount < visibleChecks.length
+            });
+
+            cards.each(function() {
+                const card = $(this);
+                card.toggleClass('is-selected', card.find('.mapped-tindakan-check').is(':checked'));
+            });
+        }
+
+        function deleteMappingBulk(panel, options = {}) {
+            const jenisId = panel.data('jenis-id');
+            const deleteAll = Boolean(options.deleteAll);
+            const mappingIds = deleteAll ? [] : mappedSelectedIds(panel);
+            const count = deleteAll ? panel.find('.tindakan-mapped-card').length : mappingIds.length;
+
+            if (!deleteAll && mappingIds.length === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Rincian tindakan wajib dipilih'
+                });
+                return;
+            }
+
+            if (deleteAll && count === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Belum ada rincian tindakan'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: deleteAll ? 'Hapus semua rincian tindakan?' : 'Hapus rincian tindakan terpilih?',
+                text: deleteAll ?
+                    'Semua rincian pada jenis tindakan ini akan dihapus.' :
+                    formatAngka(count) + ' rincian tindakan akan dihapus.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: deleteAll ? 'Ya, hapus semua' : 'Ya, hapus',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                $.ajax({
+                    url: bulkDeleteTindakanUrl,
+                    type: 'DELETE',
+                    data: {
+                        jnsTindakan_id: jenisId,
+                        delete_all: deleteAll ? 1 : 0,
+                        mapping_ids: mappingIds
+                    },
+                    beforeSend: function() {
+                        panel.find('.delete-selected-mapping-tindakan, .delete-all-mapping-tindakan')
+                            .prop('disabled', true);
+                    },
+                    success: function(response) {
+                        if (response.status === true) {
+                            panel.find('.skor-editor-slot').empty();
+                            refreshDetailPanel(panel, jenisId);
+                            showToast('success', response.message);
+                            return;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: response.message || 'Rincian tindakan tidak dapat dihapus'
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: xhr.status === 422 ? 'warning' : 'error',
+                            title: xhr.responseJSON?.message || 'Gagal menghapus rincian tindakan',
+                            text: Object.values(xhr.responseJSON?.errors || {})[0]?.[0] || ''
+                        });
+                    },
+                    complete: function() {
+                        updateMappedBulkState(panel);
+                    }
+                });
+            });
         }
 
         function refreshDetailPanel(panel, jenisId) {
@@ -715,6 +881,194 @@
             setTimeout(function() {
                 select.select2('open');
             }, 120);
+        }
+
+        function panelMappedItems(panel) {
+            return panel.find('.tindakan-mapped-card').map(function() {
+                const card = $(this);
+
+                return {
+                    id: card.data('id'),
+                    source_label: card.data('source-label') || '-',
+                    title: card.data('title') || card.data('display-text') || '-',
+                    parent_label: card.data('parent-label') || '-',
+                    pj_label: card.data('pj-label') || '-',
+                    search_text: card.data('search') || ''
+                };
+            }).get();
+        }
+
+        function renderCopyEditor(panel) {
+            const sourceJenisId = panel.data('jenis-id');
+            const sourceTitle = (panel.data('jenis-code') || '-') + ' - ' + (panel.data('jenis-name') || '-');
+            const items = panelMappedItems(panel);
+
+            return `
+                <div class="skor-inline-editor tindakan-inline-editor tindakan-copy-editor">
+                    <div class="tindakan-copy-hero">
+                        <div>
+                            <div class="tindakan-copy-hero-title">
+                                <i class="mdi mdi-content-copy"></i>
+                                Copy rincian tindakan
+                            </div>
+                            <div class="tindakan-copy-hero-hint">
+                                Pilih tujuan, saring bila perlu, lalu centang rincian yang akan dicopy.
+                            </div>
+                        </div>
+                        <span class="tindakan-copy-count">
+                            <i class="mdi mdi-check-circle-outline"></i>
+                            <span class="copy-selected-count">${formatAngka(items.length)}</span> dipilih
+                        </span>
+                    </div>
+
+                    <div class="tindakan-copy-body">
+                        <div class="tindakan-copy-route">
+                            <div class="tindakan-copy-route-card">
+                                <div class="tindakan-copy-route-label">Dari</div>
+                                <div class="tindakan-copy-route-title">${escapeHtml(sourceTitle)}</div>
+                                <div class="small text-muted mt-1">${formatAngka(items.length)} rincian tersedia</div>
+                            </div>
+
+                            <div class="tindakan-copy-arrow">
+                                <i class="mdi mdi-arrow-right"></i>
+                            </div>
+
+                            <div class="tindakan-copy-route-card bg-white">
+                                <label class="tindakan-copy-route-label mb-1">Ke tujuan</label>
+                                <select class="form-select form-select-sm copy-target-jenis">
+                                    ${copyTargetOptions(sourceJenisId)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="tindakan-copy-toolbar">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="mdi mdi-magnify text-muted"></i>
+                                </span>
+                                <input type="text" class="form-control border-start-0 copy-search-tindakan"
+                                    placeholder="Cari rincian yang ingin dicopy...">
+                            </div>
+
+                            <div class="form-check mb-0">
+                                <input class="form-check-input copy-check-all" type="checkbox" id="copyAll-${sourceJenisId}" checked>
+                                <label class="form-check-label small fw-semibold" for="copyAll-${sourceJenisId}">
+                                    Pilih semua
+                                </label>
+                            </div>
+
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button type="button" class="btn btn-sm btn-primary save-copy-mapping-tindakan">
+                                    <i class="mdi mdi-content-save-outline"></i>
+                                    Copy
+                                </button>
+                                <button type="button" class="btn btn-sm btn-light cancel-inline-tindakan">
+                                    Batal
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mb-2">
+                            <span class="copy-visible-count">${formatAngka(items.length)}</span> rincian tampil.
+                            Rincian yang sudah ada di tujuan akan dilewati otomatis saat disimpan.
+                        </div>
+
+                        <div class="tindakan-copy-list">
+                            ${items.map(function(item) {
+                                const parent = item.parent_label && item.parent_label !== '-' ? `
+                                    <span class="tindakan-source-meta d-block">
+                                        Judul: ${escapeHtml(item.parent_label)}
+                                    </span>
+                                ` : '';
+
+                                return `
+                                    <label class="tindakan-copy-option is-checked"
+                                        data-search="${escapeHtml(item.search_text)}">
+                                        <input type="checkbox" class="form-check-input copy-mapping-tindakan-check"
+                                            value="${escapeHtml(item.id)}" checked>
+                                        <span>
+                                            <span class="tindakan-copy-meta-row">
+                                                <span class="tindakan-source-badge">${escapeHtml(item.source_label)}</span>
+                                                <span class="tindakan-source-badge active">Siap copy</span>
+                                            </span>
+                                            <span class="tindakan-source-title d-block">
+                                                ${escapeHtml(item.title)}
+                                            </span>
+                                            <span class="tindakan-source-meta d-block">
+                                                PJ: ${escapeHtml(item.pj_label || '-')}
+                                            </span>
+                                            ${parent}
+                                        </span>
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <div class="tindakan-copy-empty d-none mt-2">
+                            Rincian tindakan tidak ditemukan dari kata kunci ini.
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function showCopyEditor(panel) {
+            await loadJenis();
+
+            const items = panelMappedItems(panel);
+
+            if (!items.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Belum ada rincian tindakan',
+                    text: 'Tambahkan rincian dulu sebelum menggunakan fitur copy.'
+                });
+                return;
+            }
+
+            const slot = panel.find('.skor-editor-slot');
+            slot.html(renderCopyEditor(panel));
+            initSelect2(slot.find('.copy-target-jenis'), $(document.body), 'Pilih tujuan copy');
+            updateCopyEditorState(slot.find('.tindakan-copy-editor'));
+        }
+
+        function updateCopyEditorState(editor) {
+            const checks = editor.find('.copy-mapping-tindakan-check');
+            const visibleChecks = checks.filter(function() {
+                return $(this).closest('.tindakan-copy-option').is(':visible');
+            });
+            const checkedCount = checks.filter(':checked').length;
+            const visibleCheckedCount = visibleChecks.filter(':checked').length;
+
+            editor.find('.copy-selected-count').text(formatAngka(checkedCount));
+            editor.find('.copy-check-all').prop({
+                checked: visibleChecks.length > 0 && visibleCheckedCount === visibleChecks.length,
+                indeterminate: visibleCheckedCount > 0 && visibleCheckedCount < visibleChecks.length,
+                disabled: visibleChecks.length === 0
+            });
+            checks.each(function() {
+                $(this).closest('.tindakan-copy-option').toggleClass('is-checked', $(this).is(':checked'));
+            });
+        }
+
+        function filterCopyItems(editor, keyword = '') {
+            const query = String(keyword || '').toLowerCase().trim();
+            const options = editor.find('.tindakan-copy-option');
+            let visibleCount = 0;
+
+            options.each(function() {
+                const option = $(this);
+                const visible = !query || String(option.data('search') || '').includes(query);
+
+                option.toggle(visible);
+
+                if (visible) {
+                    visibleCount++;
+                }
+            });
+
+            editor.find('.copy-visible-count').text(formatAngka(visibleCount));
+            editor.find('.tindakan-copy-empty').toggleClass('d-none', visibleCount > 0);
         }
 
         const tindakanTable = $('#tableTindakan').DataTable({
@@ -1017,6 +1371,10 @@
             showInlineEditor($(this).closest('.skor-expand-panel'), 'add');
         });
 
+        $(document).on('click', '.btn-copy-mapping-tindakan', function() {
+            showCopyEditor($(this).closest('.skor-expand-panel'));
+        });
+
         $(document).on('click', '.edit-mapping-tindakan', function() {
             const card = $(this).closest('.skor-score-card');
             const panel = $(this).closest('.skor-expand-panel');
@@ -1036,6 +1394,133 @@
         $(document).on('change', '.inline-source-filter', function() {
             const editor = $(this).closest('.tindakan-inline-editor');
             editor.find('.inline-source-key').val(null).trigger('change');
+        });
+
+        $(document).on('change', '.copy-check-all', function() {
+            const editor = $(this).closest('.tindakan-copy-editor');
+            const checked = $(this).is(':checked');
+
+            editor.find('.tindakan-copy-option:visible .copy-mapping-tindakan-check').prop('checked', checked);
+            updateCopyEditorState(editor);
+        });
+
+        $(document).on('change', '.copy-mapping-tindakan-check', function() {
+            updateCopyEditorState($(this).closest('.tindakan-copy-editor'));
+        });
+
+        $(document).on('input', '.copy-search-tindakan', function() {
+            const editor = $(this).closest('.tindakan-copy-editor');
+
+            filterCopyItems(editor, $(this).val());
+            updateCopyEditorState(editor);
+        });
+
+        $(document).on('change', '.mapped-tindakan-check', function() {
+            updateMappedBulkState($(this).closest('.skor-expand-panel'));
+        });
+
+        $(document).on('change', '.check-all-mapped-visible', function() {
+            const panel = $(this).closest('.skor-expand-panel');
+            const checked = $(this).is(':checked');
+
+            panel.find('.tindakan-mapped-card:visible .mapped-tindakan-check').prop('checked', checked);
+            updateMappedBulkState(panel);
+        });
+
+        $(document).on('click', '.delete-selected-mapping-tindakan', function() {
+            deleteMappingBulk($(this).closest('.skor-expand-panel'));
+        });
+
+        $(document).on('click', '.delete-all-mapping-tindakan', function() {
+            deleteMappingBulk($(this).closest('.skor-expand-panel'), {
+                deleteAll: true
+            });
+        });
+
+        $(document).on('click', '.save-copy-mapping-tindakan', function() {
+            const btn = $(this);
+            const editor = btn.closest('.tindakan-copy-editor');
+            const panel = btn.closest('.skor-expand-panel');
+            const targetJenisId = editor.find('.copy-target-jenis').val();
+            const mappingIds = editor.find('.copy-mapping-tindakan-check:checked').map(function() {
+                return $(this).val();
+            }).get();
+
+            if (!targetJenisId) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Tujuan copy wajib dipilih'
+                });
+                return;
+            }
+
+            if (!mappingIds.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Rincian tindakan wajib dipilih'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Copy rincian tindakan?',
+                text: formatAngka(mappingIds.length) + ' rincian akan dicopy ke jenis tindakan tujuan.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, copy',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (!result.isConfirmed) return;
+
+                btn.prop('disabled', true).html(`
+                    <span class="spinner-border spinner-border-sm"></span>
+                    Copy
+                `);
+
+                $.ajax({
+                    url: copyTindakanUrl,
+                    method: 'POST',
+                    data: {
+                        target_jnsTindakan_id: targetJenisId,
+                        mapping_ids: mappingIds
+                    },
+                    success: function(response) {
+                        if (response.status === true) {
+                            editor.remove();
+                            tindakanTable.ajax.reload(null, false);
+                            const targetPanel = $(`.skor-expand-panel[data-jenis-id="${targetJenisId}"]`);
+
+                            if (targetPanel.length) {
+                                refreshDetailPanel(targetPanel, targetJenisId);
+                            }
+
+                            showToast((response.data?.copied || 0) > 0 ? 'success' : 'info',
+                                response.message);
+                            return;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal',
+                            text: response.message || 'Rincian tindakan tidak dapat dicopy'
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: xhr.status === 422 ? 'warning' : 'error',
+                            title: xhr.responseJSON?.message || 'Gagal copy tindakan',
+                            text: Object.values(xhr.responseJSON?.errors || {})[0]?.[0] || ''
+                        });
+                    },
+                    complete: function() {
+                        btn.prop('disabled', false).html(`
+                            <i class="mdi mdi-content-save-outline"></i>
+                            Copy
+                        `);
+                    }
+                });
+            });
         });
 
         $(document).on('click', '.save-inline-tindakan', function() {

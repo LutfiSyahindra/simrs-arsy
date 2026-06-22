@@ -37,7 +37,7 @@ class premiMappingRepository
 
     public function getPremiWithCounts()
     {
-        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis')
+        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis', 'pembagi')
             ->withCount([
                 'mappingPremi as jumlah_tindakan',
                 'pegawaiPremi as jumlah_pegawai',
@@ -48,7 +48,7 @@ class premiMappingRepository
 
     public function getMasterJnsPremi()
     {
-        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis')
+        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis', 'pembagi')
             ->orderBy('jenis')
             ->get();
     }
@@ -99,7 +99,14 @@ class premiMappingRepository
 
     public function findPremiById(int $id)
     {
-        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis')->find($id);
+        return $this->masterJnsPremiModel::select('id', 'kode', 'jenis', 'pembagi')->find($id);
+    }
+
+    public function updatePremiPembagi(int $premiId, int $pembagi)
+    {
+        return $this->masterJnsPremiModel::where('id', $premiId)->update([
+            'pembagi' => $pembagi,
+        ]);
     }
 
     public function findTindakanByIds(array $ids)

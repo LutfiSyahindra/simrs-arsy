@@ -296,12 +296,198 @@
             font-size: 12px;
         }
 
+        .tindakan-copy-editor {
+            background: #fff;
+            border-color: #93c5fd;
+            box-shadow: 0 14px 28px rgba(37, 99, 235, .12);
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .tindakan-copy-hero {
+            align-items: flex-start;
+            background: linear-gradient(135deg, #0f766e, #2563eb);
+            color: #fff;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            padding: 14px;
+        }
+
+        .tindakan-copy-hero-title {
+            align-items: center;
+            display: flex;
+            font-weight: 800;
+            gap: 8px;
+        }
+
+        .tindakan-copy-hero-title i {
+            background: rgba(255, 255, 255, .18);
+            border: 1px solid rgba(255, 255, 255, .24);
+            border-radius: 8px;
+            display: inline-grid;
+            height: 34px;
+            place-items: center;
+            width: 34px;
+        }
+
+        .tindakan-copy-hero-hint {
+            color: rgba(255, 255, 255, .82);
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .tindakan-copy-count {
+            align-items: center;
+            background: rgba(255, 255, 255, .16);
+            border: 1px solid rgba(255, 255, 255, .3);
+            border-radius: 999px;
+            color: #fff;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 6px;
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+
+        .tindakan-copy-body {
+            padding: 12px;
+        }
+
+        .tindakan-copy-route {
+            align-items: stretch;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+            margin-bottom: 12px;
+        }
+
+        .tindakan-copy-route-card {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .tindakan-copy-route-label {
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .tindakan-copy-route-title {
+            color: #111827;
+            font-weight: 800;
+            margin-top: 2px;
+            word-break: break-word;
+        }
+
+        .tindakan-copy-arrow {
+            align-items: center;
+            align-self: center;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            color: #1d4ed8;
+            display: grid;
+            font-size: 22px;
+            height: 42px;
+            justify-self: center;
+            place-items: center;
+            width: 42px;
+        }
+
+        .tindakan-copy-toolbar {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: minmax(180px, 1fr) auto auto;
+            margin-bottom: 10px;
+            padding: 10px;
+        }
+
+        .tindakan-copy-toolbar .form-check {
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-radius: 999px;
+            padding: 5px 12px 5px 34px;
+            white-space: nowrap;
+        }
+
+        .tindakan-copy-list {
+            display: grid;
+            gap: 8px;
+            max-height: 285px;
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .tindakan-copy-option {
+            align-items: start;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 24px minmax(0, 1fr);
+            padding: 11px 12px;
+            transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, transform .16s ease;
+        }
+
+        .tindakan-copy-option:hover {
+            background: #f8fbff;
+            border-color: #93c5fd;
+            transform: translateY(-1px);
+        }
+
+        .tindakan-copy-option.is-checked {
+            background: #f0fdf4;
+            border-color: #86efac;
+            box-shadow: 0 8px 18px rgba(34, 197, 94, .1);
+        }
+
+        .tindakan-copy-option .form-check-input {
+            margin-top: 4px;
+        }
+
+        .tindakan-copy-meta-row {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 4px;
+        }
+
+        .tindakan-copy-empty {
+            border: 1px dashed #bfdbfe;
+            border-radius: 8px;
+            background: #eff6ff;
+            color: #1d4ed8;
+            padding: 16px;
+            text-align: center;
+        }
+
         @media (max-width: 767.98px) {
             .tindakan-modal-hero,
             .tindakan-source-toolbar,
             .tindakan-inline-head {
                 align-items: stretch;
                 flex-direction: column;
+            }
+
+            .tindakan-copy-route,
+            .tindakan-copy-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .tindakan-copy-arrow {
+                transform: rotate(90deg);
             }
 
             .tindakan-source-filter-grid {

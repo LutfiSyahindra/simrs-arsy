@@ -21,15 +21,18 @@ class premiMappingService
             ->map(function ($premi) {
                 $jumlah = (int) $premi->jumlah_tindakan;
                 $jumlahPegawai = (int) $premi->jumlah_pegawai;
+                $pembagi = max(1, (int) ($premi->pembagi ?? 1));
 
                 return [
                     'id' => $premi->id,
                     'kode' => $premi->kode,
                     'jenis' => $premi->jenis,
+                    'pembagi' => $pembagi,
                     'jumlah_tindakan' => $jumlah,
                     'jumlah_pegawai' => $jumlahPegawai,
                     'total' => '<span class="fw-bold text-primary">'.$jumlah.' tindakan</span>'
-                        .'<div class="small text-muted">'.$jumlahPegawai.' pegawai</div>',
+                        .'<div class="small text-muted">'.$jumlahPegawai.' pegawai</div>'
+                        .'<div class="small text-muted">Pembagi '.$pembagi.'</div>',
                 ];
             });
     }
@@ -53,6 +56,7 @@ class premiMappingService
                 'id' => $premi->id,
                 'kode' => $premi->kode,
                 'jenis' => $premi->jenis,
+                'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
             ];
         });
     }
@@ -97,6 +101,11 @@ class premiMappingService
             ->all();
 
         return $this->premiMappingRepository->syncPegawai($premiId, $niks);
+    }
+
+    public function updatePremiPembagi(int $premiId, int $pembagi)
+    {
+        return $this->premiMappingRepository->updatePremiPembagi($premiId, max(1, $pembagi));
     }
 
     public function findPremiById(int $id)

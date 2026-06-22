@@ -137,6 +137,11 @@ class generatePelayananNonMedisService
         $totalMapping = $calculation['total_mapping_premi']
             ?? $existing?->total_mapping_premi
             ?? 0;
+        $pembagi = max(1, (int) (
+            $calculation['pembagi']
+            ?? $selectedPremi?->pembagi
+            ?? 1
+        ));
 
         return [
             'periode' => $periode,
@@ -186,11 +191,14 @@ class generatePelayananNonMedisService
             'total_mapping_premi' => $totalMapping,
             'total_bhp' => $totalBhp,
             'total_kamar_inap' => $totalKamar,
+            'pembagi' => $pembagi,
             'total_final' => $calculation
                 ? round(
-                    (float) $totalMapping
-                    + (float) $totalBhp
-                    + (float) $totalKamar,
+                    (
+                        (float) $totalMapping
+                        + (float) $totalBhp
+                        + (float) $totalKamar
+                    ) / $pembagi,
                     2
                 )
                 : ($existing?->total_final ?? 0),
@@ -393,6 +401,7 @@ class generatePelayananNonMedisService
             'total_mapping_premi' => $result->total_mapping_premi,
             'total_bhp' => $result->total_bhp,
             'total_kamar_inap' => $result->total_kamar_inap,
+            'pembagi' => max(1, (int) ($result->jnsPremi?->pembagi ?? 1)),
             'total_final' => $result->total_final,
             'generate_bhp_id' => $result->generate_bhp_id,
             'generate_kamar_inap_id' => $result->generate_kamar_inap_id,

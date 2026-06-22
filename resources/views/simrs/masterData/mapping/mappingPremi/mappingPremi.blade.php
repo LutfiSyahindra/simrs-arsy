@@ -34,6 +34,14 @@
             gap: 8px;
         }
 
+        .premi-pembagi-control {
+            width: 180px;
+        }
+
+        .premi-pembagi-control .form-control {
+            text-align: right;
+        }
+
         .premi-total-pill {
             background: #fff;
             border: 1px solid #bfdbfe;
@@ -688,6 +696,10 @@
             .premi-panel-actions,
             .premi-card-actions {
                 justify-content: flex-start;
+            }
+
+            .premi-pembagi-control {
+                width: 100%;
             }
 
             .premi-inline-head {

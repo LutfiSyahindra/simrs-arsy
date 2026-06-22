@@ -177,6 +177,50 @@
             text-align: center;
         }
 
+        .tindakan-bulk-tools {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .tindakan-bulk-tools .form-check {
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+            background: #fff;
+            padding: 5px 12px 5px 34px;
+        }
+
+        .tindakan-bulk-selected {
+            border: 1px solid #bbf7d0;
+            border-radius: 999px;
+            background: #f0fdf4;
+            color: #166534;
+            font-size: 12px;
+            font-weight: 700;
+            padding: 5px 10px;
+            white-space: nowrap;
+        }
+
+        .tindakan-mapped-check-wrap {
+            align-self: center;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f8fafc;
+            display: grid;
+            flex: 0 0 auto;
+            height: 38px;
+            place-items: center;
+            width: 38px;
+        }
+
+        .tindakan-mapped-card.is-selected {
+            border-color: #86efac;
+            background: #f0fdf4;
+            box-shadow: 0 8px 18px rgba(34, 197, 94, .1);
+        }
+
         @media (max-width: 767.98px) {
 
             .skor-expand-head,
@@ -199,6 +243,10 @@
             .tindakan-detail-tools {
                 align-items: stretch;
                 flex-direction: column;
+            }
+
+            .tindakan-bulk-tools {
+                justify-content: flex-start;
             }
 
             .tindakan-detail-search {

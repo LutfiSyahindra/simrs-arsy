@@ -131,6 +131,13 @@ class tindakanMappingRepository
         return $this->mappingTindakanModel::with('jnsTindakan:id,kode,jenis')->find($id);
     }
 
+    public function findByIds(array $ids)
+    {
+        return $this->mappingTindakanModel::select('id', 'jnsTindakan_id', 'sumber_tindakan', 'kd_tindakan', 'nm_tindakan', 'kd_pj', 'nm_pj', 'parent_kd_tindakan', 'parent_nm_tindakan')
+            ->whereIn('id', $ids)
+            ->get();
+    }
+
     public function existsMapping(int $jenisId, string $source, string $kodeTindakan, $exceptId = null)
     {
         return $this->mappingTindakanModel::where('jnsTindakan_id', $jenisId)
@@ -156,6 +163,18 @@ class tindakanMappingRepository
     public function delete($id)
     {
         return $this->mappingTindakanModel::where('id', $id)->delete();
+    }
+
+    public function deleteByIdsAndJenis(array $ids, int $jenisId)
+    {
+        return $this->mappingTindakanModel::where('jnsTindakan_id', $jenisId)
+            ->whereIn('id', $ids)
+            ->delete();
+    }
+
+    public function deleteByJenis(int $jenisId)
+    {
+        return $this->mappingTindakanModel::where('jnsTindakan_id', $jenisId)->delete();
     }
 
     public function searchTindakan(string $keyword, ?string $source = null, int $limit = 500)

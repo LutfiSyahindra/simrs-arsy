@@ -150,9 +150,84 @@ class tindakanMappingService
         return $this->tindakanMappingRepository->update($id, $this->mappingPayload($row->jnsTindakan_id, $sourceItem));
     }
 
+    public function copyToJenis(int $targetJenisId, array $mappingIds)
+    {
+        return DB::transaction(function () use ($targetJenisId, $mappingIds) {
+            $uniqueIds = collect($mappingIds)
+                ->map(fn ($id) => (int) $id)
+                ->filter()
+                ->unique()
+                ->values();
+            $rows = $this->tindakanMappingRepository
+                ->findByIds($uniqueIds->toArray())
+                ->keyBy('id');
+
+            $existingKeys = $this->tindakanMappingRepository
+                ->getMappingsByJenis($targetJenisId)
+                ->map(fn ($item) => $this->sourceKeyFromMapping($item))
+                ->values();
+            $preparedKeys = collect();
+            $now = now();
+
+            $data = $uniqueIds
+                ->map(function ($id) use ($rows, $targetJenisId, $existingKeys, $preparedKeys, $now) {
+                    $row = $rows->get($id);
+
+                    if (!$row) {
+                        return null;
+                    }
+
+                    $sourceKey = $this->sourceKeyFromMapping($row);
+
+                    if ($existingKeys->contains($sourceKey) || $preparedKeys->contains($sourceKey)) {
+                        return null;
+                    }
+
+                    $preparedKeys->push($sourceKey);
+
+                    return $this->mappingPayloadFromMapping($targetJenisId, $row, $now);
+                })
+                ->filter()
+                ->values()
+                ->toArray();
+
+            if (!empty($data)) {
+                $this->tindakanMappingRepository->insert($data);
+            }
+
+            return [
+                'requested' => $uniqueIds->count(),
+                'found' => $rows->count(),
+                'copied' => count($data),
+                'skipped' => max(0, $uniqueIds->count() - count($data)),
+            ];
+        });
+    }
+
     public function delete($id)
     {
         return $this->tindakanMappingRepository->delete($id);
+    }
+
+    public function deleteSelected(int $jenisId, array $mappingIds)
+    {
+        $ids = collect($mappingIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($ids)) {
+            return 0;
+        }
+
+        return $this->tindakanMappingRepository->deleteByIdsAndJenis($ids, $jenisId);
+    }
+
+    public function deleteAllByJenis(int $jenisId)
+    {
+        return $this->tindakanMappingRepository->deleteByJenis($jenisId);
     }
 
     public function sourceLabel(string $source)
@@ -179,6 +254,22 @@ class tindakanMappingService
         }
 
         return $payload;
+    }
+
+    protected function mappingPayloadFromMapping(int $jenisId, $mapping, $timestamp)
+    {
+        return [
+            'jnsTindakan_id' => $jenisId,
+            'sumber_tindakan' => $mapping->sumber_tindakan ?: 'LEGACY',
+            'kd_tindakan' => $mapping->kd_tindakan,
+            'nm_tindakan' => $mapping->nm_tindakan,
+            'kd_pj' => $mapping->kd_pj,
+            'nm_pj' => $mapping->nm_pj,
+            'parent_kd_tindakan' => $mapping->parent_kd_tindakan,
+            'parent_nm_tindakan' => $mapping->parent_nm_tindakan,
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ];
     }
 
     protected function formatSourceItem(array $item)

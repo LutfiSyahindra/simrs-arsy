@@ -16,12 +16,20 @@
                 <form id="premiForm">
                     @csrf
 
-                    <div class="mb-4">
-                        <label class="form-label">Jenis Premi</label>
-                        <select name="jnsPremi_id" id="jenisPremiSelect" class="form-select">
-                            <option value="">-- Pilih Jenis Premi --</option>
-                        </select>
-                        <div class="invalid-feedback" id="error-jnsPremi_id"></div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-lg-8">
+                            <label class="form-label">Jenis Premi</label>
+                            <select name="jnsPremi_id" id="jenisPremiSelect" class="form-select">
+                                <option value="">-- Pilih Jenis Premi --</option>
+                            </select>
+                            <div class="invalid-feedback" id="error-jnsPremi_id"></div>
+                        </div>
+                        <div class="col-lg-4">
+                            <label class="form-label">Pembagi Jenis Premi</label>
+                            <input type="number" name="pembagi" id="jenisPremiPembagi" class="form-control"
+                                min="1" step="1" value="1" placeholder="1">
+                            <div class="invalid-feedback" id="error-pembagi"></div>
+                        </div>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-2">

@@ -307,6 +307,16 @@
                 formatRupiah(detail.hasil_mapping);
         }
 
+        function finalFormulaText(data) {
+            const pembagi = Number(data.pembagi) || 1;
+            const baseFormula = formatRupiah(data.total_mapping_premi) + ' + ' +
+                formatRupiah(data.total_bhp) + ' + ' +
+                formatRupiah(data.total_kamar_inap);
+
+            return '(' + baseFormula + ') / ' + formatNumber(pembagi) + ' = ' +
+                formatRupiah(data.total_final);
+        }
+
         function renderPreviewDetails(details) {
             const rows = $('#summaryPreviewRows').empty();
             const items = details || [];
@@ -374,12 +384,7 @@
                 formatNumber(data.jumlah_mapping_premi) + ' mapping terhitung'
             );
             $('#summaryFinal').text(formatRupiah(data.total_final));
-            $('#summaryFormula').text(
-                formatRupiah(data.total_mapping_premi) + ' + ' +
-                formatRupiah(data.total_bhp) + ' + ' +
-                formatRupiah(data.total_kamar_inap) + ' = ' +
-                formatRupiah(data.total_final)
-            );
+            $('#summaryFormula').text(finalFormulaText(data));
 
             const stateText = data.is_locked ?
                 'Data terkunci. Ringkasan menampilkan snapshot perhitungan tersimpan.' :
@@ -1044,12 +1049,7 @@
                     $('#detailBhp').text(formatRupiah(data.total_bhp));
                     $('#detailKamar').text(formatRupiah(data.total_kamar_inap));
                     $('#detailTotalFinal').text(formatRupiah(data.total_final));
-                    $('#detailFormula').text(
-                        formatRupiah(data.total_mapping_premi) + ' + ' +
-                        formatRupiah(data.total_bhp) + ' + ' +
-                        formatRupiah(data.total_kamar_inap) + ' = ' +
-                        formatRupiah(data.total_final)
-                    );
+                    $('#detailFormula').text(finalFormulaText(data));
                     $('#detailMappingCount').text(
                         formatNumber(detailMappings.length) + ' mapping'
                     );

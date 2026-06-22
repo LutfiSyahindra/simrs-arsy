@@ -6,6 +6,7 @@
         const byPremiUrl = "{{ route("masterData.mapping.mappingPremi.byPremi", ":id") }}";
         const pegawaiByPremiUrl = "{{ route("masterData.mapping.mappingPremi.byPremi.pegawai", ":id") }}";
         const updatePegawaiUrl = "{{ route("masterData.mapping.mappingPremi.updatePegawai", ":id") }}";
+        const updatePembagiUrl = "{{ route("masterData.mapping.mappingPremi.updatePembagi", ":id") }}";
         const updateUrl = "{{ route("masterData.mapping.mappingPremi.update", ":id") }}";
         const deleteUrl = "{{ route("masterData.mapping.mappingPremi.delete", ":id") }}";
         let tindakanList = [];
@@ -242,6 +243,7 @@
             rowIndex = 0;
             resetValidation();
             appendRow();
+            syncSelectedPremiPembagi();
         }
 
         function showToast(icon, title) {
@@ -314,15 +316,24 @@
             let options = '<option value="">-- Pilih Jenis Premi --</option>';
 
             premiList.forEach(function(item) {
-                options += `<option value="${item.id}">${escapeHtml(item.kode)} - ${escapeHtml(item.jenis)}</option>`;
+                options += `<option value="${item.id}" data-pembagi="${Number(item.pembagi) || 1}">
+                    ${escapeHtml(item.kode)} - ${escapeHtml(item.jenis)}
+                </option>`;
             });
 
             select.html(options).val(current).trigger('change.select2');
         }
 
+        function syncSelectedPremiPembagi() {
+            const selected = $('#jenisPremiSelect').find(':selected');
+            const pembagi = selected.length ? Number(selected.data('pembagi')) || 1 : 1;
+
+            $('#jenisPremiPembagi').val(pembagi);
+        }
+
         function renderDetailPanel(data) {
             return `
-                <div class="premi-expand-panel" data-premi-id="${data.id}">
+                <div class="premi-expand-panel" data-premi-id="${data.id}" data-pembagi="${Number(data.pembagi) || 1}">
                     <div class="premi-expand-head">
                         <div>
                             <div class="text-muted small fw-semibold">RINCIAN MAPPING PREMI</div>
@@ -335,6 +346,15 @@
                             <span class="badge bg-white text-secondary border premi-panel-count">
                                 ${Number(data.jumlah_tindakan) || 0} tindakan
                             </span>
+                            <div class="input-group input-group-sm premi-pembagi-control">
+                                <span class="input-group-text bg-white">Pembagi</span>
+                                <input type="number" class="form-control premi-pembagi-input"
+                                    min="1" step="1" value="${Number(data.pembagi) || 1}">
+                                <button type="button" class="btn btn-outline-primary save-premi-pembagi"
+                                    title="Simpan pembagi jenis premi">
+                                    <i class="mdi mdi-content-save-outline"></i>
+                                </button>
+                            </div>
                             <button type="button" class="btn btn-sm btn-outline-primary btn-manage-premi-employees">
                                 <i class="mdi mdi-account-multiple-outline"></i> Atur Pegawai
                             </button>
@@ -559,11 +579,13 @@
         function renderTableTotals(panel) {
             const actionCount = Number(panel.data('action-count')) || 0;
             const employeeCount = Number(panel.data('employee-count')) || 0;
+            const pembagi = Number(panel.data('pembagi')) || 1;
             const summaries = panel.data('mapping-summaries') || [];
 
             panel.closest('tr').prev('tr').find('td').last().html(
                 `<span class="fw-bold text-primary">${actionCount} tindakan</span>
                 <div class="small text-muted">${employeeCount} pegawai</div>
+                <div class="small text-muted">Pembagi ${pembagi}</div>
                 ${summaries.length ? `<div class="small text-muted">${summaries.join(' + ')}</div>` : ''}`
             );
         }
@@ -1026,6 +1048,10 @@
             appendRow();
         });
 
+        $('#jenisPremiSelect').on('change', function() {
+            syncSelectedPremiPembagi();
+        });
+
         container.on('click', '.remove-premi-row', function() {
             if (container.find('.premi-form-row').length === 1) {
                 showToast('warning', 'Minimal satu jenis tindakan');
@@ -1054,6 +1080,12 @@
             if (!$('#jenisPremiSelect').val()) {
                 $('#jenisPremiSelect').addClass('is-invalid');
                 $('#error-jnsPremi_id').text('Jenis premi wajib dipilih');
+                return;
+            }
+
+            if ($('#jenisPremiPembagi').val() === '' || Number($('#jenisPremiPembagi').val()) < 1) {
+                $('#jenisPremiPembagi').addClass('is-invalid');
+                $('#error-pembagi').text('Pembagi jenis premi minimal 1');
                 return;
             }
 
@@ -1111,8 +1143,63 @@
                         $('#error-jnsPremi_id').text(errors.jnsPremi_id[0]);
                     }
 
+                    if (errors.pembagi) {
+                        $('#jenisPremiPembagi').addClass('is-invalid');
+                        $('#error-pembagi').text(errors.pembagi[0]);
+                    }
+
                     $('#error-mappings').text(errors.mappings?.[0] || '');
                     Swal.fire('Gagal', message, xhr.status === 422 ? 'warning' : 'error');
+                }
+            });
+        });
+
+        $(document).on('click', '.save-premi-pembagi', function() {
+            const button = $(this);
+            const panel = button.closest('.premi-expand-panel');
+            const input = panel.find('.premi-pembagi-input');
+            const pembagi = input.val();
+
+            if (pembagi === '' || Number(pembagi) < 1) {
+                Swal.fire('Pembagi tidak valid', 'Pembagi jenis premi minimal 1.', 'warning');
+                return;
+            }
+
+            const originalButton = button.html();
+            button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+
+            $.ajax({
+                url: routeWithId(updatePembagiUrl, panel.data('premi-id')),
+                method: 'PUT',
+                data: {
+                    pembagi: pembagi
+                },
+                success: function(response) {
+                    const savedPembagi = Number(response.pembagi) || 1;
+                    panel.data('pembagi', savedPembagi);
+                    panel.attr('data-pembagi', savedPembagi);
+                    input.val(savedPembagi);
+
+                    const row = premiTable.row(panel.closest('tr').prev('tr'));
+                    const rowData = row.data();
+                    if (rowData) {
+                        rowData.pembagi = savedPembagi;
+                        row.data(rowData).invalidate();
+                    }
+
+                    renderTableTotals(panel);
+                    showToast('success', response.message);
+                },
+                error: function(xhr) {
+                    Swal.fire(
+                        'Gagal',
+                        xhr.responseJSON?.message || Object.values(xhr.responseJSON?.errors || {})[0]?.[0] ||
+                        'Pembagi jenis premi gagal disimpan',
+                        xhr.status === 422 ? 'warning' : 'error'
+                    );
+                },
+                complete: function() {
+                    button.prop('disabled', false).html(originalButton);
                 }
             });
         });
@@ -1301,6 +1388,7 @@
                 nilai_bpjs: nilaiBpjs
             } : {
                 jnsPremi_id: panel.data('premi-id'),
+                pembagi: panel.find('.premi-pembagi-input').val() || panel.data('pembagi') || 1,
                 mappings: [{
                     jnsTindakan_id: tindakanId,
                     jenis: jenis,
@@ -1321,6 +1409,13 @@
                 method: mode === 'edit' ? 'PUT' : 'POST',
                 data: data,
                 success: function(response) {
+                    if (response.pembagi) {
+                        const savedPembagi = Number(response.pembagi) || 1;
+                        panel.data('pembagi', savedPembagi);
+                        panel.attr('data-pembagi', savedPembagi);
+                        panel.find('.premi-pembagi-input').val(savedPembagi);
+                    }
+
                     editor.remove();
                     refreshDetailPanel(panel);
                     showToast('success', response.message);
