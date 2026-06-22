@@ -18,6 +18,10 @@
         let selectedKamarSourceId = '';
         let detailMappings = [];
         let selectedMappingId = '';
+        let defaultPremiId = '';
+
+        const defaultPremiKode = 'PRM001';
+        const defaultPremiLabel = 'PRM001 - Umum - Pelayanan non medis';
 
         function formatRupiah(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID', {
@@ -47,6 +51,41 @@
             }
 
             return (premi.kode || '-') + ' - ' + (premi.jenis || '-');
+        }
+
+        function normalizedPremiText(item) {
+            return [
+                    item.kode || '',
+                    item.jenis || ''
+                ].join(' ')
+                .toLowerCase()
+                .replace(/[-_]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function defaultMappingPremi() {
+            const exact = mappingPremiList.find(function(item) {
+                const text = normalizedPremiText(item);
+
+                return String(item.kode || '').toUpperCase() === defaultPremiKode &&
+                    text.includes('umum') &&
+                    text.includes('pelayanan non medis');
+            });
+
+            return exact || mappingPremiList.find(function(item) {
+                return String(item.kode || '').toUpperCase() === defaultPremiKode;
+            });
+        }
+
+        function totalSebelumPembagi(data) {
+            if (data.total_sebelum_pembagi !== undefined && data.total_sebelum_pembagi !== null) {
+                return Number(data.total_sebelum_pembagi) || 0;
+            }
+
+            return (Number(data.total_mapping_premi) || 0) +
+                (Number(data.total_bhp) || 0) +
+                (Number(data.total_kamar_inap) || 0);
         }
 
         function errorMessage(xhr) {
@@ -145,8 +184,21 @@
                 );
             });
 
+            const defaultPremi = defaultMappingPremi();
+            defaultPremiId = defaultPremi ? String(defaultPremi.id) : '';
+
+            if (
+                (!current || !mappingPremiList.some(item => String(item.id) === String(current))) &&
+                defaultPremiId
+            ) {
+                activePremiId = defaultPremiId;
+            }
+
             if (current && mappingPremiList.some(item => String(item.id) === String(current))) {
                 select.val(current);
+            } else if (activePremiId && mappingPremiList.some(item => String(item.id) === String(
+                activePremiId))) {
+                select.val(activePremiId);
             } else {
                 activePremiId = '';
                 select.val('');
@@ -184,12 +236,12 @@
             $('#nonMedisSourcePeriod').text(
                 activeType === 'bpjs' ?
                 'Periode hasil ' + periode + ', sumber tindakan BPJS bulan sebelumnya: ' +
-                    source + (hasKarcis ? ', karcis BPJS dikecualikan.' : '.') :
+                source + (hasKarcis ? ', karcis BPJS dikecualikan.' : '.') :
                 'Sumber tindakan Umum: ' + source +
-                    (hasKarcis ?
-                        ', tambahan karcis BPJS dari periode ' + (karcisSourcePeriod || source) +
-                        ' memakai nilai hitung BPJS.' :
-                        '.')
+                (hasKarcis ?
+                    ', tambahan karcis BPJS dari periode ' + (karcisSourcePeriod || source) +
+                    ' memakai nilai hitung BPJS.' :
+                    '.')
             );
         }
 
@@ -309,12 +361,14 @@
 
         function finalFormulaText(data) {
             const pembagi = Number(data.pembagi) || 1;
+            const sebelumPembagi = totalSebelumPembagi(data);
             const baseFormula = formatRupiah(data.total_mapping_premi) + ' + ' +
                 formatRupiah(data.total_bhp) + ' + ' +
                 formatRupiah(data.total_kamar_inap);
 
             return '(' + baseFormula + ') / ' + formatNumber(pembagi) + ' = ' +
-                formatRupiah(data.total_final);
+                formatRupiah(data.total_final) + ' (sebelum pembagi: ' +
+                formatRupiah(sebelumPembagi) + ')';
         }
 
         function renderPreviewDetails(details) {
@@ -384,12 +438,17 @@
                 formatNumber(data.jumlah_mapping_premi) + ' mapping terhitung'
             );
             $('#summaryFinal').text(formatRupiah(data.total_final));
+            $('#summarySebelumPembagi').text(
+                'Sebelum pembagi: ' + formatRupiah(totalSebelumPembagi(data))
+            );
+            $('#summaryPembagiNote').text('Pembagi: ' + formatNumber(data.pembagi || 1));
             $('#summaryFormula').text(finalFormulaText(data));
 
             const stateText = data.is_locked ?
                 'Data terkunci. Ringkasan menampilkan snapshot perhitungan tersimpan.' :
                 (data.is_generated ?
-                    'Data sudah pernah digenerate untuk ' + activePremiLabel() + '. Preview memakai sumber dan mapping terbaru.' :
+                    'Data sudah pernah digenerate untuk ' + activePremiLabel() +
+                    '. Preview memakai sumber dan mapping terbaru.' :
                     'Preview dihitung dari sumber Khanza dan tindakan pada ' + activePremiLabel() + '.');
             const karcisText = data.karcis_rule_message ?
                 ' ' + data.karcis_rule_message :
@@ -429,8 +488,10 @@
             $('#summaryTransaksi').text('0');
             $('#summaryTindakan').text('0 jenis tindakan');
             $('#summaryBiayaRawat, #summaryMapping, #summaryFinal').text('Rp 0');
+            $('#summarySebelumPembagi').text('Sebelum pembagi: Rp 0');
+            $('#summaryPembagiNote').text('Pembagi: 1');
             $('#summaryJumlahMapping').text('0 mapping terhitung');
-            $('#summaryFormula').text('Rp 0 + Rp 0 + Rp 0 = Rp 0');
+            $('#summaryFormula').text('(Rp 0 + Rp 0 + Rp 0) / 1 = Rp 0');
             renderPreviewDetails([]);
             $('#btnGenerateNonMedis').prop('disabled', true);
         }
@@ -538,9 +599,11 @@
                 {
                     data: 'total_final',
                     className: 'text-end',
-                    render: function(data) {
+                    render: function(data, type, row) {
                         return '<strong class="text-primary">' +
-                            formatRupiah(data) + '</strong>';
+                            formatRupiah(data) + '</strong>' +
+                            '<small class="d-block text-muted">Sebelum pembagi ' +
+                            formatRupiah(totalSebelumPembagi(row)) + '</small>';
                     }
                 },
                 {
@@ -549,7 +612,8 @@
                         if (data) {
                             return '<span class="non-medis-lock locked" title="' +
                                 escapeHtml(
-                                    [row.locked_by_name, row.locked_at].filter(Boolean).join(' / ')
+                                    [row.locked_by_name, row.locked_at].filter(Boolean).join(
+                                        ' / ')
                                 ) + '"><i class="mdi mdi-lock"></i>Terkunci</span>';
                         }
 
@@ -678,6 +742,17 @@
                 formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan terpasang' :
                 'Pilih mapping premi untuk preview.'
             );
+
+            if (activePremiId && defaultPremiId && activePremiId !== defaultPremiId) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Mapping premi diganti',
+                    text: 'Default pelayanan non medis adalah ' + defaultPremiLabel +
+                        '. Pastikan mapping pilihan sudah sesuai sebelum generate.',
+                    confirmButtonText: 'Saya mengerti'
+                });
+            }
+
             refreshAll();
         });
 
@@ -693,17 +768,20 @@
             Swal.fire({
                 icon: 'question',
                 title: 'Generate Pelayanan Non Medis?',
-                html:
-                    '<div class="text-start small">' +
-                    '<div class="mb-2">Periode: <strong>' + escapeHtml(periode) + '</strong></div>' +
+                html: '<div class="text-start small">' +
+                    '<div class="mb-2">Periode: <strong>' + escapeHtml(periode) +
+                    '</strong></div>' +
                     '<div class="mb-2">Periode sumber: <strong>' +
                     escapeHtml(summaryData.periode_sumber || periode) + '</strong></div>' +
                     '<div class="mb-2">Jenis: <strong>' + typeLabel + '</strong></div>' +
-                    '<div class="mb-2">Mapping Premi: <strong>' + escapeHtml(premiLabel) + '</strong></div>' +
+                    '<div class="mb-2">Mapping Premi: <strong>' + escapeHtml(premiLabel) +
+                    '</strong></div>' +
                     '<div class="mb-2">Sumber BHP: <strong>' +
-                    escapeHtml(summaryData.dependency_bhp?.ploting_label || '-') + '</strong></div>' +
+                    escapeHtml(summaryData.dependency_bhp?.ploting_label || '-') +
+                    '</strong></div>' +
                     '<div class="mb-2">Sumber Kamar: <strong>' +
-                    escapeHtml(summaryData.dependency_kamar?.ploting_label || '-') + '</strong></div>' +
+                    escapeHtml(summaryData.dependency_kamar?.ploting_label || '-') +
+                    '</strong></div>' +
                     '<div class="p-2 rounded bg-light">' +
                     escapeHtml($('#summaryFormula').text()) +
                     '</div></div>',
@@ -1049,6 +1127,10 @@
                     $('#detailBhp').text(formatRupiah(data.total_bhp));
                     $('#detailKamar').text(formatRupiah(data.total_kamar_inap));
                     $('#detailTotalFinal').text(formatRupiah(data.total_final));
+                    $('#detailSebelumPembagi').text(
+                        'Sebelum pembagi: ' + formatRupiah(totalSebelumPembagi(data)) +
+                        ' / Pembagi ' + formatNumber(data.pembagi || 1)
+                    );
                     $('#detailFormula').text(finalFormulaText(data));
                     $('#detailMappingCount').text(
                         formatNumber(detailMappings.length) + ' mapping'

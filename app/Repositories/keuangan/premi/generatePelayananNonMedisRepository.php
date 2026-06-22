@@ -556,6 +556,7 @@ class generatePelayananNonMedisRepository
                 'generateBy:id,name',
                 'generateBhp:id,kode_ploting,nama_ploting',
                 'generateKamar:id,kode_ploting,nama_ploting',
+                'jnsPremi:id,pembagi',
             ])
             ->withCount('details')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
@@ -580,6 +581,7 @@ class generatePelayananNonMedisRepository
             ->with([
                 'generateBhp:id,kode_ploting,nama_ploting',
                 'generateKamar:id,kode_ploting,nama_ploting',
+                'jnsPremi:id,pembagi',
             ])
             ->with([
                 'details' => fn ($query) => $query
@@ -686,6 +688,7 @@ class generatePelayananNonMedisRepository
                 'generateBy:id,name',
                 'generateBhp:id,kode_ploting,nama_ploting',
                 'generateKamar:id,kode_ploting,nama_ploting',
+                'jnsPremi:id,pembagi',
             ])
             ->with([
                 'details' => fn ($query) => $query

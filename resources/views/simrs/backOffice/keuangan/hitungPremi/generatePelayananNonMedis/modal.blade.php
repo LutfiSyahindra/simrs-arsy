@@ -45,12 +45,15 @@
                         <div class="non-medis-detail-metric total">
                             <span>Total Final</span>
                             <strong id="detailTotalFinal">Rp 0</strong>
+                            <small class="text-muted d-block mt-1" id="detailSebelumPembagi">
+                                Sebelum pembagi: Rp 0
+                            </small>
                         </div>
                     </div>
 
                     <div class="non-medis-formula rounded mb-3">
                         <i class="mdi mdi-function-variant"></i>
-                        <span id="detailFormula">Rp 0 + Rp 0 + Rp 0 = Rp 0</span>
+                        <span id="detailFormula">(Rp 0 + Rp 0 + Rp 0) / 1 = Rp 0</span>
                     </div>
 
                     <div class="non-medis-detail-section">

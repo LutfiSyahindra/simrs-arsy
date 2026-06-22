@@ -142,6 +142,12 @@ class generatePelayananNonMedisService
             ?? $selectedPremi?->pembagi
             ?? 1
         ));
+        $totalSebelumPembagi = round(
+            (float) $totalMapping
+            + (float) $totalBhp
+            + (float) $totalKamar,
+            2
+        );
 
         return [
             'periode' => $periode,
@@ -191,16 +197,10 @@ class generatePelayananNonMedisService
             'total_mapping_premi' => $totalMapping,
             'total_bhp' => $totalBhp,
             'total_kamar_inap' => $totalKamar,
+            'total_sebelum_pembagi' => $totalSebelumPembagi,
             'pembagi' => $pembagi,
             'total_final' => $calculation
-                ? round(
-                    (
-                        (float) $totalMapping
-                        + (float) $totalBhp
-                        + (float) $totalKamar
-                    ) / $pembagi,
-                    2
-                )
+                ? round($totalSebelumPembagi / $pembagi, 2)
                 : ($existing?->total_final ?? 0),
             'is_locked' => $existing?->is_locked ?? false,
             'locked_at' => optional($existing?->locked_at)->format('d-m-Y H:i'),
@@ -294,7 +294,7 @@ class generatePelayananNonMedisService
             );
             $this->repository->replaceDetails($result, $calculation['details']);
 
-            return $this->resultPayload($result->fresh(['generateBhp', 'generateKamar']));
+            return $this->resultPayload($result->fresh(['generateBhp', 'generateKamar', 'jnsPremi']));
         });
     }
 
@@ -401,6 +401,12 @@ class generatePelayananNonMedisService
             'total_mapping_premi' => $result->total_mapping_premi,
             'total_bhp' => $result->total_bhp,
             'total_kamar_inap' => $result->total_kamar_inap,
+            'total_sebelum_pembagi' => round(
+                (float) $result->total_mapping_premi
+                + (float) $result->total_bhp
+                + (float) $result->total_kamar_inap,
+                2
+            ),
             'pembagi' => max(1, (int) ($result->jnsPremi?->pembagi ?? 1)),
             'total_final' => $result->total_final,
             'generate_bhp_id' => $result->generate_bhp_id,

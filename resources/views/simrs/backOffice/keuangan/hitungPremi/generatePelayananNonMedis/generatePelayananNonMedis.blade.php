@@ -378,6 +378,13 @@
             color: #fff;
         }
 
+        .non-medis-summary-before {
+            color: rgba(255, 255, 255, .88);
+            font-size: 11px;
+            font-weight: 800;
+            margin-top: 7px;
+        }
+
         .non-medis-summary-note {
             color: #94a3b8;
             font-size: 10px;
@@ -982,13 +989,16 @@
                 <div class="non-medis-summary-card total">
                     <div class="non-medis-summary-label">Total Nilai Final</div>
                     <div class="non-medis-summary-value" id="summaryFinal">Rp 0</div>
-                    <div class="non-medis-summary-note">Mapping + BHP + Kamar</div>
+                    <div class="non-medis-summary-before" id="summarySebelumPembagi">
+                        Sebelum pembagi: Rp 0
+                    </div>
+                    <div class="non-medis-summary-note" id="summaryPembagiNote">Pembagi: 1</div>
                 </div>
             </div>
 
             <div class="non-medis-formula">
                 <i class="mdi mdi-function-variant"></i>
-                <span id="summaryFormula">Rp 0 + Rp 0 + Rp 0 = Rp 0</span>
+                <span id="summaryFormula">(Rp 0 + Rp 0 + Rp 0) / 1 = Rp 0</span>
             </div>
 
             <div class="non-medis-preview">
