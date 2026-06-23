@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">8</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">9</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -523,6 +523,62 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Operasi</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generateOperasi") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #0f766e; --card-soft: #ccfbf1;"
+                data-title="Generate Premi Radiologi"
+                data-search="generate premi radiologi umum bpjs periksa radiologi petugas manajemen">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-radioactive-circle-outline"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Radiologi</h5>
+                    <p class="generator-menu-description">
+                        Mengambil transaksi radiologi Khanza otomatis, menghitung premi petugas dan premi bersama
+                        sesuai konfigurasi UMUM/BPJS.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        periksa_radiologi dan registrasi penjamin
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Radiologi</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateRadiologi") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #7c3aed; --card-soft: #ede9fe;"
+                data-title="Generate Premi Laboratorium"
+                data-search="generate premi laboratorium umum bpjs detail periksa lab bagian laborat bagian rs manajemen">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-flask-outline"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Laboratorium</h5>
+                    <p class="generator-menu-description">
+                        Mengambil detail_periksa_lab Khanza otomatis, menghitung premi petugas dan premi bersama
+                        sesuai konfigurasi UMUM/BPJS.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        detail_periksa_lab, periksa_lab, dan registrasi penjamin
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Laboratorium</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateLaboratorium") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>
