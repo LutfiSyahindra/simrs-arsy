@@ -3,9 +3,11 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiLaboratoriumController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiNicuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiOperasiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiPelayananNonMedisController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiRadiologiController;
@@ -275,6 +277,35 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generateIcu/{id}/lock', [hitungPremiIcuController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateIcu.lock');
         Route::post('/hitung-premi/generateIcu/{id}/unlock', [hitungPremiIcuController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateIcu.unlock');
         Route::delete('/hitung-premi/generateIcu/{id}/delete', [hitungPremiIcuController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateIcu.delete');
+
+        Route::get('/hitung-premi/generateNicu', [hitungPremiNicuController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateNicu');
+        Route::get('/hitung-premi/generateNicu/table', [hitungPremiNicuController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateNicu.table');
+        Route::get('/hitung-premi/generateNicu/summary', [hitungPremiNicuController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateNicu.summary');
+        Route::get('/hitung-premi/generateNicu/config', [hitungPremiNicuController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateNicu.config');
+        Route::put('/hitung-premi/generateNicu/config', [hitungPremiNicuController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateNicu.updateConfig');
+        Route::get('/hitung-premi/generateNicu/mapping-options', [hitungPremiNicuController::class, 'mappingOptions'])->name('backOffice.keuangan.hitungPremi.generateNicu.mappingOptions');
+        Route::get('/hitung-premi/generateNicu/critical-action-options', [hitungPremiNicuController::class, 'criticalActionOptions'])->name('backOffice.keuangan.hitungPremi.generateNicu.criticalActionOptions');
+        Route::get('/hitung-premi/generateNicu/pegawai-options', [hitungPremiNicuController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateNicu.pegawaiOptions');
+        Route::get('/hitung-premi/generateNicu/preview', [hitungPremiNicuController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generateNicu.preview');
+        Route::post('/hitung-premi/generateNicu', [hitungPremiNicuController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateNicu.store');
+        Route::get('/hitung-premi/generateNicu/{id}/detail', [hitungPremiNicuController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateNicu.detail');
+        Route::post('/hitung-premi/generateNicu/{id}/lock', [hitungPremiNicuController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateNicu.lock');
+        Route::post('/hitung-premi/generateNicu/{id}/unlock', [hitungPremiNicuController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateNicu.unlock');
+        Route::delete('/hitung-premi/generateNicu/{id}/delete', [hitungPremiNicuController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateNicu.delete');
+
+        Route::get('/hitung-premi/generateApotek', [hitungPremiApotekController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateApotek');
+        Route::get('/hitung-premi/generateApotek/table', [hitungPremiApotekController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateApotek.table');
+        Route::get('/hitung-premi/generateApotek/summary', [hitungPremiApotekController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateApotek.summary');
+        Route::get('/hitung-premi/generateApotek/config', [hitungPremiApotekController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateApotek.config');
+        Route::put('/hitung-premi/generateApotek/config', [hitungPremiApotekController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateApotek.updateConfig');
+        Route::get('/hitung-premi/generateApotek/mapping-options', [hitungPremiApotekController::class, 'mappingOptions'])->name('backOffice.keuangan.hitungPremi.generateApotek.mappingOptions');
+        Route::get('/hitung-premi/generateApotek/pegawai-options', [hitungPremiApotekController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateApotek.pegawaiOptions');
+        Route::get('/hitung-premi/generateApotek/preview', [hitungPremiApotekController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generateApotek.preview');
+        Route::post('/hitung-premi/generateApotek', [hitungPremiApotekController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateApotek.store');
+        Route::get('/hitung-premi/generateApotek/{id}/detail', [hitungPremiApotekController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateApotek.detail');
+        Route::post('/hitung-premi/generateApotek/{id}/lock', [hitungPremiApotekController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateApotek.lock');
+        Route::post('/hitung-premi/generateApotek/{id}/unlock', [hitungPremiApotekController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateApotek.unlock');
+        Route::delete('/hitung-premi/generateApotek/{id}/delete', [hitungPremiApotekController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateApotek.delete');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');

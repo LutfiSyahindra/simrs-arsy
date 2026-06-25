@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">11</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">12</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -612,28 +612,57 @@
                 </div>
             </article>
 
+            <article class="generator-menu-card" style="--card-color: #0891b2; --card-soft: #cffafe;"
+                data-title="Generate Premi NICU"
+                data-search="generate premi nicu umum bpjs kamar inap tindakan rawat kritikal mapping">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-baby-face-outline"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi NICU</h5>
+                    <p class="generator-menu-description">
+                        Mengambil tindakan pasien dengan riwayat NICU, mapping tindakan, tindakan kritikal pilihan, dan formula premi NICU.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        kamar_inap, rawat dokter, rawat paramedis
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">NICU</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateNicu") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
             <article class="generator-menu-card" style="--card-color: #db2777; --card-soft: #fce7f3;"
-                data-title="Generate Premi Farmasi" data-search="generate premi farmasi obat apotek margin">
+                data-title="Generate Premi Apotek" data-search="generate premi apotek farmasi obat detail pemberian obat">
                 <div class="generator-menu-accent"></div>
                 <div class="generator-menu-body">
                     <div class="generator-menu-head">
                         <div class="generator-menu-icon"><i class="mdi mdi-pill"></i></div>
-                        <span class="generator-menu-status preparation">Persiapan</span>
+                        <span class="generator-menu-status">Siap</span>
                     </div>
-                    <h5 class="generator-menu-title">Generate Premi Farmasi</h5>
+                    <h5 class="generator-menu-title">Generate Premi Apotek</h5>
                     <p class="generator-menu-description">
-                        Memproses premi dari transaksi obat, pelayanan apotek, dan komponen farmasi.
+                        Mengambil detail_pemberian_obat, mencocokkan kode obat ke mapping Farmasi, lalu menghitung
+                        formula Apotek.
                     </p>
                     <div class="generator-menu-source">
                         <i class="mdi mdi-database-outline"></i>
-                        Penjualan obat dan pelayanan farmasi
+                        detail_pemberian_obat dan mapping Farmasi
                     </div>
                 </div>
                 <div class="generator-menu-footer">
-                    <span class="generator-menu-code">Farmasi</span>
-                    <button type="button" class="btn-open-generator" disabled>
-                        Segera Hadir <i class="mdi mdi-progress-clock"></i>
-                    </button>
+                    <span class="generator-menu-code">Apotek</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateApotek") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
                 </div>
             </article>
 
