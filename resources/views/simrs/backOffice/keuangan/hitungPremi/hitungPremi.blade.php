@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">9</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">11</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -579,6 +579,33 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Laboratorium</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generateLaboratorium") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #dc2626; --card-soft: #fee2e2;"
+                data-title="Generate Premi ICU"
+                data-search="generate premi icu umum bpjs kamar inap tindakan rawat kritikal mapping">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-heart-pulse"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi ICU</h5>
+                    <p class="generator-menu-description">
+                        Mengambil tindakan pasien dengan riwayat ICU, mapping tindakan, tindakan kritikal, dan formula premi ICU.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        kamar_inap, rawat dokter, rawat paramedis
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">ICU</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateIcu") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>
