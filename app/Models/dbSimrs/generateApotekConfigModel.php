@@ -11,8 +11,10 @@ class generateApotekConfigModel extends Model
     protected $table = 'generate_apotek_configs';
 
     protected $fillable = [
+        'kategori_premi',
         'jenis_apotek',
         'jnsTindakan_id',
+        'jnsPremi_id',
         'tarif_per_item',
         'source_period_mode',
         'include_bpjs_in_umum',
@@ -27,7 +29,9 @@ class generateApotekConfigModel extends Model
     ];
 
     protected $casts = [
+        'kategori_premi' => 'string',
         'jnsTindakan_id' => 'integer',
+        'jnsPremi_id' => 'integer',
         'tarif_per_item' => 'integer',
         'source_period_mode' => 'string',
         'include_bpjs_in_umum' => 'boolean',
@@ -44,6 +48,11 @@ class generateApotekConfigModel extends Model
     public function jenisTindakan(): BelongsTo
     {
         return $this->belongsTo(jnsTindakanModel::class, 'jnsTindakan_id');
+    }
+
+    public function jnsPremi(): BelongsTo
+    {
+        return $this->belongsTo(jnsPremiModel::class, 'jnsPremi_id');
     }
 
     public function mappings(): HasMany

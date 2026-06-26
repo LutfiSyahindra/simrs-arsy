@@ -43,7 +43,7 @@
                     </div>
 
                     <div class="apotek-simple-section mb-0">
-                        <div class="apotek-simple-section-title">Contoh Detail Obat Masuk Mapping</div>
+                        <div class="apotek-simple-section-title" id="previewDetailTitleApotek">Contoh Detail Obat Masuk Mapping</div>
                         <div class="apotek-source-table table-responsive">
                             <table class="table table-sm align-middle">
                                 <thead>
@@ -52,7 +52,7 @@
                                         <th>No Rawat</th>
                                         <th>Pasien</th>
                                         <th>Kode</th>
-                                        <th>Nama Obat</th>
+                                        <th id="previewNamaHeaderApotek">Nama Obat</th>
                                         <th class="text-end">Qty</th>
                                         <th class="text-end">Premi</th>
                                     </tr>
@@ -86,6 +86,7 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="jenisConfigApotek">
+                <input type="hidden" id="kategoriConfigApotek">
 
                 <div class="apotek-simple-head">
                     <div class="apotek-simple-main">
@@ -144,7 +145,18 @@
                     </small>
                 </div>
 
-                <div class="apotek-config-section mb-3">
+                <div class="apotek-config-section mb-3 d-none apoteker-config-only" id="configApotekerPremiSection">
+                    <h6><i class="mdi mdi-account-tie-voice-outline"></i> Mapping Premi Apoteker</h6>
+                    <label class="form-label">Jenis Premi</label>
+                    <select class="form-select" id="configApotekerPremi"></select>
+                    <small class="apotek-field-help">
+                        Pilih master jenis premi. Sistem membaca jenis tindakan di mapping premi, mencocokkan ke mapping tindakan RAJAL/RANAP,
+                        lalu menghitung nilai UMUM/BPJS dan pembagi dari master jenis premi.
+                    </small>
+                    <div class="apotek-recipient-list mt-3" id="configApotekerPremiPreview"></div>
+                </div>
+
+                <div class="apotek-config-section mb-3 apotek-config-only">
                     <h6><i class="mdi mdi-source-branch"></i> Mapping Obat</h6>
                     <label class="form-label">Mapping Farmasi</label>
                     <select class="form-select" id="configApotekMappings" multiple></select>
@@ -155,7 +167,7 @@
                     <div class="apotek-recipient-list mt-3" id="configApotekMappingPreview"></div>
                 </div>
 
-                <div class="apotek-config-grid mb-3">
+                <div class="apotek-config-grid mb-3 apotek-config-only">
                     <div class="apotek-config-section">
                         <h6><i class="mdi mdi-calculator-variant-outline"></i> Basis dan Persentase</h6>
                         <div class="mb-3">
@@ -238,7 +250,7 @@
                     </div>
                 </div>
 
-                <div class="apotek-config-grid">
+                <div class="apotek-config-grid apotek-config-only">
                     <div class="apotek-config-section">
                         <h6><i class="mdi mdi-account-star-outline"></i> Penerima 31% / 2.5</h6>
                         <select class="form-select apotek-recipient-select" id="configApotekRecipients31" multiple></select>
@@ -320,13 +332,13 @@
                     </div>
 
                     <div class="apotek-simple-section mb-0">
-                        <div class="apotek-simple-section-title">Detail Obat Masuk Mapping</div>
+                        <div class="apotek-simple-section-title" id="detailDataTitleApotek">Detail Obat Masuk Mapping</div>
                         <div class="apotek-detail-filter-panel">
                             <div class="apotek-detail-filter-head">
                                 <div>
                                     <div class="apotek-detail-filter-title">
                                         <i class="mdi mdi-pill-multiple"></i>
-                                        Filter Obat
+                                        <span id="detailFilterTitleApotek">Filter Obat</span>
                                     </div>
                                     <div class="apotek-simple-section-subtitle" id="detailApotekFilterSubtitle">-</div>
                                 </div>
@@ -341,7 +353,7 @@
                             </div>
                             <div class="apotek-detail-filter-stats">
                                 <div class="apotek-detail-filter-card">
-                                    <span>Jumlah Nama</span>
+                                    <span id="detailFilterJumlahNamaLabelApotek">Jumlah Nama</span>
                                     <strong id="detailFilterJumlahNamaObat">0</strong>
                                 </div>
                                 <div class="apotek-detail-filter-card">
@@ -367,7 +379,7 @@
                                         <th>No Rawat</th>
                                         <th>Pasien</th>
                                         <th>Kode</th>
-                                        <th>Nama Obat</th>
+                                        <th id="detailNamaHeaderApotek">Nama Obat</th>
                                         <th class="text-end">Qty</th>
                                         <th class="text-end">Premi</th>
                                     </tr>

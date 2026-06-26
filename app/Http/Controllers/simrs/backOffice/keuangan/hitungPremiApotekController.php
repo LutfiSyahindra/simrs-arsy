@@ -23,13 +23,15 @@ class hitungPremiApotekController extends Controller
         $validated = $request->validate([
             'periode' => ['nullable', 'date_format:Y-m'],
             'jenis_apotek' => ['nullable', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
         $canUnlock = $request->user()?->hasRole('Admin') ?? false;
 
         return DataTables::of(
             $this->service->getResults(
                 $validated['periode'] ?? null,
-                $validated['jenis_apotek'] ?? null
+                $validated['jenis_apotek'] ?? null,
+                $validated['kategori_premi'] ?? 'apotek'
             )
         )
             ->addIndexColumn()
@@ -71,13 +73,15 @@ class hitungPremiApotekController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_apotek' => ['required', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
 
         return response()->json([
             'status' => true,
             'data' => $this->service->getSummary(
                 $validated['periode'],
-                $validated['jenis_apotek']
+                $validated['jenis_apotek'],
+                $validated['kategori_premi'] ?? 'apotek'
             ),
         ]);
     }
@@ -86,11 +90,15 @@ class hitungPremiApotekController extends Controller
     {
         $validated = $request->validate([
             'jenis_apotek' => ['required', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
 
         return response()->json([
             'status' => true,
-            'data' => $this->service->getConfig($validated['jenis_apotek']),
+            'data' => $this->service->getConfig(
+                $validated['jenis_apotek'],
+                $validated['kategori_premi'] ?? 'apotek'
+            ),
         ]);
     }
 
@@ -98,19 +106,21 @@ class hitungPremiApotekController extends Controller
     {
         $validated = $request->validate([
             'jenis_apotek' => ['required', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
+            'jnsPremi_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
             'jnsTindakan_ids' => ['nullable', 'array'],
             'jnsTindakan_ids.*' => ['integer', 'distinct', 'exists:master_jenis_tindakan,id'],
-            'tarif_per_item' => ['required', 'integer', 'min:0', 'max:1000000'],
+            'tarif_per_item' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'source_period_mode' => ['nullable', 'in:previous,current'],
             'include_bpjs_in_umum' => ['nullable', 'boolean'],
-            'jasa_farmasi_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'formula_31_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'formula_31_divider' => ['required', 'numeric', 'min:0.01', 'max:999'],
-            'formula_7_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'formula_7_divider' => ['required', 'numeric', 'min:0.01', 'max:999'],
-            'formula_12_percent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'formula_12_divider' => ['required', 'numeric', 'min:0.01', 'max:999'],
-            'premi_bersama_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'jasa_farmasi_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'formula_31_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'formula_31_divider' => ['nullable', 'numeric', 'min:0.01', 'max:999'],
+            'formula_7_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'formula_7_divider' => ['nullable', 'numeric', 'min:0.01', 'max:999'],
+            'formula_12_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'formula_12_divider' => ['nullable', 'numeric', 'min:0.01', 'max:999'],
+            'premi_bersama_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'recipients' => ['nullable', 'array'],
             'recipients.penerima_31' => ['nullable', 'array'],
             'recipients.penerima_31.*' => ['string', 'max:30'],
@@ -122,8 +132,12 @@ class hitungPremiApotekController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Konfigurasi premi Apotek berhasil disimpan.',
-            'data' => $this->service->updateConfig($validated['jenis_apotek'], $validated),
+            'message' => 'Konfigurasi premi '.(($validated['kategori_premi'] ?? 'apotek') === 'apoteker' ? 'Apoteker' : 'Apotek').' berhasil disimpan.',
+            'data' => $this->service->updateConfig(
+                $validated['jenis_apotek'],
+                $validated,
+                $validated['kategori_premi'] ?? 'apotek'
+            ),
         ]);
     }
 
@@ -131,11 +145,15 @@ class hitungPremiApotekController extends Controller
     {
         $validated = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
 
         return response()->json([
             'status' => true,
-            'data' => $this->service->mappingOptions($validated['q'] ?? null),
+            'data' => $this->service->mappingOptions(
+                $validated['q'] ?? null,
+                $validated['kategori_premi'] ?? 'apotek'
+            ),
         ]);
     }
 
@@ -156,13 +174,15 @@ class hitungPremiApotekController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_apotek' => ['required', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
 
         return response()->json([
             'status' => true,
             'data' => $this->service->preview(
                 $validated['periode'],
-                $validated['jenis_apotek']
+                $validated['jenis_apotek'],
+                $validated['kategori_premi'] ?? 'apotek'
             ),
         ]);
     }
@@ -172,16 +192,18 @@ class hitungPremiApotekController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_apotek' => ['required', 'in:umum,bpjs'],
+            'kategori_premi' => ['nullable', 'in:apotek,apoteker'],
         ]);
 
         $result = $this->service->generate(
             $validated['periode'],
-            $validated['jenis_apotek']
+            $validated['jenis_apotek'],
+            $validated['kategori_premi'] ?? 'apotek'
         );
 
         return response()->json([
             'status' => true,
-            'message' => "Premi Apotek {$result['jenis_apotek_label']} berhasil digenerate.",
+            'message' => "{$result['kategori_premi_label']} {$result['jenis_apotek_label']} berhasil digenerate.",
             'data' => $result,
         ]);
     }

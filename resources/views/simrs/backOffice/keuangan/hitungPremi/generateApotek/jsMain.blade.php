@@ -10,6 +10,24 @@
             umum: 'Umum',
             bpjs: 'BPJS Kesehatan'
         };
+        const categoryConfig = {
+            apotek: {
+                label: 'Premi Apotek',
+                shortLabel: 'Obat Apotek',
+                icon: 'mdi-pill-multiple',
+                detailLabel: 'Obat',
+                detailPlaceholder: 'Nama atau kode obat',
+                description: 'Sistem membaca detail_pemberian_obat sesuai periode sumber, memisahkan UMUM dan BPJS, mencocokkan kode barang ke mapping Farmasi, lalu menghitung formula 500 per item serta pembagian 50%, 31%, 7%, 12%, dan premi bersama 30%.'
+            },
+            apoteker: {
+                label: 'Premi Apoteker',
+                shortLabel: 'Premi Apoteker',
+                icon: 'mdi-account-tie-voice-outline',
+                detailLabel: 'Tindakan',
+                detailPlaceholder: 'Nama atau kode tindakan',
+                description: 'Sistem membaca tindakan rawat jalan dan rawat inap, mencocokkan jenis tindakan ke mapping premi, menjumlahkan biaya_rawat sebagai grand total, lalu menghitung nilai UMUM/BPJS dan pembagi dari master jenis premi.'
+            }
+        };
         const roleConfig = {
             penerima_31: {
                 label: 'Penerima 31% / 2.5',
@@ -30,6 +48,7 @@
                 icon: 'mdi-account-group-outline'
             }
         };
+        let activeCategory = 'apotek';
         let activeType = 'umum';
         let includeBpjsInUmum = false;
         let previewReady = false;
@@ -72,6 +91,27 @@
 
         function normalizeText(value) {
             return String(value == null ? '' : value).toLowerCase().replace(/\s+/g, ' ').trim();
+        }
+
+        function isApoteker(category) {
+            return (category || activeCategory) === 'apoteker';
+        }
+
+        function activeCategoryConfig() {
+            return categoryConfig[activeCategory] || categoryConfig.apotek;
+        }
+
+        function activeDetailLabel(lowercase) {
+            const label = activeCategoryConfig().detailLabel;
+            return lowercase ? label.toLowerCase() : label;
+        }
+
+        function detailQty(item) {
+            return isApoteker() ? 1 : Number(item.qty || 0);
+        }
+
+        function detailPremi(item) {
+            return Number(isApoteker() ? (item.hasil_mapping || item.total_premi || 0) : (item.total_premi || 0));
         }
 
         function flattenErrors(errors) {
@@ -160,11 +200,14 @@
             const sourceMode = sourcePeriodMode(mode, type);
             const sourcePeriode = sourcePeriodFor(periode, type, sourceMode);
             const includeBpjsScope = type === 'umum' && (includeBpjs === undefined ? includeBpjsInUmum : includeBpjs);
+            const sourceName = isApoteker() ?
+                'tindakan rawat jalan/inap' :
+                'detail_pemberian_obat';
 
             return type === 'bpjs' ?
-                'Periode generate ' + periode + ' memakai detail_pemberian_obat periode ' + sourcePeriode +
+                'Periode generate ' + periode + ' memakai ' + sourceName + ' periode ' + sourcePeriode +
                 ' (' + sourcePeriodModeLabel(sourceMode, type) + ') dengan filter reg_periksa.kd_pj = BPJ.' :
-                'Periode generate ' + periode + ' memakai detail_pemberian_obat periode yang sama dengan filter ' +
+                'Periode generate ' + periode + ' memakai ' + sourceName + ' periode yang sama dengan filter ' +
                 sourceScopeText(type, includeBpjsScope) + '.';
         }
 
@@ -226,7 +269,69 @@
                 '</div>';
         }
 
+        function apotekerFormulaHtml(data) {
+            const source = data.source || {};
+            const pools = data.pools || data.config?.pools || {};
+            const mapping = source.mapping || data.config?.mapping || {};
+            const grandTotal = Number(source.grand_total || source.total_biaya_rawat || data.grand_total || 0);
+            const totalMapping = Number(source.total_mapping_premi || pools.total_mapping_premi || data.total_mapping_premi || 0);
+            const pembagi = Number(source.pembagi || pools.pembagi || data.pembagi || mapping.pembagi || 1);
+            const totalFinal = Number(source.total_final || pools.total_final || data.total_final || 0);
+            const jumlahTindakan = Number(source.jumlah_tindakan || data.jumlah_tindakan || 0);
+            const jumlahMapping = Number(source.jumlah_mapping_premi || data.jumlah_mapping_premi || 0);
+            const cards = [
+                {
+                    label: 'Grand Total',
+                    formula: 'Total semua biaya_rawat tindakan cocok mapping',
+                    before: formatNumber(jumlahTindakan) + ' tindakan / ' + formatNumber(jumlahMapping) + ' mapping premi',
+                    after: formatRupiah(grandTotal),
+                    icon: 'mdi-cash-multiple',
+                    accent: 'cyan'
+                },
+                {
+                    label: 'Hasil Mapping Premi',
+                    formula: 'Persen: biaya_rawat x nilai / Nominal: jumlah data x nilai',
+                    before: mapping.label || '-',
+                    after: formatRupiah(totalMapping),
+                    icon: 'mdi-source-branch',
+                    accent: 'dark'
+                },
+                {
+                    label: 'Pembagi',
+                    formula: 'Total hasil mapping premi / pembagi master jenis premi',
+                    before: formatRupiah(totalMapping) + ' / ' + formatNumber(pembagi),
+                    after: formatRupiah(totalFinal),
+                    icon: 'mdi-division'
+                },
+                {
+                    label: 'Total Final',
+                    formula: 'Nilai yang dibagikan ke pegawai mapping premi',
+                    before: formatNumber((data.recipients || []).length) + ' penerima',
+                    after: formatRupiah(data.total_dibagikan || totalFinal),
+                    icon: 'mdi-bank-transfer-out',
+                    accent: 'cyan'
+                }
+            ];
+
+            return '<div class="apotek-formula-head">' +
+                '<div>' +
+                '<div class="apotek-formula-title">Formula Aktif Premi Apoteker ' + escapeHtml(typeConfig[data.jenis_apotek || activeType] || '-') + '</div>' +
+                '<div class="apotek-formula-subtitle">' + escapeHtml(sourceRuleText(data.jenis_apotek || activeType, data.periode || $('#periodeApotek').val(), data.source_period_mode || source.source_period_mode, data.include_bpjs_in_umum)) + '</div>' +
+                '</div>' +
+                '<span class="apotek-formula-head-badge"><i class="mdi mdi-source-branch"></i> ' +
+                escapeHtml(mapping.label || 'Mapping premi') +
+                '</span>' +
+                '</div>' +
+                '<div class="apotek-formula-grid">' +
+                cards.map(formulaCardHtml).join('') +
+                '</div>';
+        }
+
         function formulaHtml(data) {
+            if ((data.kategori_premi || data.config?.kategori_premi || activeCategory) === 'apoteker') {
+                return apotekerFormulaHtml(data);
+            }
+
             const config = data.config || data || {};
             const source = data.source || {};
             const pools = data.pools || config.pools || {};
@@ -346,6 +451,7 @@
             return items.map(function(item) {
                 const name = item.pegawai_name || item.text || '-';
                 const roleLabel = item.role_label ? '<div class="apotek-recipient-meta">' + escapeHtml(item.role_label) + '</div>' : '';
+                const allocationBase = item.role === 'apoteker' ? 'total final' : 'grand total';
 
                 return '<div class="apotek-recipient-item">' +
                     '<div>' +
@@ -353,7 +459,7 @@
                     roleLabel +
                     '<div class="apotek-recipient-meta">' +
                     escapeHtml(item.pegawai_id || '-') + ' / ' + escapeHtml(item.pegawai_position || '-') +
-                    (item.allocation_percent ? ' / ' + percentText(item.allocation_percent) + ' dari grand total' : '') +
+                    (item.allocation_percent ? ' / ' + percentText(item.allocation_percent) + ' dari ' + allocationBase : '') +
                     '</div>' +
                     '</div>' +
                     '<div class="apotek-recipient-total">' +
@@ -386,6 +492,8 @@
                 return '<div class="apotek-empty-state">Belum ada informasi penjamin pada detail ini.</div>';
             }
 
+            const detailLabel = activeDetailLabel(true);
+
             return groups.map(function(group) {
                 return '<div class="apotek-info-row">' +
                     '<div>' +
@@ -394,12 +502,12 @@
                     '</div>' +
                     '<div class="apotek-info-note">' +
                     formatNumber(group.jumlah_pasien || 0) + ' pasien / ' +
-                    formatNumber(group.jumlah_obat || 0) + ' kode obat / ' +
+                    formatNumber(group.jumlah_obat || 0) + ' kode ' + detailLabel + ' / ' +
                     formatNumber(group.jumlah_item || 0) + ' baris detail' +
                     '</div>' +
                     '</div>' +
                     '<div class="apotek-info-value">' +
-                    escapeHtml(formatNumber(group.total_qty || 0) + ' qty') +
+                    escapeHtml(formatNumber(isApoteker() ? (group.jumlah_item || 0) : (group.total_qty || 0)) + (isApoteker() ? ' tindakan' : ' qty')) +
                     '<br><span class="text-muted">' + escapeHtml(formatRupiah(group.total_premi || 0)) + '</span>' +
                     '</div>' +
                     '</div>';
@@ -408,20 +516,26 @@
 
         function detailsRowsHtml(details, limit) {
             const rows = (details || []).slice(0, limit || 20);
+            const label = activeDetailLabel(true);
 
             if (!rows.length) {
-                return '<tr><td colspan="7" class="text-center text-muted py-3">Belum ada detail obat yang cocok mapping.</td></tr>';
+                return '<tr><td colspan="7" class="text-center text-muted py-3">Belum ada detail ' + escapeHtml(label) + ' yang cocok mapping.</td></tr>';
             }
 
             return rows.map(function(item) {
+                const code = item.kd_tindakan || item.kode_barang || '-';
+                const name = item.nm_tindakan || item.nama_barang || '-';
+                const qty = detailQty(item);
+                const total = detailPremi(item);
+
                 return '<tr>' +
                     '<td>' + escapeHtml(item.tanggal || '-') + '<small class="d-block text-muted">' + escapeHtml(item.jam || '-') + '</small></td>' +
                     '<td>' + escapeHtml(item.no_rawat || '-') + '</td>' +
                     '<td>' + escapeHtml(item.nm_pasien || '-') + '<small class="d-block text-muted">' + escapeHtml(item.nama_penjamin || item.kd_pj || '-') + '</small></td>' +
-                    '<td><span class="fw-semibold">' + escapeHtml(item.kode_barang || '-') + '</span></td>' +
-                    '<td>' + escapeHtml(item.nama_barang || '-') + '</td>' +
-                    (item.qty !== undefined ? '<td class="text-end">' + formatNumber(item.qty || 0) + '</td>' : '') +
-                    '<td class="text-end fw-semibold">' + formatRupiah(item.total_premi || 0) + '</td>' +
+                    '<td><span class="fw-semibold">' + escapeHtml(code) + '</span></td>' +
+                    '<td>' + escapeHtml(name) + '</td>' +
+                    '<td class="text-end">' + formatNumber(qty) + '</td>' +
+                    '<td class="text-end fw-semibold">' + formatRupiah(total) + '</td>' +
                     '</tr>';
             }).join('');
         }
@@ -435,7 +549,9 @@
 
             return detailApotekRows.filter(function(item) {
                 return normalizeText(item.nama_barang).includes(keyword) ||
-                    normalizeText(item.kode_barang).includes(keyword);
+                    normalizeText(item.kode_barang).includes(keyword) ||
+                    normalizeText(item.nm_tindakan).includes(keyword) ||
+                    normalizeText(item.kd_tindakan).includes(keyword);
             });
         }
 
@@ -443,8 +559,8 @@
             const groups = {};
 
             (rows || []).forEach(function(item) {
-                const nama = item.nama_barang || item.kode_barang || '-';
-                const kode = item.kode_barang || '-';
+                const nama = item.nm_tindakan || item.nama_barang || item.kd_tindakan || item.kode_barang || '-';
+                const kode = item.kd_tindakan || item.kode_barang || '-';
                 const key = normalizeText(nama);
 
                 if (!groups[key]) {
@@ -460,8 +576,8 @@
 
                 groups[key].codes[kode] = true;
                 groups[key].row_count += 1;
-                groups[key].qty += Number(item.qty || 0);
-                groups[key].total_premi += Number(item.total_premi || 0);
+                groups[key].qty += detailQty(item);
+                groups[key].total_premi += detailPremi(item);
             });
 
             return Object.values(groups).map(function(group) {
@@ -482,8 +598,10 @@
         }
 
         function detailObatBreakdownHtml(groups) {
+            const detailLabel = activeDetailLabel(true);
+
             if (!groups.length) {
-                return '<div class="apotek-empty-state py-3">Tidak ada obat pada filter ini.</div>';
+                return '<div class="apotek-empty-state py-3">Tidak ada ' + escapeHtml(detailLabel) + ' pada filter ini.</div>';
             }
 
             const visibleGroups = groups.slice(0, 15);
@@ -495,11 +613,11 @@
                     formatNumber(group.row_count) + ' baris</div>' +
                     '</div>' +
                     '<div class="apotek-detail-breakdown-metric">' +
-                    '<span>Qty</span>' +
+                    '<span>' + escapeHtml(isApoteker() ? 'Tindakan' : 'Qty') + '</span>' +
                     '<strong>' + formatNumber(group.qty) + '</strong>' +
                     '</div>' +
                     '<div class="apotek-detail-breakdown-metric">' +
-                    '<span>Premi</span>' +
+                    '<span>' + escapeHtml(isApoteker() ? 'Hasil' : 'Premi') + '</span>' +
                     '<strong>' + formatRupiah(group.total_premi) + '</strong>' +
                     '</div>' +
                     '</div>';
@@ -508,7 +626,7 @@
             if (groups.length > visibleGroups.length) {
                 rows.push('<div class="apotek-detail-breakdown-more">+' +
                     formatNumber(groups.length - visibleGroups.length) +
-                    ' nama obat lain pada hasil filter.</div>');
+                    ' nama ' + escapeHtml(detailLabel) + ' lain pada hasil filter.</div>');
             }
 
             return rows.join('');
@@ -518,17 +636,19 @@
             const rows = filteredDetailApotekRows();
             const groups = groupedDetailApotekRows(rows);
             const totalQty = rows.reduce(function(total, item) {
-                return total + Number(item.qty || 0);
+                return total + detailQty(item);
             }, 0);
             const totalPremi = rows.reduce(function(total, item) {
-                return total + Number(item.total_premi || 0);
+                return total + detailPremi(item);
             }, 0);
             const tableLimit = 250;
             const visibleRows = Math.min(rows.length, tableLimit);
+            const detailLabel = activeDetailLabel(true);
+            const detailPlural = detailLabel;
             const subtitle = detailApotekFilterKeyword ?
-                formatNumber(groups.length) + ' nama obat / ' + formatNumber(rows.length) +
+                formatNumber(groups.length) + ' nama ' + detailPlural + ' / ' + formatNumber(rows.length) +
                 ' baris cocok filter "' + detailApotekFilterKeyword + '".' :
-                formatNumber(groups.length) + ' nama obat / ' + formatNumber(rows.length) +
+                formatNumber(groups.length) + ' nama ' + detailPlural + ' / ' + formatNumber(rows.length) +
                 ' baris detail masuk mapping.';
 
             $('#detailFilterJumlahNamaObat').text(formatNumber(groups.length));
@@ -555,7 +675,23 @@
                     url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.mappingOptions") }}",
                     dataType: 'json',
                     delay: 250,
-                    data: params => ({ q: params.term || '' }),
+                    data: params => ({ q: params.term || '', kategori_premi: 'apotek' }),
+                    processResults: response => ({
+                        results: (response.data || []).map(item => ({ id: item.id, text: item.text }))
+                    })
+                }
+            });
+
+            $('#configApotekerPremi').select2({
+                dropdownParent: $('#modalConfigApotek'),
+                width: '100%',
+                placeholder: 'Pilih jenis premi Apoteker',
+                allowClear: true,
+                ajax: {
+                    url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.mappingOptions") }}",
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ q: params.term || '', kategori_premi: 'apoteker' }),
                     processResults: response => ({
                         results: (response.data || []).map(item => ({ id: item.id, text: item.text }))
                     })
@@ -638,7 +774,7 @@
         function loadBpjsTabState(callback) {
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.config") }}",
-                data: { jenis_apotek: 'umum' },
+                data: { jenis_apotek: 'umum', kategori_premi: activeCategory },
                 success: function(response) {
                     const data = response.data || {};
                     const switched = applyBpjsTabState(data.include_bpjs_in_umum);
@@ -660,8 +796,13 @@
             const mappings = ($('#configApotekMappings').val() || []).length;
             const recipients = configRecipientItems();
             const periode = $('#periodeApotek').val() || '-';
+            const apotekerActive = isApoteker();
+            const premiId = $('#configApotekerPremi').val();
+            const premiText = $('#configApotekerPremi option:selected').text();
 
-            $('#configApotekRuleTitle').text('Konfigurasi ' + (typeConfig[activeType] || '-'));
+            $('.apotek-config-only').toggleClass('d-none', apotekerActive);
+            $('.apoteker-config-only').toggleClass('d-none', !apotekerActive);
+            $('#configApotekRuleTitle').text('Konfigurasi ' + activeCategoryConfig().label + ' ' + (typeConfig[activeType] || '-'));
             $('#configApotekRuleText').text(sourceRuleText(
                 activeType,
                 periode,
@@ -671,6 +812,46 @@
             $('#configApotekTypeBadge').text(typeConfig[activeType] || '-');
             $('#configApotekUmumBpjsSection').toggleClass('d-none', activeType !== 'umum');
             $('#configApotekBpjsSourceSection').toggleClass('d-none', activeType !== 'bpjs');
+
+            if (apotekerActive) {
+                $('#configApotekFormulaPreview').html(infoRowsHtml([
+                    {
+                        label: 'Cakupan Penjamin',
+                        value: sourceScopeText(activeType, config.include_bpjs_in_umum),
+                        note: activeType === 'umum' && config.include_bpjs_in_umum ?
+                            'BPJS ikut dihitung di hasil generate UMUM.' :
+                            'Filter penjamin mengikuti jenis generate aktif.'
+                    },
+                    {
+                        label: 'Jenis Premi',
+                        value: premiId ? premiText : 'Belum dipilih',
+                        note: 'Jenis premi menentukan mapping premi, nilai UMUM/BPJS, pembagi, dan penerima pegawai.'
+                    },
+                    {
+                        label: 'Grand Total',
+                        value: 'Total semua biaya_rawat tindakan cocok mapping',
+                        note: 'Sebelum: tindakan dari rawat jalan/inap. Sesudah: total biaya_rawat.'
+                    },
+                    {
+                        label: 'Hasil Mapping',
+                        value: 'Persen: biaya_rawat x nilai / Nominal: jumlah data x nilai',
+                        note: 'Nilai diambil dari kolom UMUM atau BPJS pada mapping premi.'
+                    },
+                    {
+                        label: 'Pembagi',
+                        value: 'Total hasil mapping premi / pembagi master jenis premi',
+                        note: 'Hasil akhir dibagikan ke pegawai yang terdaftar pada mapping premi.'
+                    }
+                ]));
+                $('#configApotekerPremiPreview').html(
+                    premiId ?
+                    '<div class="apotek-quality ok mb-0"><strong>Jenis premi dipilih.</strong> Pastikan mapping premi punya jenis tindakan RAJAL/RANAP dan pegawai penerima.</div>' :
+                    '<div class="apotek-empty-state">Belum ada jenis premi dipilih. Pilih jenis premi Apoteker sebelum generate.</div>'
+                );
+                updateRecipientCounter();
+                return;
+            }
+
             $('#configApotekFormulaPreview').html(infoRowsHtml([
                 {
                     label: 'Cakupan Penjamin',
@@ -729,25 +910,64 @@
             }
 
             activeType = type;
-            $('.apotek-type-tab').removeClass('active');
+            $('.apotek-type-tab[data-type]').removeClass('active');
             $('.apotek-type-tab[data-type="' + type + '"]').addClass('active');
-            $('#resultApotekTitle').text('Hasil Generate Apotek ' + typeConfig[type]);
+            $('#resultApotekTitle').text('Hasil Generate ' + activeCategoryConfig().label + ' ' + typeConfig[type]);
+        }
+
+        function setActiveCategory(category) {
+            activeCategory = category === 'apoteker' ? 'apoteker' : 'apotek';
+            const config = activeCategoryConfig();
+            const apotekerActive = isApoteker();
+
+            $('.apotek-category-tab').removeClass('active');
+            $('.apotek-category-tab[data-category="' + activeCategory + '"]').addClass('active');
+            $('#heroIconApotek i').attr('class', 'mdi ' + config.icon);
+            $('#heroTitleApotek').text('Generate ' + config.label);
+            $('#heroDescriptionApotek').text(config.description);
+            $('#summaryGrandLabelApotek').text(apotekerActive ? 'Grand Total Biaya Rawat' : 'Grand Total Periode');
+            $('#summaryItemLabelApotek').text(apotekerActive ? 'Tindakan' : 'Total Qty');
+            $('#summaryDibagikanLabelApotek').text(apotekerActive ? 'Total Final' : 'Total Dibagikan');
+            $('#summaryDibagikanNoteApotek').text(apotekerActive ?
+                'Hasil mapping premi setelah pembagi dan dibagikan ke pegawai mapping premi.' :
+                'Formula 31%, 7%, dan 12% untuk pegawai terpilih.');
+            $('#summaryBersamaLabelApotek').text(apotekerActive ? 'Hasil Mapping' : 'Premi Bersama');
+            $('#summaryBersamaNoteApotek').text(apotekerActive ?
+                'Akumulasi hasil perhitungan mapping premi.' :
+                '30% default dari grand total.');
+            $('#summaryObatLabelApotek').text(apotekerActive ? 'Jenis Tindakan' : 'Kode Obat Sumber');
+            $('#tableQtyHeaderApotek').text(apotekerActive ? 'Tindakan' : 'Qty');
+            $('#tableBersamaHeaderApotek').text(apotekerActive ? 'Hasil Mapping' : 'Premi Bersama');
+            $('#tableDibagikanHeaderApotek').text(apotekerActive ? 'Total Final' : 'Dibagikan');
+            $('#previewDetailTitleApotek').text(apotekerActive ?
+                'Contoh Detail Tindakan Masuk Mapping' :
+                'Contoh Detail Obat Masuk Mapping');
+            $('#previewNamaHeaderApotek, #detailNamaHeaderApotek').text('Nama ' + config.detailLabel);
+            $('#detailDataTitleApotek').text('Detail ' + config.detailLabel + ' Masuk Mapping');
+            $('#detailFilterTitleApotek').text('Filter ' + config.detailLabel);
+            $('#detailFilterJumlahNamaLabelApotek').text('Jumlah Nama');
+            $('#filterDetailApotekObat').attr('placeholder', config.detailPlaceholder);
+            $('#resultApotekTitle').text('Hasil Generate ' + config.label + ' ' + (typeConfig[activeType] || '-'));
+            $('#searchGenerateApotek').attr('placeholder', apotekerActive ?
+                'Cari periode / jenis / premi...' :
+                'Cari periode / jenis / mapping...');
         }
 
         function loadFormulaConfig() {
             const requestType = activeType;
+            const requestCategory = activeCategory;
 
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.config") }}",
-                data: { jenis_apotek: requestType },
+                data: { jenis_apotek: requestType, kategori_premi: requestCategory },
                 success: function(response) {
                     const data = response.data || {};
 
-                    if (requestType === 'umum') {
+                    if (requestType === 'umum' && requestCategory === activeCategory) {
                         applyBpjsTabState(data.include_bpjs_in_umum);
                     }
 
-                    if (requestType !== activeType) {
+                    if (requestType !== activeType || requestCategory !== activeCategory) {
                         return;
                     }
 
@@ -761,22 +981,29 @@
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.summary") }}",
                 data: {
                     periode: $('#periodeApotek').val(),
-                    jenis_apotek: activeType
+                    jenis_apotek: activeType,
+                    kategori_premi: activeCategory
                 },
                 success: function(response) {
                     const data = response.data || {};
                     const sourceCount = Number(data.jumlah_data_sumber || 0);
                     const mappedCount = Number(data.jumlah_data_mapping || 0);
                     const matchRate = sourceCount > 0 ? Math.round(mappedCount * 100 / sourceCount) : 0;
+                    const apotekerActive = isApoteker(data.kategori_premi || activeCategory);
+                    const itemTotal = apotekerActive ? Number(data.jumlah_tindakan || data.jumlah_data_mapping || 0) : Number(data.total_qty || 0);
+                    const sourceDistinct = apotekerActive ? Number(data.jumlah_obat_sumber || data.jumlah_obat || data.jumlah_mapping_premi || 0) : Number(data.jumlah_obat_sumber || 0);
+                    const grandTotal = apotekerActive ? Number(data.total_biaya_rawat || data.grand_total || 0) : Number(data.grand_total || 0);
+                    const totalMapping = Number(data.total_mapping_premi || 0);
+                    const totalFinal = Number(data.total_final || data.total_dibagikan || 0);
 
-                    $('#summaryItemApotek').text(formatNumber(data.total_qty || 0));
+                    $('#summaryItemApotek').text(formatNumber(itemTotal));
                     $('#summaryPasienApotek').text(formatNumber(data.jumlah_pasien || 0));
-                    $('#summaryGrandApotek').text(formatRupiah(data.grand_total || 0));
-                    $('#summaryDibagikanApotek').text(formatRupiah(data.total_dibagikan || 0));
-                    $('#summaryBersamaApotek').text(formatRupiah(data.total_premi_bersama || 0));
+                    $('#summaryGrandApotek').text(formatRupiah(grandTotal));
+                    $('#summaryDibagikanApotek').text(formatRupiah(apotekerActive ? totalFinal : (data.total_dibagikan || 0)));
+                    $('#summaryBersamaApotek').text(formatRupiah(apotekerActive ? totalMapping : (data.total_premi_bersama || 0)));
                     $('#summaryLockedApotek').text(formatNumber(data.locked_count || 0));
                     $('#summarySourceApotek').text(formatNumber(data.jumlah_data_sumber || 0));
-                    $('#summaryObatApotek').text(formatNumber(data.jumlah_obat_sumber || 0));
+                    $('#summaryObatApotek').text(formatNumber(sourceDistinct));
                     $('#summaryMatchRateApotek').text(formatNumber(matchRate) + '%');
                     $('#summaryGenerateCountApotek').text(formatNumber(data.generated_count || 0) + ' data generate');
                     $('#summaryTypeBadgeApotek').html(
@@ -784,13 +1011,15 @@
                         escapeHtml((data.jenis_apotek_label || typeConfig[activeType]) +
                             (activeType === 'umum' && includeBpjsInUmum ? ' + BPJS' : ''))
                     );
-                    $('#summaryGrandNoteApotek').text(
+                    $('#summaryGrandNoteApotek').text(apotekerActive ?
+                        formatNumber(itemTotal) + ' tindakan masuk mapping / Hasil mapping: ' +
+                        formatRupiah(totalMapping) + ' / Total final: ' + formatRupiah(totalFinal) + '.' :
                         formatNumber(data.total_qty || 0) + ' total qty dari ' +
                         formatNumber(data.jumlah_data_mapping || 0) + ' item mapping / Pool 50%: ' +
                         formatRupiah(data.total_jasa_farmasi_pool || 0) + '.'
                     );
                     $('#summaryApotekSubtitle').text(
-                        'Jenis ' + (data.jenis_apotek_label || typeConfig[activeType]) +
+                        (data.kategori_premi_label || activeCategoryConfig().label) + ' / Jenis ' + (data.jenis_apotek_label || typeConfig[activeType]) +
                         ' / ' + formatNumber(data.generated_count || 0) + ' data generate / ' +
                         sourceRuleText(activeType, $('#periodeApotek').val(), data.source_period_mode, includeBpjsInUmum)
                     );
@@ -820,6 +1049,7 @@
                 data: function(data) {
                     data.periode = $('#periodeApotek').val();
                     data.jenis_apotek = activeType;
+                    data.kategori_premi = activeCategory;
                 }
             },
             columns: [
@@ -849,10 +1079,34 @@
                         return '<span class="fw-semibold">' + escapeHtml(data || '-') + '</span>';
                     }
                 },
-                { data: 'total_qty', className: 'text-center', render: formatNumber },
-                { data: 'grand_total', className: 'text-end', render: formatRupiah },
-                { data: 'total_premi_bersama', className: 'text-end', render: formatRupiah },
-                { data: 'total_dibagikan', className: 'text-end', render: formatRupiah },
+                {
+                    data: 'total_qty',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        return formatNumber(isApoteker(row.kategori_premi) ? (row.jumlah_tindakan || row.jumlah_data_mapping || 0) : (row.total_qty || 0));
+                    }
+                },
+                {
+                    data: 'grand_total',
+                    className: 'text-end',
+                    render: function(data, type, row) {
+                        return formatRupiah(isApoteker(row.kategori_premi) ? (row.total_biaya_rawat || row.grand_total || 0) : (row.grand_total || 0));
+                    }
+                },
+                {
+                    data: 'total_premi_bersama',
+                    className: 'text-end',
+                    render: function(data, type, row) {
+                        return formatRupiah(isApoteker(row.kategori_premi) ? (row.total_mapping_premi || 0) : (row.total_premi_bersama || 0));
+                    }
+                },
+                {
+                    data: 'total_dibagikan',
+                    className: 'text-end',
+                    render: function(data, type, row) {
+                        return formatRupiah(isApoteker(row.kategori_premi) ? (row.total_final || row.total_dibagikan || 0) : (row.total_dibagikan || 0));
+                    }
+                },
                 { data: 'recipients_count', className: 'text-center', render: formatNumber },
                 {
                     data: 'is_locked',
@@ -892,29 +1146,39 @@
             const warnings = data.warnings || {};
             const periode = $('#periodeApotek').val() || '-';
             const type = data.jenis_apotek || activeType;
+            const apotekerPreview = isApoteker(data.kategori_premi || activeCategory);
             const sourceMode = data.source_period_mode || source.source_period_mode || data.config?.source_period_mode;
             const sourcePeriode = data.source_periode || source.source_periode || sourcePeriodFor(periode, type, sourceMode);
             const includeBpjs = configIncludesBpjsInUmum(data.config || {}, data.include_bpjs_in_umum ?? includeBpjsInUmum);
 
             $('#generateApotekTitle').text(
-                'Preview ' + (data.jenis_apotek_label || typeConfig[type] || '-') + ' / Generate ' + periode
+                'Preview ' + (data.kategori_premi_label || activeCategoryConfig().label) + ' ' +
+                (data.jenis_apotek_label || typeConfig[type] || '-') + ' / Generate ' + periode
             );
             $('#generateApotekText').text(
                 'Data Khanza ' + sourcePeriode + ' / ' +
                 (type === 'bpjs' ? sourcePeriodModeLabel(sourceMode, type) + ' / kd_pj BPJ' : sourceScopeText(type, includeBpjs))
             );
             $('#generateApotekTypeBadge').text(data.jenis_apotek_label || typeConfig[type] || '-');
-            $('#previewApotekStats').html([
+            $('#previewApotekStats').html((apotekerPreview ? [
+                miniCard('Tindakan Mapping', formatNumber(source.jumlah_tindakan || source.jumlah_data_mapping || 0), false, 'mdi-format-list-checks', formatNumber(source.jumlah_mapping_premi || 0) + ' mapping premi'),
+                miniCard('Grand Total', formatRupiah(source.total_biaya_rawat || source.grand_total || 0), true, 'mdi-cash-multiple', 'Total biaya_rawat'),
+                miniCard('Hasil Mapping', formatRupiah(source.total_mapping_premi || pools.total_mapping_premi || 0), false, 'mdi-source-branch', 'Persen/nominal mapping premi'),
+                miniCard('Pembagi', formatNumber(source.pembagi || pools.pembagi || 1), false, 'mdi-division', 'Master jenis premi'),
+                miniCard('Total Final', formatRupiah(source.total_final || pools.total_final || 0), true, 'mdi-bank-transfer-out', 'Hasil mapping / pembagi'),
+                miniCard('Penerima', formatNumber((data.recipients || []).length), false, 'mdi-account-multiple-check-outline', 'Pegawai mapping premi')
+            ] : [
                 miniCard('Total Qty Mapping', formatNumber(source.total_qty || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
                 miniCard('Tarif per Qty', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Setiap qty obat cocok mapping'),
                 miniCard('Grand Total', formatRupiah(source.grand_total || 0), true, 'mdi-cash-multiple', 'Total qty mapping x tarif'),
                 miniCard('Pool 50%', formatRupiah(pools.formula_base_total || pools.jasa_farmasi_pool || 0), false, 'mdi-chart-pie', 'Dasar formula penerima'),
                 miniCard('Premi Bersama', formatRupiah(pools.premi_bersama || 0), false, 'mdi-account-group-outline', '30% default dari grand total'),
                 miniCard('Total Dibagikan', formatRupiah(data.total_dibagikan || 0), true, 'mdi-bank-transfer-out', formatNumber((data.recipients || []).length) + ' penerima')
-            ].join(''));
+            ]).join(''));
             $('#previewApotekFormula').html(formulaHtml(data));
             $('#previewApotekRecipientSubtitle').text(
-                formatNumber((data.recipients || []).length) + ' penerima dari tiga kelompok formula.'
+                formatNumber((data.recipients || []).length) +
+                (apotekerPreview ? ' penerima dari mapping premi.' : ' penerima dari tiga kelompok formula.')
             );
             $('#previewApotekRecipients').html(recipientGroupsHtml(groups));
             $('#previewApotekQuality').html(
@@ -940,7 +1204,8 @@
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.preview") }}",
                 data: {
                     periode: $('#periodeApotek').val(),
-                    jenis_apotek: activeType
+                    jenis_apotek: activeType,
+                    kategori_premi: activeCategory
                 },
                 success: function(response) {
                     renderPreview(response.data || {});
@@ -955,12 +1220,13 @@
         function openConfigModal() {
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.config") }}",
-                data: { jenis_apotek: activeType },
+                data: { jenis_apotek: activeType, kategori_premi: activeCategory },
                 success: function(response) {
                     const data = response.data || {};
                     const recipients = data.recipients || {};
-                    $('#modalConfigApotekLabel').text('Konfigurasi Premi Apotek ' + typeConfig[activeType]);
+                    $('#modalConfigApotekLabel').text('Konfigurasi ' + activeCategoryConfig().label + ' ' + typeConfig[activeType]);
                     $('#jenisConfigApotek').val(activeType);
+                    $('#kategoriConfigApotek').val(activeCategory);
                     $('#configTarifPerItemApotek').val(data.tarif_per_item || 500);
                     $('input[name="configApotekSourcePeriodMode"][value="' +
                         sourcePeriodMode(data.source_period_mode, activeType) +
@@ -975,6 +1241,7 @@
                     $('#configFormula12Divider').val(data.formula_12_divider ?? 2);
                     $('#configPremiBersamaApotekPercent').val(data.premi_bersama_percent ?? 30);
                     fillSelect('#configApotekMappings', data.mapping_items || []);
+                    fillSelect('#configApotekerPremi', data.premi_item ? [data.premi_item] : []);
                     fillSelect('#configApotekRecipients31', recipients.penerima_31 || []);
                     fillSelect('#configApotekRecipients7', recipients.penerima_7 || []);
                     fillSelect('#configApotekRecipients12', recipients.penerima_12 || []);
@@ -990,6 +1257,8 @@
         function configPayload() {
             return {
                 jenis_apotek: $('#jenisConfigApotek').val(),
+                kategori_premi: $('#kategoriConfigApotek').val() || activeCategory,
+                jnsPremi_id: $('#configApotekerPremi').val() || null,
                 jnsTindakan_ids: $('#configApotekMappings').val() || [],
                 tarif_per_item: $('#configTarifPerItemApotek').val(),
                 source_period_mode: sourcePeriodMode(
@@ -1019,11 +1288,12 @@
             const config = data.config_snapshot || {};
             const groups = data.recipient_groups || [];
             const type = data.jenis_apotek || activeType;
+            const apotekerDetail = isApoteker(data.kategori_premi || activeCategory);
             const sourceMode = data.source_period_mode || source.source_period_mode || config.source_period_mode;
             const sourcePeriode = data.source_periode || config.source_periode || sourcePeriodFor(data.periode, type, sourceMode);
             const includeBpjs = configIncludesBpjsInUmum(config, data.include_bpjs_in_umum ?? includeBpjsInUmum);
 
-            $('#detailApotekTitle').text((data.periode || '-') + ' / ' + (data.jenis_apotek_label || '-'));
+            $('#detailApotekTitle').text((data.periode || '-') + ' / ' + (data.kategori_premi_label || activeCategoryConfig().label) + ' / ' + (data.jenis_apotek_label || '-'));
             $('#detailApotekMeta').text(
                 'Generated oleh ' + (data.generate_by_name || '-') + ' pada ' + (data.generated_at || '-') +
                 ' / Status: ' + (data.is_locked ? 'Terkunci' : 'Terbuka')
@@ -1033,27 +1303,39 @@
                 (type === 'bpjs' ? 'BPJS memakai ' + sourcePeriodModeLabel(sourceMode, type) : sourceScopeText(type, includeBpjs))
             );
             $('#detailApotekStatusBadge').html(data.is_locked ? 'Terkunci' : 'Terbuka');
-            $('#detailApotekStats').html([
+            $('#detailApotekStats').html((apotekerDetail ? [
+                miniCard('Tindakan Mapping', formatNumber(source.jumlah_tindakan || data.jumlah_tindakan || 0), false, 'mdi-format-list-checks', formatNumber(source.jumlah_mapping_premi || data.jumlah_mapping_premi || 0) + ' mapping premi'),
+                miniCard('Grand Total', formatRupiah(source.total_biaya_rawat || data.total_biaya_rawat || data.grand_total || 0), true, 'mdi-cash-multiple', 'Total biaya_rawat'),
+                miniCard('Hasil Mapping', formatRupiah(source.total_mapping_premi || data.total_mapping_premi || 0), false, 'mdi-source-branch', 'Akumulasi mapping premi'),
+                miniCard('Pembagi', formatNumber(source.pembagi || data.pembagi || pools.pembagi || 1), false, 'mdi-division', 'Master jenis premi'),
+                miniCard('Total Final', formatRupiah(source.total_final || data.total_final || data.total_dibagikan || 0), true, 'mdi-bank-transfer-out', 'Hasil mapping / pembagi'),
+                miniCard('Penerima', formatNumber(data.recipients_count || 0), false, 'mdi-account-multiple-check-outline', 'Pegawai mapping premi')
+            ] : [
                 miniCard('Total Qty Mapping', formatNumber(source.total_qty || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
                 miniCard('Tarif per Qty', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Nominal per qty obat'),
                 miniCard('Grand Total', formatRupiah(source.grand_total || data.grand_total || 0), true, 'mdi-cash-multiple', 'Total qty mapping x tarif'),
                 miniCard('Pool 50%', formatRupiah(pools.formula_base_total || pools.jasa_farmasi_pool || 0), false, 'mdi-chart-pie', 'Dasar formula penerima'),
                 miniCard('Premi Bersama', formatRupiah(pools.premi_bersama || 0), false, 'mdi-account-group-outline', 'Untuk premi bersama'),
                 miniCard('Total Dibagikan', formatRupiah(data.total_dibagikan || 0), true, 'mdi-bank-transfer-out', formatNumber(data.recipients_count || 0) + ' penerima')
-            ].join(''));
+            ]).join(''));
             $('#detailApotekFormula').html(formulaHtml({
+                kategori_premi: data.kategori_premi || activeCategory,
                 jenis_apotek: type,
                 source_periode: sourcePeriode,
                 include_bpjs_in_umum: includeBpjs,
                 source: source,
-                config: config
+                config: config,
+                pools: pools,
+                recipients: data.recipients || [],
+                total_dibagikan: data.total_dibagikan
             }));
             $('#detailApotekRecipientSubtitle').text(
-                formatNumber(data.recipients_count || 0) + ' penerima dari tiga kelompok formula.'
+                formatNumber(data.recipients_count || 0) +
+                (apotekerDetail ? ' penerima dari mapping premi.' : ' penerima dari tiga kelompok formula.')
             );
             $('#detailApotekRecipients').html(recipientGroupsHtml(groups));
             $('#detailApotekPenjaminSubtitle').text(
-                formatNumber((data.penjamin_groups || []).length) + ' penjamin dari detail obat yang masuk mapping.'
+                formatNumber((data.penjamin_groups || []).length) + ' penjamin dari detail ' + activeDetailLabel(true) + ' yang masuk mapping.'
             );
             $('#detailApotekPenjaminBreakdown').html(penjaminGroupsHtml(data.penjamin_groups || []));
             detailApotekRows = data.details || [];
@@ -1092,7 +1374,7 @@
 
             Swal.fire({
                 icon: isLock ? 'warning' : 'question',
-                title: isLock ? 'Kunci data Apotek?' : 'Buka kunci data Apotek?',
+                title: isLock ? 'Kunci data ' + activeCategoryConfig().shortLabel + '?' : 'Buka kunci data ' + activeCategoryConfig().shortLabel + '?',
                 text: isLock ? 'Data yang dikunci tidak bisa digenerate ulang.' :
                     'Data dapat digenerate ulang setelah kunci dibuka.',
                 showCancelButton: true,
@@ -1121,7 +1403,7 @@
 
             Swal.fire({
                 icon: 'warning',
-                title: 'Hapus data Apotek?',
+                title: 'Hapus data ' + activeCategoryConfig().shortLabel + '?',
                 text: 'Data yang dihapus tidak bisa dikembalikan.',
                 showCancelButton: true,
                 confirmButtonText: 'Hapus Data',
@@ -1157,7 +1439,18 @@
         $('#searchGenerateApotek').on('input', function() {
             table.search(this.value).draw();
         });
-        $('.apotek-type-tab').on('click', function() {
+        $('.apotek-category-tab').on('click', function() {
+            const category = $(this).data('category');
+
+            if (category === activeCategory) {
+                return;
+            }
+
+            setActiveCategory(category);
+            refreshAll();
+        });
+
+        $('.apotek-type-tab[data-type]').on('click', function() {
             if ($(this).data('type') === 'bpjs' && includeBpjsInUmum) {
                 return;
             }
@@ -1212,7 +1505,8 @@
                 method: 'POST',
                 data: {
                     periode: $('#periodeApotek').val(),
-                    jenis_apotek: activeType
+                    jenis_apotek: activeType,
+                    kategori_premi: activeCategory
                 },
                 beforeSend: function() {
                     button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Generate...');
@@ -1259,6 +1553,7 @@
             deleteResult($(this).data('id'));
         });
 
+        setActiveCategory(activeCategory);
         refreshAll();
     });
 </script>

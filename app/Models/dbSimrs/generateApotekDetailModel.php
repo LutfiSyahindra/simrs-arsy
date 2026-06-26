@@ -12,6 +12,7 @@ class generateApotekDetailModel extends Model
     protected $fillable = [
         'generate_apotek_id',
         'mapping_tindakan_id',
+        'mapping_premi_id',
         'jnsTindakan_id',
         'source_table',
         'sumber_tindakan',
@@ -30,10 +31,21 @@ class generateApotekDetailModel extends Model
         'nominal_premi',
         'total_premi',
         'status',
+        'kd_tindakan',
+        'nm_tindakan',
+        'kd_dokter',
+        'nm_dokter',
+        'nip',
+        'nama_petugas',
+        'biaya_rawat',
+        'jenis_mapping',
+        'nilai_mapping',
+        'hasil_mapping',
     ];
 
     protected $casts = [
         'mapping_tindakan_id' => 'integer',
+        'mapping_premi_id' => 'integer',
         'jnsTindakan_id' => 'integer',
         'tanggal' => 'date',
         'qty' => 'float',
@@ -41,6 +53,9 @@ class generateApotekDetailModel extends Model
         'total_obat' => 'integer',
         'nominal_premi' => 'integer',
         'total_premi' => 'integer',
+        'biaya_rawat' => 'integer',
+        'nilai_mapping' => 'float',
+        'hasil_mapping' => 'integer',
     ];
 
     public function result(): BelongsTo

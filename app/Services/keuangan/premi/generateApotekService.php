@@ -11,6 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 class generateApotekService
 {
+    private const CATEGORY_APOTEK = 'apotek';
+
+    private const CATEGORY_APOTEKER = 'apoteker';
+
     private const ROLE_LABELS = [
         'penerima_31' => 'Penerima 31% / 2.5',
         'penerima_7' => 'Penerima 7%',
@@ -21,20 +25,23 @@ class generateApotekService
         protected generateApotekRepository $repository
     ) {}
 
-    public function getResults(?string $periode = null, ?string $jenisApotek = null)
+    public function getResults(?string $periode = null, ?string $jenisApotek = null, string $kategoriPremi = self::CATEGORY_APOTEK)
     {
         return $this->repository
-            ->getResults($periode, $jenisApotek)
+            ->getResults($periode, $jenisApotek, $this->normalizeCategory($kategoriPremi))
             ->map(fn ($row) => $this->resultPayload($row));
     }
 
-    public function getSummary(?string $periode, string $jenisApotek): array
+    public function getSummary(?string $periode, string $jenisApotek, string $kategoriPremi = self::CATEGORY_APOTEK): array
     {
-        $config = $this->configPayload($this->repository->getConfig($jenisApotek));
+        $kategoriPremi = $this->normalizeCategory($kategoriPremi);
+        $config = $this->configPayload($this->repository->getConfig($jenisApotek, $kategoriPremi));
         $sourcePeriodMode = $config['source_period_mode'];
 
         return [
             'periode' => $periode,
+            'kategori_premi' => $kategoriPremi,
+            'kategori_premi_label' => $this->categoryLabel($kategoriPremi),
             'jenis_apotek' => $jenisApotek,
             'jenis_apotek_label' => $this->typeLabel($jenisApotek),
             'source_period_mode' => $sourcePeriodMode,
@@ -43,28 +50,33 @@ class generateApotekService
             'source_periode' => $periode
                 ? PremiSourcePeriod::resolve($periode, $jenisApotek, $sourcePeriodMode)
                 : null,
-            ...$this->repository->getSummary($periode, $jenisApotek),
+            ...$this->repository->getSummary($periode, $jenisApotek, $kategoriPremi),
         ];
     }
 
-    public function getConfig(string $jenisApotek): array
+    public function getConfig(string $jenisApotek, string $kategoriPremi = self::CATEGORY_APOTEK): array
     {
-        return $this->configPayload($this->repository->getConfig($jenisApotek));
+        return $this->configPayload($this->repository->getConfig($jenisApotek, $this->normalizeCategory($kategoriPremi)));
     }
 
-    public function updateConfig(string $jenisApotek, array $data): array
+    public function updateConfig(string $jenisApotek, array $data, string $kategoriPremi = self::CATEGORY_APOTEK): array
     {
+        $kategoriPremi = $this->normalizeCategory($kategoriPremi);
+        $data['kategori_premi'] = $kategoriPremi;
         $mappingIds = collect($data['jnsTindakan_ids'] ?? [])
             ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
             ->values()
             ->all();
-        $recipients = $this->hydrateRecipients($data['recipients'] ?? []);
+        $recipients = $kategoriPremi === self::CATEGORY_APOTEK
+            ? $this->hydrateRecipients($data['recipients'] ?? [])
+            : [];
 
         return $this->configPayload(
             $this->repository->saveConfig(
                 $jenisApotek,
+                $kategoriPremi,
                 $this->configFormPayload($data),
                 $mappingIds,
                 $recipients
@@ -72,16 +84,21 @@ class generateApotekService
         );
     }
 
-    public function mappingOptions(?string $keyword = null)
+    public function mappingOptions(?string $keyword = null, string $kategoriPremi = self::CATEGORY_APOTEK)
     {
+        $kategoriPremi = $this->normalizeCategory($kategoriPremi);
+
         return $this->repository
-            ->mappingOptions($keyword)
+            ->mappingOptions($keyword, $kategoriPremi)
             ->map(fn ($item) => [
                 'id' => (int) $item->id,
                 'kode' => $item->kode,
                 'jenis' => $item->jenis,
                 'jumlah_mapping' => (int) $item->jumlah_mapping,
-                'text' => trim($item->kode.' - '.$item->jenis.' ('.$item->jumlah_mapping.' obat)'),
+                'pembagi' => (int) ($item->pembagi ?? 1),
+                'text' => $kategoriPremi === self::CATEGORY_APOTEKER
+                    ? trim($item->kode.' - '.$item->jenis.' ('.$item->jumlah_mapping.' tindakan / pembagi '.max(1, (int) ($item->pembagi ?? 1)).')')
+                    : trim($item->kode.' - '.$item->jenis.' ('.$item->jumlah_mapping.' obat)'),
             ])
             ->values();
     }
@@ -100,23 +117,25 @@ class generateApotekService
             ->values();
     }
 
-    public function preview(string $periode, string $jenisApotek): array
+    public function preview(string $periode, string $jenisApotek, string $kategoriPremi = self::CATEGORY_APOTEK): array
     {
-        return $this->calculate($periode, $jenisApotek);
+        return $this->calculate($periode, $jenisApotek, false, $this->normalizeCategory($kategoriPremi));
     }
 
-    public function generate(string $periode, string $jenisApotek): array
+    public function generate(string $periode, string $jenisApotek, string $kategoriPremi = self::CATEGORY_APOTEK): array
     {
-        return DB::transaction(function () use ($periode, $jenisApotek) {
-            $existing = $this->repository->findExistingForUpdate($periode, $jenisApotek);
+        $kategoriPremi = $this->normalizeCategory($kategoriPremi);
+
+        return DB::transaction(function () use ($periode, $jenisApotek, $kategoriPremi) {
+            $existing = $this->repository->findExistingForUpdate($periode, $jenisApotek, $kategoriPremi);
 
             if ($existing?->is_locked) {
                 throw ValidationException::withMessages([
-                    'periode' => 'Data Apotek periode dan jenis ini sudah dikunci.',
+                    'periode' => 'Data '.$this->categoryLabel($kategoriPremi).' periode dan jenis ini sudah dikunci.',
                 ]);
             }
 
-            $calculation = $this->calculate($periode, $jenisApotek, true);
+            $calculation = $this->calculate($periode, $jenisApotek, true, $kategoriPremi);
 
             return $this->resultPayload(
                 $this->repository->saveResult($periode, $jenisApotek, $calculation)
@@ -145,11 +164,18 @@ class generateApotekService
             'jumlah_data_mapping' => $result->jumlah_data_mapping,
             'jumlah_pasien' => $result->jumlah_pasien,
             'jumlah_obat' => $result->jumlah_obat,
+            'jumlah_tindakan' => $result->jumlah_tindakan,
+            'jumlah_mapping_premi' => $result->jumlah_mapping_premi,
             'total_qty' => $result->total_qty,
             'tarif_per_item' => $result->tarif_per_item,
             'grand_total' => $result->grand_total,
+            'total_biaya_rawat' => $result->total_biaya_rawat,
+            'total_mapping_premi' => $result->total_mapping_premi,
+            'pembagi' => $payload['pembagi'] ?? 1,
+            'total_final' => $result->total_final,
         ];
         $payload['pools'] = $this->poolPayload($result);
+        $payload['calculation_details'] = data_get($result->config_snapshot, 'calculation_details', []);
         $payload['recipient_groups'] = collect($payload['recipients'])
             ->groupBy('role')
             ->map(fn ($items) => [
@@ -161,6 +187,26 @@ class generateApotekService
                 'total_received' => $items->sum('total_received'),
                 'items' => $items->values(),
             ])
+            ->values();
+        $payload['tindakan_groups'] = collect($payload['details'])
+            ->filter(fn ($item) => ! empty($item['kd_tindakan']))
+            ->groupBy('mapping_premi_id')
+            ->map(function ($items) {
+                $first = $items->first();
+
+                return [
+                    'mapping_premi_id' => $first['mapping_premi_id'],
+                    'kd_tindakan' => $first['kd_tindakan'],
+                    'nm_tindakan' => $first['nm_tindakan'] ?: $first['nama_barang'],
+                    'jenis_mapping' => $first['jenis_mapping'],
+                    'nilai_mapping' => $first['nilai_mapping'],
+                    'jumlah_item' => $items->count(),
+                    'jumlah_pasien' => $items->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => $items->sum('biaya_rawat'),
+                    'total_premi' => $items->sum('total_premi'),
+                ];
+            })
+            ->sortByDesc('total_biaya_rawat')
             ->values();
         $payload['source_groups'] = collect($payload['details'])
             ->groupBy('status')
@@ -258,9 +304,20 @@ class generateApotekService
         });
     }
 
-    private function calculate(string $periode, string $jenisApotek, bool $strict = false): array
+    private function calculate(
+        string $periode,
+        string $jenisApotek,
+        bool $strict = false,
+        string $kategoriPremi = self::CATEGORY_APOTEK
+    ): array
     {
-        $config = $this->configPayload($this->repository->getConfig($jenisApotek));
+        $kategoriPremi = $this->normalizeCategory($kategoriPremi);
+
+        if ($kategoriPremi === self::CATEGORY_APOTEKER) {
+            return $this->calculateApoteker($periode, $jenisApotek, $strict);
+        }
+
+        $config = $this->configPayload($this->repository->getConfig($jenisApotek, self::CATEGORY_APOTEK));
 
         if ($strict && empty($config['jnsTindakan_ids'])) {
             throw ValidationException::withMessages([
@@ -357,6 +414,8 @@ class generateApotekService
         ];
 
         return [
+            'kategori_premi' => self::CATEGORY_APOTEK,
+            'kategori_premi_label' => $this->categoryLabel(self::CATEGORY_APOTEK),
             'periode' => $periode,
             'jenis_apotek' => $jenisApotek,
             'jenis_apotek_label' => $this->typeLabel($jenisApotek),
@@ -381,6 +440,94 @@ class generateApotekService
                 ])
                 ->values(),
             'total_dibagikan' => collect($recipients)->sum('total_received'),
+            'config' => $configSnapshot,
+            'config_snapshot' => $configSnapshot,
+            'warnings' => $warnings,
+            'can_generate' => empty($warnings['blocking']),
+        ];
+    }
+
+    private function calculateApoteker(string $periode, string $jenisApotek, bool $strict = false): array
+    {
+        $config = $this->configPayload($this->repository->getConfig($jenisApotek, self::CATEGORY_APOTEKER));
+
+        if ($strict && empty($config['jnsPremi_id'])) {
+            throw ValidationException::withMessages([
+                'jnsPremi_id' => 'Jenis premi Apoteker wajib dipilih sebelum generate.',
+            ]);
+        }
+
+        $source = $this->repository->getApotekerSourceData($periode, $jenisApotek, $config);
+
+        if ($strict && ($source['mapping']['jumlah_mapping'] ?? 0) < 1) {
+            throw ValidationException::withMessages([
+                'jnsPremi_id' => 'Jenis premi Apoteker belum memiliki mapping tindakan rawat.',
+            ]);
+        }
+
+        $recipients = $this->apotekerRecipients(
+            (int) $source['total_final'],
+            (int) $source['pembagi'],
+            (int) ($config['jnsPremi_id'] ?? 0)
+        );
+        $pools = [
+            'grand_total' => (int) $source['grand_total'],
+            'total_biaya_rawat' => (int) $source['total_biaya_rawat'],
+            'total_mapping_premi' => (int) $source['total_mapping_premi'],
+            'pembagi' => (int) $source['pembagi'],
+            'total_final' => (int) $source['total_final'],
+            'total_dibagikan' => (int) collect($recipients)->sum('total_received'),
+        ];
+        $warnings = $this->apotekerWarnings($source, $config, $recipients);
+
+        if ($strict && ! empty($warnings['blocking'])) {
+            throw ValidationException::withMessages([
+                'config' => implode(' ', $warnings['blocking']),
+            ]);
+        }
+
+        $configSnapshot = [
+            ...$config,
+            'source_periode' => $source['source_periode'],
+            'source_period_mode' => $source['source_period_mode'],
+            'source_period_mode_label' => $source['source_period_mode_label'],
+            'source_tgl_awal' => $source['source_tgl_awal'],
+            'source_tgl_akhir' => $source['source_tgl_akhir'],
+            'mapping' => $source['mapping'],
+            'calculation_details' => $source['calculation_details']->all(),
+            'pools' => $pools,
+            'recipient_counts' => [
+                'apoteker' => count($recipients),
+            ],
+        ];
+
+        return [
+            'kategori_premi' => self::CATEGORY_APOTEKER,
+            'kategori_premi_label' => $this->categoryLabel(self::CATEGORY_APOTEKER),
+            'periode' => $periode,
+            'jenis_apotek' => $jenisApotek,
+            'jenis_apotek_label' => $this->typeLabel($jenisApotek),
+            'source_periode' => $source['source_periode'],
+            'source_period_mode' => $source['source_period_mode'],
+            'source_period_mode_label' => $source['source_period_mode_label'],
+            'source_tgl_awal' => $source['source_tgl_awal'],
+            'source_tgl_akhir' => $source['source_tgl_akhir'],
+            'source' => $source,
+            'pools' => $pools,
+            'recipients' => $recipients,
+            'recipient_groups' => collect($recipients)
+                ->groupBy('role')
+                ->map(fn ($items) => [
+                    'role' => $items->first()['role'],
+                    'role_label' => $items->first()['role_label'],
+                    'pool_total' => $items->first()['pool_total'],
+                    'amount_per_recipient' => $items->first()['amount_per_recipient'],
+                    'recipient_count' => $items->count(),
+                    'total_received' => $items->sum('total_received'),
+                    'items' => $items->values(),
+                ])
+                ->values(),
+            'total_dibagikan' => (int) collect($recipients)->sum('total_received'),
             'config' => $configSnapshot,
             'config_snapshot' => $configSnapshot,
             'warnings' => $warnings,
@@ -431,8 +578,66 @@ class generateApotekService
         ];
     }
 
+    private function apotekerWarnings(array $source, array $config, array $recipients): array
+    {
+        $blocking = [];
+        $info = [];
+
+        if (empty($config['jnsPremi_id'])) {
+            $blocking[] = 'Jenis premi Apoteker belum dipilih.';
+        } elseif (($source['mapping']['jumlah_mapping'] ?? 0) < 1) {
+            $blocking[] = 'Jenis premi Apoteker belum memiliki mapping tindakan rawat.';
+        }
+
+        if (($source['total_final'] ?? 0) > 0 && empty($recipients)) {
+            $blocking[] = 'Pegawai penerima pada mapping premi Apoteker belum diisi.';
+        }
+
+        if ($source['jumlah_data_sumber'] < 1) {
+            $info[] = 'Tidak ada tindakan rawat pada periode sumber dan penjamin ini.';
+        } elseif ($source['jumlah_data_mapping'] < 1) {
+            $info[] = 'Ada tindakan rawat, tetapi belum ada tindakan yang cocok dengan mapping premi Apoteker.';
+        }
+
+        return [
+            'blocking' => $blocking,
+            'info' => $info,
+        ];
+    }
+
+    private function apotekerRecipients(int $pool, int $divider, int $jnsPremiId): array
+    {
+        $items = $this->repository->premiRecipients($jnsPremiId);
+
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        $recipientCount = $items->count();
+        $base = intdiv($pool, $recipientCount);
+        $remainder = $pool % $recipientCount;
+        $allocationPercent = $pool > 0 ? round(100 / $recipientCount, 2) : null;
+
+        return $items
+            ->values()
+            ->map(fn ($item, $index) => [
+                'role' => 'apoteker',
+                'role_label' => 'Pegawai Mapping Premi',
+                'pegawai_id' => $item->pegawai_id,
+                'pegawai_name' => $item->pegawai_name,
+                'pegawai_position' => $item->pegawai_position ?? null,
+                'allocation_percent' => $allocationPercent,
+                'divider' => max(1, $divider),
+                'pool_total' => $pool,
+                'amount_per_recipient' => $base,
+                'total_received' => $base + ($index < $remainder ? 1 : 0),
+            ])
+            ->all();
+    }
+
     private function configFormPayload(array $data): array
     {
+        $kategoriPremi = $this->normalizeCategory($data['kategori_premi'] ?? null);
         $formulaTotal = (float) ($data['formula_31_percent'] ?? 31)
             + (float) ($data['formula_7_percent'] ?? 7)
             + (float) ($data['formula_12_percent'] ?? 12);
@@ -444,6 +649,10 @@ class generateApotekService
         }
 
         return [
+            'kategori_premi' => $kategoriPremi,
+            'jnsPremi_id' => $kategoriPremi === self::CATEGORY_APOTEKER
+                ? (int) ($data['jnsPremi_id'] ?? 0) ?: null
+                : null,
             'tarif_per_item' => max(0, (int) ($data['tarif_per_item'] ?? 500)),
             'source_period_mode' => PremiSourcePeriod::normalizeMode(
                 $data['source_period_mode'] ?? null,
@@ -513,9 +722,20 @@ class generateApotekService
         $mappingLabel = $mappingItems->count() > 1
             ? $firstMapping['label'].' + '.($mappingItems->count() - 1).' mapping'
             : ($firstMapping['label'] ?? null);
+        $kategoriPremi = $this->normalizeCategory($config->kategori_premi ?? null);
+        $premiItem = $config->jnsPremi ? [
+            'id' => (int) $config->jnsPremi->id,
+            'kode' => $config->jnsPremi->kode,
+            'jenis' => $config->jnsPremi->jenis,
+            'pembagi' => max(1, (int) ($config->jnsPremi->pembagi ?? 1)),
+            'label' => trim($config->jnsPremi->kode.' - '.$config->jnsPremi->jenis),
+            'text' => trim($config->jnsPremi->kode.' - '.$config->jnsPremi->jenis),
+        ] : null;
 
         return [
             'id' => $config->id,
+            'kategori_premi' => $kategoriPremi,
+            'kategori_premi_label' => $this->categoryLabel($kategoriPremi),
             'jenis_apotek' => $config->jenis_apotek,
             'jenis_apotek_label' => $this->typeLabel($config->jenis_apotek),
             'source_period_mode' => PremiSourcePeriod::normalizeMode(
@@ -529,11 +749,15 @@ class generateApotekService
             'include_bpjs_in_umum' => $config->jenis_apotek === 'umum'
                 && (bool) ($config->include_bpjs_in_umum ?? false),
             'jnsTindakan_id' => $config->jnsTindakan_id,
+            'jnsPremi_id' => $config->jnsPremi_id,
+            'premi_item' => $premiItem,
             'jnsTindakan_ids' => $mappingItems->pluck('id')->all(),
             'mapping_items' => $mappingItems->all(),
             'kode_jenis_tindakan' => $config->jenisTindakan?->kode,
             'nama_jenis_tindakan' => $config->jenisTindakan?->jenis,
-            'mapping_label' => $mappingLabel,
+            'mapping_label' => $kategoriPremi === self::CATEGORY_APOTEKER
+                ? ($premiItem['label'] ?? null)
+                : $mappingLabel,
             'tarif_per_item' => (int) $config->tarif_per_item,
             'jasa_farmasi_percent' => 50.0,
             'formula_31_percent' => (float) $config->formula_31_percent,
@@ -551,11 +775,15 @@ class generateApotekService
     private function resultPayload($row): array
     {
         $configSnapshot = $row->config_snapshot ?: [];
+        $kategoriPremi = $this->normalizeCategory($row->kategori_premi ?? $configSnapshot['kategori_premi'] ?? null);
         $sourcePeriodMode = $configSnapshot['source_period_mode']
+            ?? $row->source_period_mode
             ?? $this->sourcePeriodModeFromResult($row->periode, $row->source_periode, $row->jenis_apotek);
 
         return [
             'id' => $row->id,
+            'kategori_premi' => $kategoriPremi,
+            'kategori_premi_label' => $this->categoryLabel($kategoriPremi),
             'periode' => $row->periode,
             'source_periode' => $row->source_periode,
             'source_period_mode' => $sourcePeriodMode,
@@ -567,6 +795,10 @@ class generateApotekService
             'jenis_apotek' => $row->jenis_apotek,
             'jenis_apotek_label' => $this->typeLabel($row->jenis_apotek),
             'jnsTindakan_id' => $row->jnsTindakan_id,
+            'jnsPremi_id' => $row->jnsPremi_id,
+            'kode_premi' => $row->kode_premi,
+            'nama_premi' => $row->nama_premi,
+            'pembagi' => max(1, (int) ($row->pembagi ?? data_get($configSnapshot, 'mapping.pembagi', 1))),
             'kode_jenis_tindakan' => $row->kode_jenis_tindakan,
             'nama_jenis_tindakan' => $row->nama_jenis_tindakan,
             'mapping_label' => $configSnapshot['mapping']['label']
@@ -579,9 +811,14 @@ class generateApotekService
             'jumlah_data_mapping' => $row->jumlah_data_mapping,
             'jumlah_pasien' => $row->jumlah_pasien,
             'jumlah_obat' => $row->jumlah_obat,
+            'jumlah_tindakan' => $row->jumlah_tindakan,
+            'jumlah_mapping_premi' => $row->jumlah_mapping_premi,
             'total_qty' => $row->total_qty,
             'tarif_per_item' => $row->tarif_per_item,
             'grand_total' => $row->grand_total,
+            'total_biaya_rawat' => $row->total_biaya_rawat,
+            'total_mapping_premi' => $row->total_mapping_premi,
+            'total_final' => $row->total_final,
             'total_jasa_farmasi_pool' => $row->total_jasa_farmasi_pool,
             'total_formula_31' => $row->total_formula_31,
             'total_formula_7' => $row->total_formula_7,
@@ -610,6 +847,7 @@ class generateApotekService
         return [
             'id' => $detail->id,
             'mapping_tindakan_id' => $detail->mapping_tindakan_id,
+            'mapping_premi_id' => $detail->mapping_premi_id,
             'jnsTindakan_id' => $detail->jnsTindakan_id,
             'source_table' => $detail->source_table,
             'sumber_tindakan' => $detail->sumber_tindakan,
@@ -629,6 +867,16 @@ class generateApotekService
             'nominal_premi' => $detail->nominal_premi,
             'total_premi' => $detail->total_premi,
             'status' => $detail->status,
+            'kd_tindakan' => $detail->kd_tindakan,
+            'nm_tindakan' => $detail->nm_tindakan,
+            'kd_dokter' => $detail->kd_dokter,
+            'nm_dokter' => $detail->nm_dokter,
+            'nip' => $detail->nip,
+            'nama_petugas' => $detail->nama_petugas,
+            'biaya_rawat' => $detail->biaya_rawat,
+            'jenis_mapping' => $detail->jenis_mapping,
+            'nilai_mapping' => $detail->nilai_mapping,
+            'hasil_mapping' => $detail->hasil_mapping,
         ];
     }
 
@@ -718,6 +966,18 @@ class generateApotekService
     {
         $configSnapshot = $row->config_snapshot ?: [];
 
+        if ($this->normalizeCategory($row->kategori_premi ?? null) === self::CATEGORY_APOTEKER) {
+            return [
+                'grand_total' => $row->grand_total,
+                'total_biaya_rawat' => $row->total_biaya_rawat,
+                'total_mapping_premi' => $row->total_mapping_premi,
+                'pembagi' => max(1, (int) ($row->pembagi ?? data_get($configSnapshot, 'pools.pembagi', 1))),
+                'total_final' => $row->total_final,
+                'total_dibagikan' => $row->total_dibagikan,
+                'calculation_details' => data_get($configSnapshot, 'calculation_details', []),
+            ];
+        }
+
         return [
             'jasa_farmasi_pool' => $row->total_jasa_farmasi_pool,
             'formula_base_percent' => (float) data_get($configSnapshot, 'pools.formula_base_percent', 50),
@@ -765,9 +1025,16 @@ class generateApotekService
 
     private function sourceLabel(string $sourceTable): string
     {
-        return $sourceTable === 'detail_pemberian_obat'
-            ? 'Detail Pemberian Obat'
-            : $sourceTable;
+        return match ($sourceTable) {
+            'detail_pemberian_obat' => 'Detail Pemberian Obat',
+            'rawat_jl_pr' => 'Rawat Jalan Paramedis',
+            'rawat_inap_pr' => 'Rawat Inap Paramedis',
+            'rawat_jl_dr' => 'Rawat Jalan Dokter',
+            'rawat_inap_dr' => 'Rawat Inap Dokter',
+            'rawat_jl_drpr' => 'Rawat Jalan Dokter & Paramedis',
+            'rawat_inap_drpr' => 'Rawat Inap Dokter & Paramedis',
+            default => $sourceTable,
+        };
     }
 
     private function sourcePeriodModeFromResult(string $periode, string $sourcePeriode, string $jenisApotek): string
@@ -784,5 +1051,19 @@ class generateApotekService
     private function typeLabel(string $jenisApotek): string
     {
         return $jenisApotek === 'bpjs' ? 'BPJS Kesehatan' : 'Umum';
+    }
+
+    private function normalizeCategory(?string $kategoriPremi): string
+    {
+        return $kategoriPremi === self::CATEGORY_APOTEKER
+            ? self::CATEGORY_APOTEKER
+            : self::CATEGORY_APOTEK;
+    }
+
+    private function categoryLabel(string $kategoriPremi): string
+    {
+        return $this->normalizeCategory($kategoriPremi) === self::CATEGORY_APOTEKER
+            ? 'Premi Apoteker'
+            : 'Premi Apotek';
     }
 }

@@ -1324,13 +1324,13 @@
 
         <section class="apotek-hero">
             <div class="apotek-hero-main">
-                <div class="apotek-hero-icon">
+                <div class="apotek-hero-icon" id="heroIconApotek">
                     <i class="mdi mdi-pill"></i>
                 </div>
                 <div>
                     <div class="apotek-eyebrow">Otomatis dari Khanza</div>
-                    <h4 class="apotek-title">Generate Premi Apotek</h4>
-                    <p class="apotek-description">
+                    <h4 class="apotek-title" id="heroTitleApotek">Generate Premi Apotek</h4>
+                    <p class="apotek-description" id="heroDescriptionApotek">
                         Sistem membaca detail_pemberian_obat sesuai periode sumber, memisahkan UMUM dan BPJS,
                         mencocokkan kode barang ke mapping Farmasi, lalu menghitung formula 500 per item serta
                         pembagian 50%, 31%, 7%, 12%, dan premi bersama 30%.
@@ -1356,6 +1356,23 @@
                 </div>
             </div>
         </section>
+
+        <div class="apotek-type-tabs apotek-category-tabs">
+            <button type="button" class="apotek-type-tab apotek-category-tab active" data-category="apotek">
+                <i class="mdi mdi-pill-multiple"></i>
+                <span>
+                    <strong>Obat Apotek</strong>
+                    <small>detail_pemberian_obat dan mapping Farmasi</small>
+                </span>
+            </button>
+            <button type="button" class="apotek-type-tab apotek-category-tab" data-category="apoteker">
+                <i class="mdi mdi-account-tie-voice-outline"></i>
+                <span>
+                    <strong>Premi Apoteker</strong>
+                    <small>rawat jalan/inap dan mapping premi</small>
+                </span>
+            </button>
+        </div>
 
         <div class="apotek-type-tabs">
             <button type="button" class="apotek-type-tab active" data-type="umum">
@@ -1408,14 +1425,14 @@
                             0 data generate
                         </span>
                     </div>
-                    <div class="apotek-summary-highlight-label">Grand Total Periode</div>
+                    <div class="apotek-summary-highlight-label" id="summaryGrandLabelApotek">Grand Total Periode</div>
                     <div class="apotek-summary-highlight-value" id="summaryGrandApotek">Rp 0</div>
                     <div class="apotek-summary-highlight-note" id="summaryGrandNoteApotek">
                         0 item mapping x nominal aktif.
                     </div>
                     <div class="apotek-summary-highlight-grid">
                         <div class="apotek-summary-micro">
-                            <div class="apotek-summary-micro-label">Total Qty</div>
+                            <div class="apotek-summary-micro-label" id="summaryItemLabelApotek">Total Qty</div>
                             <div class="apotek-summary-micro-value" id="summaryItemApotek">0</div>
                         </div>
                         <div class="apotek-summary-micro">
@@ -1429,10 +1446,10 @@
                     <div class="apotek-summary-stack-card wide">
                         <div class="apotek-summary-stack-top">
                             <div>
-                                <div class="apotek-summary-stack-label">Total Dibagikan</div>
+                                <div class="apotek-summary-stack-label" id="summaryDibagikanLabelApotek">Total Dibagikan</div>
                                 <div class="apotek-summary-stack-value" id="summaryDibagikanApotek">Rp 0</div>
                                 <div class="apotek-summary-stack-note">
-                                    Formula 31%, 7%, dan 12% untuk pegawai terpilih.
+                                    <span id="summaryDibagikanNoteApotek">Formula 31%, 7%, dan 12% untuk pegawai terpilih.</span>
                                 </div>
                             </div>
                             <div class="apotek-summary-stack-icon">
@@ -1443,9 +1460,9 @@
                     <div class="apotek-summary-stack-card cyan">
                         <div class="apotek-summary-stack-top">
                             <div>
-                                <div class="apotek-summary-stack-label">Premi Bersama</div>
+                                <div class="apotek-summary-stack-label" id="summaryBersamaLabelApotek">Premi Bersama</div>
                                 <div class="apotek-summary-stack-value" id="summaryBersamaApotek">Rp 0</div>
-                                <div class="apotek-summary-stack-note">30% default dari grand total.</div>
+                                <div class="apotek-summary-stack-note" id="summaryBersamaNoteApotek">30% default dari grand total.</div>
                             </div>
                             <div class="apotek-summary-stack-icon">
                                 <i class="mdi mdi-account-group-outline"></i>
@@ -1476,7 +1493,7 @@
                         <div class="apotek-summary-data-item">
                             <div class="apotek-summary-data-icon"><i class="mdi mdi-pill-multiple"></i></div>
                             <div>
-                                <div class="apotek-summary-data-label">Kode Obat Sumber</div>
+                                <div class="apotek-summary-data-label" id="summaryObatLabelApotek">Kode Obat Sumber</div>
                                 <div class="apotek-summary-data-value" id="summaryObatApotek">0</div>
                             </div>
                         </div>
@@ -1526,10 +1543,10 @@
                                 <th>Periode Data</th>
                                 <th>Jenis</th>
                                 <th>Mapping</th>
-                                <th class="text-center">Qty</th>
+                                <th class="text-center" id="tableQtyHeaderApotek">Qty</th>
                                 <th class="text-end">Grand Total</th>
-                                <th class="text-end">Premi Bersama</th>
-                                <th class="text-end">Dibagikan</th>
+                                <th class="text-end" id="tableBersamaHeaderApotek">Premi Bersama</th>
+                                <th class="text-end" id="tableDibagikanHeaderApotek">Dibagikan</th>
                                 <th class="text-center">Penerima</th>
                                 <th>Status</th>
                                 <th>Aksi</th>
