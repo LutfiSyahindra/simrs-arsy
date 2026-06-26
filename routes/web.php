@@ -5,6 +5,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiLaboratoriumController;
@@ -278,6 +279,20 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generateIcu/{id}/lock', [hitungPremiIcuController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateIcu.lock');
         Route::post('/hitung-premi/generateIcu/{id}/unlock', [hitungPremiIcuController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateIcu.unlock');
         Route::delete('/hitung-premi/generateIcu/{id}/delete', [hitungPremiIcuController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateIcu.delete');
+
+        Route::get('/hitung-premi/generateGizi', [hitungPremiGiziController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateGizi');
+        Route::get('/hitung-premi/generateGizi/table', [hitungPremiGiziController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateGizi.table');
+        Route::get('/hitung-premi/generateGizi/summary', [hitungPremiGiziController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateGizi.summary');
+        Route::get('/hitung-premi/generateGizi/config', [hitungPremiGiziController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateGizi.config');
+        Route::put('/hitung-premi/generateGizi/config', [hitungPremiGiziController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateGizi.updateConfig');
+        Route::get('/hitung-premi/generateGizi/mapping-options', [hitungPremiGiziController::class, 'mappingOptions'])->name('backOffice.keuangan.hitungPremi.generateGizi.mappingOptions');
+        Route::get('/hitung-premi/generateGizi/pegawai-options', [hitungPremiGiziController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateGizi.pegawaiOptions');
+        Route::get('/hitung-premi/generateGizi/preview', [hitungPremiGiziController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generateGizi.preview');
+        Route::post('/hitung-premi/generateGizi', [hitungPremiGiziController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateGizi.store');
+        Route::get('/hitung-premi/generateGizi/{id}/detail', [hitungPremiGiziController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateGizi.detail');
+        Route::post('/hitung-premi/generateGizi/{id}/lock', [hitungPremiGiziController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateGizi.lock');
+        Route::post('/hitung-premi/generateGizi/{id}/unlock', [hitungPremiGiziController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateGizi.unlock');
+        Route::delete('/hitung-premi/generateGizi/{id}/delete', [hitungPremiGiziController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateGizi.delete');
 
         Route::get('/hitung-premi/generateNicu', [hitungPremiNicuController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateNicu');
         Route::get('/hitung-premi/generateNicu/table', [hitungPremiNicuController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateNicu.table');

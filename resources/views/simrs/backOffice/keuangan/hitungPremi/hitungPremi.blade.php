@@ -639,6 +639,34 @@
                 </div>
             </article>
 
+            <article class="generator-menu-card" style="--card-color: #15803d; --card-soft: #dcfce7;"
+                data-title="Generate Premi Gizi"
+                data-search="generate premi gizi umum bpjs konsul diit rawat jalan rawat inap mapping">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-food-apple-outline"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Gizi</h5>
+                    <p class="generator-menu-description">
+                        Mengambil tindakan rawat jalan/inap sesuai mapping Konsul dan Diit, lalu menghitung pembagian
+                        UMUM/BPJS dengan formula dinamis.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        rawat dokter, rawat paramedis, mapping Konsul/Diit
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Gizi</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateGizi") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
             <article class="generator-menu-card" style="--card-color: #db2777; --card-soft: #fce7f3;"
                 data-title="Generate Premi Apotek" data-search="generate premi apotek farmasi obat detail pemberian obat">
                 <div class="generator-menu-accent"></div>
