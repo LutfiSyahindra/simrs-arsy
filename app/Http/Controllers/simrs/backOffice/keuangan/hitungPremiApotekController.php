@@ -102,6 +102,7 @@ class hitungPremiApotekController extends Controller
             'jnsTindakan_ids.*' => ['integer', 'distinct', 'exists:master_jenis_tindakan,id'],
             'tarif_per_item' => ['required', 'integer', 'min:0', 'max:1000000'],
             'source_period_mode' => ['nullable', 'in:previous,current'],
+            'include_bpjs_in_umum' => ['nullable', 'boolean'],
             'jasa_farmasi_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'formula_31_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'formula_31_divider' => ['required', 'numeric', 'min:0.01', 'max:999'],

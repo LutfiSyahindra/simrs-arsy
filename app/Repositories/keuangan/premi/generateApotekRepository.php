@@ -212,12 +212,13 @@ class generateApotekRepository
         $mappings = $this->selectedMappings($mappingIds);
         $mappingByCode = $mappings->unique('kd_tindakan')->keyBy('kd_tindakan');
         $codes = $mappings->pluck('kd_tindakan')->unique()->values();
-        $sourceSummary = $this->sourceSummary($jenisApotek, $sourceStart, $sourceEnd);
+        $includeBpjsInUmum = $this->includeBpjsInUmum($jenisApotek, $config);
+        $sourceSummary = $this->sourceSummary($jenisApotek, $sourceStart, $sourceEnd, $includeBpjsInUmum);
         $details = collect();
 
         if ($codes->isNotEmpty()) {
             foreach ($codes->chunk(700) as $codeChunk) {
-                $rows = $this->sourceQuery($jenisApotek, $sourceStart, $sourceEnd)
+                $rows = $this->sourceQuery($jenisApotek, $sourceStart, $sourceEnd, $includeBpjsInUmum)
                     ->whereIn('dpo.kode_brng', $codeChunk->values()->all())
                     ->get();
 
@@ -264,7 +265,7 @@ class generateApotekRepository
             'jumlah_obat' => $details->pluck('kode_barang')->unique()->count(),
             'total_qty' => round((float) $details->sum('qty'), 2),
             'tarif_per_item' => $tarifPerItem,
-            'grand_total' => $details->count() * $tarifPerItem,
+            'grand_total' => (int) $details->sum('total_premi'),
             'mapping' => $this->mappingSummary($mappingIds, $mappings),
             'details' => $details,
         ];
@@ -400,9 +401,9 @@ class generateApotekRepository
         $result->delete();
     }
 
-    private function sourceSummary(string $jenisApotek, $sourceStart, $sourceEnd): array
+    private function sourceSummary(string $jenisApotek, $sourceStart, $sourceEnd, bool $includeBpjsInUmum = false): array
     {
-        $row = $this->sourceBaseQuery($jenisApotek, $sourceStart, $sourceEnd)
+        $row = $this->sourceBaseQuery($jenisApotek, $sourceStart, $sourceEnd, $includeBpjsInUmum)
             ->selectRaw('COUNT(*) as jumlah_data_sumber')
             ->selectRaw('COUNT(DISTINCT dpo.no_rawat) as jumlah_pasien_sumber')
             ->selectRaw('COUNT(DISTINCT dpo.kode_brng) as jumlah_obat_sumber')
@@ -415,9 +416,9 @@ class generateApotekRepository
         ];
     }
 
-    private function sourceQuery(string $jenisApotek, $sourceStart, $sourceEnd)
+    private function sourceQuery(string $jenisApotek, $sourceStart, $sourceEnd, bool $includeBpjsInUmum = false)
     {
-        return $this->sourceBaseQuery($jenisApotek, $sourceStart, $sourceEnd)
+        return $this->sourceBaseQuery($jenisApotek, $sourceStart, $sourceEnd, $includeBpjsInUmum)
             ->select([
                 DB::raw("'detail_pemberian_obat' as source_table"),
                 DB::raw("'FARMASI' as sumber_tindakan"),
@@ -437,7 +438,7 @@ class generateApotekRepository
             ]);
     }
 
-    private function sourceBaseQuery(string $jenisApotek, $sourceStart, $sourceEnd)
+    private function sourceBaseQuery(string $jenisApotek, $sourceStart, $sourceEnd, bool $includeBpjsInUmum = false)
     {
         return DB::connection('mysql_khanza')
             ->table('detail_pemberian_obat as dpo')
@@ -450,7 +451,9 @@ class generateApotekRepository
             ->when(
                 $jenisApotek === 'bpjs',
                 fn ($query) => $query->where('rp.kd_pj', 'BPJ'),
-                fn ($query) => $query->whereNotIn('rp.kd_pj', ['BPJ', '-'])
+                fn ($query) => $includeBpjsInUmum
+                    ? $query->where('rp.kd_pj', '!=', '-')
+                    : $query->whereNotIn('rp.kd_pj', ['BPJ', '-'])
             );
     }
 
@@ -484,6 +487,8 @@ class generateApotekRepository
 
     private function detailPayload(object $row, object $mapping, int $tarifPerItem): array
     {
+        $qty = round((float) $row->qty, 2);
+
         return [
             'mapping_tindakan_id' => $mapping->id,
             'jnsTindakan_id' => $mapping->jnsTindakan_id,
@@ -498,11 +503,11 @@ class generateApotekRepository
             'jam' => $this->cleanTime($row->jam),
             'kode_barang' => $row->kode_barang,
             'nama_barang' => $mapping->nm_tindakan ?: $row->nama_barang,
-            'qty' => round((float) $row->qty, 2),
+            'qty' => $qty,
             'harga_obat' => (int) round((float) $row->harga_obat),
             'total_obat' => (int) round((float) $row->total_obat),
             'nominal_premi' => $tarifPerItem,
-            'total_premi' => $tarifPerItem,
+            'total_premi' => (int) round($qty * $tarifPerItem),
             'status' => $row->status,
         ];
     }
@@ -574,6 +579,7 @@ class generateApotekRepository
                     'jnsTindakan_id' => null,
                     'tarif_per_item' => 500,
                     'source_period_mode' => $defaultSourceMode,
+                    'include_bpjs_in_umum' => false,
                     'jasa_farmasi_percent' => 50,
                     'formula_31_percent' => 31,
                     'formula_31_divider' => 2.5,
@@ -603,5 +609,10 @@ class generateApotekRepository
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+    }
+
+    private function includeBpjsInUmum(string $jenisApotek, array $config): bool
+    {
+        return $jenisApotek === 'umum' && (bool) ($config['include_bpjs_in_umum'] ?? false);
     }
 }

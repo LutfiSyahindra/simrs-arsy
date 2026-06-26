@@ -31,6 +31,7 @@
             }
         };
         let activeType = 'umum';
+        let includeBpjsInUmum = false;
         let previewReady = false;
         let detailApotekRows = [];
         let detailApotekFilterKeyword = '';
@@ -139,14 +140,32 @@
             return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
         }
 
-        function sourceRuleText(type, periode, mode) {
+        function configIncludesBpjsInUmum(config, fallback) {
+            if (config && Object.prototype.hasOwnProperty.call(config, 'include_bpjs_in_umum')) {
+                return Number(config.include_bpjs_in_umum) === 1 || config.include_bpjs_in_umum === true;
+            }
+
+            return Boolean(fallback);
+        }
+
+        function sourceScopeText(type, includeBpjs) {
+            if (type === 'bpjs') {
+                return 'kd_pj BPJ';
+            }
+
+            return includeBpjs ? 'kd_pj selain - termasuk BPJ' : 'kd_pj selain BPJ dan -';
+        }
+
+        function sourceRuleText(type, periode, mode, includeBpjs) {
             const sourceMode = sourcePeriodMode(mode, type);
             const sourcePeriode = sourcePeriodFor(periode, type, sourceMode);
+            const includeBpjsScope = type === 'umum' && (includeBpjs === undefined ? includeBpjsInUmum : includeBpjs);
 
             return type === 'bpjs' ?
                 'Periode generate ' + periode + ' memakai detail_pemberian_obat periode ' + sourcePeriode +
                 ' (' + sourcePeriodModeLabel(sourceMode, type) + ') dengan filter reg_periksa.kd_pj = BPJ.' :
-                'Periode generate ' + periode + ' memakai detail_pemberian_obat periode yang sama dengan filter kd_pj selain BPJ dan -.';
+                'Periode generate ' + periode + ' memakai detail_pemberian_obat periode yang sama dengan filter ' +
+                sourceScopeText(type, includeBpjsScope) + '.';
         }
 
         function infoRowsHtml(rows) {
@@ -168,6 +187,7 @@
                     $('input[name="configApotekSourcePeriodMode"]:checked').val(),
                     activeType
                 ),
+                include_bpjs_in_umum: activeType === 'umum' && $('#configIncludeBpjsInUmum').is(':checked') ? 1 : 0,
                 jasa_farmasi_percent: Number($('#configJasaFarmasiPercent').val() || 0),
                 formula_31_percent: Number($('#configFormula31Percent').val() || 0),
                 formula_31_divider: Number($('#configFormula31Divider').val() || 1),
@@ -189,81 +209,103 @@
                 '<div class="apotek-formula-card-title">' + escapeHtml(item.label) + '</div>' +
                 '</div>' +
                 '</div>' +
-                '<div class="mt-3">' +
-                '<span class="apotek-formula-chip">' + escapeHtml(item.value) + '</span>' +
+                '<div class="apotek-formula-calc">' +
+                '<div class="apotek-formula-calc-row">' +
+                '<span>Formula</span>' +
+                '<strong>' + escapeHtml(item.formula || item.value || '-') + '</strong>' +
                 '</div>' +
-                (item.note ? '<div class="apotek-formula-note">' + escapeHtml(item.note) + '</div>' : '') +
-                (item.meta ? '<div class="apotek-formula-meta">' + escapeHtml(item.meta) + '</div>' : '') +
+                '<div class="apotek-formula-calc-row">' +
+                '<span>Sebelum</span>' +
+                '<strong>' + escapeHtml(item.before || '-') + '</strong>' +
+                '</div>' +
+                '<div class="apotek-formula-calc-row result">' +
+                '<span>Sesudah</span>' +
+                '<strong>' + escapeHtml(item.after || '-') + '</strong>' +
+                '</div>' +
+                '</div>' +
                 '</div>';
         }
 
         function formulaHtml(data) {
             const config = data.config || data || {};
             const source = data.source || {};
+            const pools = data.pools || config.pools || {};
             const type = data.jenis_apotek || config.jenis_apotek || activeType;
             const periode = data.periode || $('#periodeApotek').val() || '-';
             const sourceMode = data.source_period_mode || source.source_period_mode || config.source_period_mode;
-            const sourcePeriode = data.source_periode || source.source_periode || config.source_periode || sourcePeriodFor(periode, type, sourceMode);
-            const mapping = source.mapping || config.mapping || {};
-            const mappingLabel = mapping.label || config.mapping_label || '-';
+            const includeBpjs = configIncludesBpjsInUmum(
+                config,
+                data.include_bpjs_in_umum ?? source.include_bpjs_in_umum ?? includeBpjsInUmum
+            );
+            const sourcePeriode = data.source_periode || source.source_periode || config.source_periode ||
+                sourcePeriodFor(periode, type, sourceMode);
+            const tarifPerItem = Number(config.tarif_per_item || source.tarif_per_item || 500);
+            const hasCalculation = Object.prototype.hasOwnProperty.call(source, 'grand_total') ||
+                Object.prototype.hasOwnProperty.call(data, 'grand_total') ||
+                Object.keys(pools || {}).length > 0;
+            const totalQty = Number(source.total_qty || data.total_qty || 0);
+            const grandTotal = Number(source.grand_total || data.grand_total || 0);
+            const formulaBasePercent = Number(pools.formula_base_percent || config.jasa_farmasi_percent || 50);
+            const formulaBaseTotal = Number(pools.formula_base_total || pools.jasa_farmasi_pool ||
+                Math.round(grandTotal * formulaBasePercent / 100));
+            const formula31Percent = Number(config.formula_31_percent || 31);
+            const formula31Divider = Number(config.formula_31_divider || pools.formula_31_divider || 2.5);
+            const formula31Pool = Number(pools.formula_31_pool || Math.round(formulaBaseTotal * formula31Percent / 100));
+            const formula31After = Number(pools.formula_31_per_penerima || Math.round(formula31Pool / Math.max(0.01, formula31Divider)));
+            const formula7Percent = Number(config.formula_7_percent || 7);
+            const formula7Pool = Number(pools.formula_7_pool || Math.round(formulaBaseTotal * formula7Percent / 100));
+            const formula7After = Number(pools.formula_7_per_penerima || formula7Pool);
+            const formula12Percent = Number(config.formula_12_percent || 12);
+            const formula12Divider = Number(config.formula_12_divider || pools.formula_12_divider || 2);
+            const formula12Pool = Number(pools.formula_12_pool || Math.round(formulaBaseTotal * formula12Percent / 100));
+            const formula12After = Number(pools.formula_12_per_penerima || Math.round(formula12Pool / Math.max(0.01, formula12Divider)));
+            const premiBersamaPercent = Number(config.premi_bersama_percent || 30);
+            const premiBersama = Number(pools.premi_bersama || Math.round(grandTotal * premiBersamaPercent / 100));
+            const moneyOrDash = value => hasCalculation ? formatRupiah(value) : '-';
+            const qtyOrDash = value => hasCalculation ? formatNumber(value) + ' qty' : '-';
             const cards = [
                 {
-                    label: 'Data Khanza',
-                    value: sourcePeriode,
-                    note: type === 'bpjs' ? 'BPJS mengambil data: ' + sourcePeriodModeLabel(sourceMode, type) + '.' : 'UMUM mengambil data periode aktif.',
-                    meta: type === 'bpjs' ? 'kd_pj = BPJ' : 'kd_pj selain BPJ dan -',
-                    icon: 'mdi-database-search-outline',
-                    accent: 'dark'
-                },
-                {
-                    label: 'Mapping Farmasi',
-                    value: mappingLabel,
-                    note: formatNumber(mapping.jumlah_mapping || 0) + ' kode obat dari mapping_tindakan sumber FARMASI.',
-                    meta: 'Sumber mapping: FARMASI',
-                    icon: 'mdi-source-branch'
-                },
-                {
                     label: 'Grand Total',
-                    value: 'Item mapping x ' + formatRupiah(config.tarif_per_item || source.tarif_per_item || 500),
-                    note: 'Setiap baris detail_pemberian_obat yang cocok mapping dihitung satu kali.',
-                    meta: 'Basis seluruh formula',
+                    formula: 'Total qty item mapping x ' + formatRupiah(tarifPerItem),
+                    before: qtyOrDash(totalQty),
+                    after: moneyOrDash(grandTotal),
                     icon: 'mdi-cash-multiple',
                     accent: 'cyan'
                 },
                 {
                     label: 'Pool 50%',
-                    value: 'Grand total x ' + percentText(config.jasa_farmasi_percent || 50),
-                    note: 'Nilai 50% dari grand total menjadi dasar pembagian 31%, 7%, dan 12%.',
-                    meta: 'Basis penerima',
+                    formula: 'Grand total x ' + percentText(formulaBasePercent),
+                    before: moneyOrDash(grandTotal),
+                    after: moneyOrDash(formulaBaseTotal),
                     icon: 'mdi-chart-pie',
                     accent: 'dark'
                 },
                 {
                     label: 'Penerima 31%',
-                    value: 'Pool 50% x ' + percentText(config.formula_31_percent || 31) + ' / ' + formatNumber(config.formula_31_divider || 2.5),
-                    note: 'Dihitung dari nilai 50% grand total, lalu hasilnya diberikan ke pegawai yang dipilih.',
-                    meta: 'Kelompok penerima 31%',
+                    formula: 'Pool 50% x ' + percentText(formula31Percent) + ' / ' + formatNumber(formula31Divider),
+                    before: hasCalculation ? formatRupiah(formulaBaseTotal) + ' -> ' + formatRupiah(formula31Pool) : '-',
+                    after: moneyOrDash(formula31After),
                     icon: 'mdi-account-star-outline'
                 },
                 {
                     label: 'Penerima 7%',
-                    value: 'Pool 50% x ' + percentText(config.formula_7_percent || 7),
-                    note: 'Dihitung dari nilai 50% grand total. Pembagi default 1.',
-                    meta: 'Kelompok penerima 7%',
+                    formula: 'Pool 50% x ' + percentText(formula7Percent),
+                    before: moneyOrDash(formulaBaseTotal),
+                    after: moneyOrDash(formula7After),
                     icon: 'mdi-account-tie-outline'
                 },
                 {
                     label: 'Penerima 12%',
-                    value: 'Pool 50% x ' + percentText(config.formula_12_percent || 12) + ' / ' + formatNumber(config.formula_12_divider || 2),
-                    note: 'Dihitung dari nilai 50% grand total, lalu hasilnya diberikan ke pegawai yang dipilih.',
-                    meta: 'Kelompok penerima 12%',
+                    formula: 'Pool 50% x ' + percentText(formula12Percent) + ' / ' + formatNumber(formula12Divider),
+                    before: hasCalculation ? formatRupiah(formulaBaseTotal) + ' -> ' + formatRupiah(formula12Pool) : '-',
+                    after: moneyOrDash(formula12After),
                     icon: 'mdi-account-group-outline'
                 },
                 {
                     label: 'Premi Bersama',
-                    value: percentText(config.premi_bersama_percent || 30) + ' dari grand total',
-                    note: 'Disimpan sebagai total premi bersama.',
-                    meta: 'Pool bersama',
+                    formula: 'Grand total x ' + percentText(premiBersamaPercent),
+                    before: moneyOrDash(grandTotal),
+                    after: moneyOrDash(premiBersama),
                     icon: 'mdi-handshake-outline',
                     accent: 'cyan'
                 }
@@ -272,10 +314,10 @@
             return '<div class="apotek-formula-head">' +
                 '<div>' +
                 '<div class="apotek-formula-title">Formula Aktif ' + escapeHtml(typeConfig[type] || '-') + '</div>' +
-                '<div class="apotek-formula-subtitle">' + escapeHtml(sourceRuleText(type, periode, sourceMode)) + '</div>' +
+                '<div class="apotek-formula-subtitle">' + escapeHtml('Sumber data ' + sourcePeriode + ' / ' + sourceRuleText(type, periode, sourceMode, includeBpjs)) + '</div>' +
                 '</div>' +
-                '<span class="apotek-formula-head-badge"><i class="mdi mdi-check-decagram-outline"></i> ' +
-                escapeHtml(formatNumber(mapping.jumlah_mapping || 0) + ' kode obat') +
+                '<span class="apotek-formula-head-badge"><i class="mdi mdi-calculator-variant-outline"></i> ' +
+                escapeHtml('Qty x ' + formatRupiah(tarifPerItem)) +
                 '</span>' +
                 '</div>' +
                 '<div class="apotek-formula-grid">' +
@@ -335,6 +377,31 @@
                     formatRupiah(group.total_received || 0) +
                     '</div>' +
                     recipientListHtml(group.items || []) +
+                '</div>';
+            }).join('');
+        }
+
+        function penjaminGroupsHtml(groups) {
+            if (!groups || !groups.length) {
+                return '<div class="apotek-empty-state">Belum ada informasi penjamin pada detail ini.</div>';
+            }
+
+            return groups.map(function(group) {
+                return '<div class="apotek-info-row">' +
+                    '<div>' +
+                    '<div class="apotek-info-label">' +
+                    escapeHtml((group.kd_pj || '-') + ' - ' + (group.nama_penjamin || '-')) +
+                    '</div>' +
+                    '<div class="apotek-info-note">' +
+                    formatNumber(group.jumlah_pasien || 0) + ' pasien / ' +
+                    formatNumber(group.jumlah_obat || 0) + ' kode obat / ' +
+                    formatNumber(group.jumlah_item || 0) + ' baris detail' +
+                    '</div>' +
+                    '</div>' +
+                    '<div class="apotek-info-value">' +
+                    escapeHtml(formatNumber(group.total_qty || 0) + ' qty') +
+                    '<br><span class="text-muted">' + escapeHtml(formatRupiah(group.total_premi || 0)) + '</span>' +
+                    '</div>' +
                     '</div>';
             }).join('');
         }
@@ -553,57 +620,94 @@
             });
         }
 
+        function applyBpjsTabState(isIncluded) {
+            includeBpjsInUmum = Boolean(isIncluded);
+            $('#tabApotekBpjs').toggleClass('d-none', includeBpjsInUmum);
+            $('#tabApotekUmumCaption').text(
+                includeBpjsInUmum ? 'kd_pj selain - termasuk BPJ' : 'kd_pj selain BPJ dan -'
+            );
+
+            if (includeBpjsInUmum && activeType === 'bpjs') {
+                setActiveType('umum');
+                return true;
+            }
+
+            return false;
+        }
+
+        function loadBpjsTabState(callback) {
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.config") }}",
+                data: { jenis_apotek: 'umum' },
+                success: function(response) {
+                    const data = response.data || {};
+                    const switched = applyBpjsTabState(data.include_bpjs_in_umum);
+
+                    if (callback) {
+                        callback(switched, data);
+                    }
+                },
+                error: function() {
+                    if (callback) {
+                        callback(false, null);
+                    }
+                }
+            });
+        }
+
         function updateConfigOverview() {
             const config = currentConfigFromForm();
             const mappings = ($('#configApotekMappings').val() || []).length;
             const recipients = configRecipientItems();
             const periode = $('#periodeApotek').val() || '-';
-            const sourcePeriode = sourcePeriodFor(periode, activeType, config.source_period_mode);
 
             $('#configApotekRuleTitle').text('Konfigurasi ' + (typeConfig[activeType] || '-'));
-            $('#configApotekRuleText').text(sourceRuleText(activeType, periode, config.source_period_mode));
+            $('#configApotekRuleText').text(sourceRuleText(
+                activeType,
+                periode,
+                config.source_period_mode,
+                config.include_bpjs_in_umum
+            ));
             $('#configApotekTypeBadge').text(typeConfig[activeType] || '-');
+            $('#configApotekUmumBpjsSection').toggleClass('d-none', activeType !== 'umum');
             $('#configApotekBpjsSourceSection').toggleClass('d-none', activeType !== 'bpjs');
             $('#configApotekFormulaPreview').html(infoRowsHtml([
                 {
-                    label: 'Periode Data Khanza',
-                    value: sourcePeriode,
-                    note: activeType === 'bpjs' ? 'BPJS memakai data: ' + sourcePeriodModeLabel(config.source_period_mode, activeType) + '.' : 'UMUM memakai data periode aktif.'
+                    label: 'Cakupan Penjamin',
+                    value: sourceScopeText(activeType, config.include_bpjs_in_umum),
+                    note: activeType === 'umum' && config.include_bpjs_in_umum ?
+                        'BPJS ikut dihitung di hasil generate UMUM.' :
+                        'Filter penjamin mengikuti jenis generate aktif.'
                 },
                 {
-                    label: 'Mapping Farmasi',
-                    value: formatNumber(mappings) + ' mapping dipilih',
-                    note: 'Kode barang obat akan dicocokkan dengan mapping_tindakan sumber FARMASI.'
-                },
-                {
-                    label: 'Nominal per Data',
-                    value: formatRupiah(config.tarif_per_item),
-                    note: 'Satu baris detail obat yang cocok mapping dihitung satu kali.'
+                    label: 'Grand Total',
+                    value: 'Total qty mapping x ' + formatRupiah(config.tarif_per_item),
+                    note: 'Sebelum: total qty obat cocok mapping. Sesudah: nilai grand total.'
                 },
                 {
                     label: 'Pool Formula',
                     value: 'Grand total x ' + percentText(config.jasa_farmasi_percent),
-                    note: 'Nilai 50% ini menjadi dasar untuk formula 31%, 7%, dan 12%.'
+                    note: 'Sebelum: grand total. Sesudah: pool 50%.'
                 },
                 {
                     label: 'Penerima 31%',
                     value: 'Pool 50% x ' + percentText(config.formula_31_percent) + ' / ' + formatNumber(config.formula_31_divider),
-                    note: 'Nilai diberikan ke pegawai pada kelompok 31%.'
+                    note: 'Sebelum: pool 50%. Sesudah: nilai penerima 31%.'
                 },
                 {
                     label: 'Penerima 7%',
                     value: 'Pool 50% x ' + percentText(config.formula_7_percent),
-                    note: 'Nilai diberikan ke pegawai pada kelompok 7%.'
+                    note: 'Sebelum: pool 50%. Sesudah: nilai penerima 7%.'
                 },
                 {
                     label: 'Penerima 12%',
                     value: 'Pool 50% x ' + percentText(config.formula_12_percent) + ' / ' + formatNumber(config.formula_12_divider),
-                    note: 'Nilai diberikan ke pegawai pada kelompok 12%.'
+                    note: 'Sebelum: pool 50%. Sesudah: nilai penerima 12%.'
                 },
                 {
                     label: 'Premi Bersama',
-                    value: percentText(config.premi_bersama_percent),
-                    note: 'Dihitung dari grand total.'
+                    value: 'Grand total x ' + percentText(config.premi_bersama_percent),
+                    note: 'Sebelum: grand total. Sesudah: total premi bersama.'
                 }
             ]));
             $('#configApotekMappingPreview').html(
@@ -620,6 +724,10 @@
         }
 
         function setActiveType(type) {
+            if (type === 'bpjs' && includeBpjsInUmum) {
+                type = 'umum';
+            }
+
             activeType = type;
             $('.apotek-type-tab').removeClass('active');
             $('.apotek-type-tab[data-type="' + type + '"]').addClass('active');
@@ -627,11 +735,23 @@
         }
 
         function loadFormulaConfig() {
+            const requestType = activeType;
+
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateApotek.config") }}",
-                data: { jenis_apotek: activeType },
+                data: { jenis_apotek: requestType },
                 success: function(response) {
-                    $('#formulaApotekStrip').html(formulaHtml(response.data || {}));
+                    const data = response.data || {};
+
+                    if (requestType === 'umum') {
+                        applyBpjsTabState(data.include_bpjs_in_umum);
+                    }
+
+                    if (requestType !== activeType) {
+                        return;
+                    }
+
+                    $('#formulaApotekStrip').html(formulaHtml(data));
                 }
             });
         }
@@ -649,7 +769,7 @@
                     const mappedCount = Number(data.jumlah_data_mapping || 0);
                     const matchRate = sourceCount > 0 ? Math.round(mappedCount * 100 / sourceCount) : 0;
 
-                    $('#summaryItemApotek').text(formatNumber(data.jumlah_data_mapping || 0));
+                    $('#summaryItemApotek').text(formatNumber(data.total_qty || 0));
                     $('#summaryPasienApotek').text(formatNumber(data.jumlah_pasien || 0));
                     $('#summaryGrandApotek').text(formatRupiah(data.grand_total || 0));
                     $('#summaryDibagikanApotek').text(formatRupiah(data.total_dibagikan || 0));
@@ -661,17 +781,18 @@
                     $('#summaryGenerateCountApotek').text(formatNumber(data.generated_count || 0) + ' data generate');
                     $('#summaryTypeBadgeApotek').html(
                         '<i class="mdi ' + (activeType === 'bpjs' ? 'mdi-shield-account-outline' : 'mdi-account-cash-outline') + '"></i> ' +
-                        escapeHtml(data.jenis_apotek_label || typeConfig[activeType])
+                        escapeHtml((data.jenis_apotek_label || typeConfig[activeType]) +
+                            (activeType === 'umum' && includeBpjsInUmum ? ' + BPJS' : ''))
                     );
                     $('#summaryGrandNoteApotek').text(
-                        formatNumber(data.jumlah_data_mapping || 0) + ' item mapping dari ' +
-                        formatNumber(data.jumlah_data_sumber || 0) + ' data sumber / Pool 50%: ' +
+                        formatNumber(data.total_qty || 0) + ' total qty dari ' +
+                        formatNumber(data.jumlah_data_mapping || 0) + ' item mapping / Pool 50%: ' +
                         formatRupiah(data.total_jasa_farmasi_pool || 0) + '.'
                     );
                     $('#summaryApotekSubtitle').text(
                         'Jenis ' + (data.jenis_apotek_label || typeConfig[activeType]) +
                         ' / ' + formatNumber(data.generated_count || 0) + ' data generate / ' +
-                        sourceRuleText(activeType, $('#periodeApotek').val(), data.source_period_mode)
+                        sourceRuleText(activeType, $('#periodeApotek').val(), data.source_period_mode, includeBpjsInUmum)
                     );
                 },
                 error: function() {
@@ -710,7 +831,7 @@
                         const source = data || sourcePeriodFor(row.periode, row.jenis_apotek, row.source_period_mode);
                         const note = row.jenis_apotek === 'bpjs' ?
                             sourcePeriodModeLabel(row.source_period_mode, row.jenis_apotek) :
-                            'Data periode aktif';
+                            (row.include_bpjs_in_umum ? 'Termasuk BPJS' : 'Data periode aktif');
                         return '<span class="fw-semibold">' + escapeHtml(source) + '</span>' +
                             '<small class="d-block text-muted">' + escapeHtml(note) + '</small>';
                     }
@@ -728,7 +849,7 @@
                         return '<span class="fw-semibold">' + escapeHtml(data || '-') + '</span>';
                     }
                 },
-                { data: 'jumlah_data_mapping', className: 'text-center', render: formatNumber },
+                { data: 'total_qty', className: 'text-center', render: formatNumber },
                 { data: 'grand_total', className: 'text-end', render: formatRupiah },
                 { data: 'total_premi_bersama', className: 'text-end', render: formatRupiah },
                 { data: 'total_dibagikan', className: 'text-end', render: formatRupiah },
@@ -757,9 +878,11 @@
         });
 
         function refreshAll() {
-            loadSummary();
-            loadFormulaConfig();
-            table.ajax.reload(null, false);
+            loadBpjsTabState(function() {
+                loadSummary();
+                loadFormulaConfig();
+                table.ajax.reload(null, false);
+            });
         }
 
         function renderPreview(data) {
@@ -771,20 +894,20 @@
             const type = data.jenis_apotek || activeType;
             const sourceMode = data.source_period_mode || source.source_period_mode || data.config?.source_period_mode;
             const sourcePeriode = data.source_periode || source.source_periode || sourcePeriodFor(periode, type, sourceMode);
+            const includeBpjs = configIncludesBpjsInUmum(data.config || {}, data.include_bpjs_in_umum ?? includeBpjsInUmum);
 
             $('#generateApotekTitle').text(
                 'Preview ' + (data.jenis_apotek_label || typeConfig[type] || '-') + ' / Generate ' + periode
             );
             $('#generateApotekText').text(
                 'Data Khanza ' + sourcePeriode + ' / ' +
-                (type === 'bpjs' ? sourcePeriodModeLabel(sourceMode, type) + ' / kd_pj BPJ' : 'kd_pj selain BPJ dan -')
+                (type === 'bpjs' ? sourcePeriodModeLabel(sourceMode, type) + ' / kd_pj BPJ' : sourceScopeText(type, includeBpjs))
             );
             $('#generateApotekTypeBadge').text(data.jenis_apotek_label || typeConfig[type] || '-');
             $('#previewApotekStats').html([
-                miniCard('Data Sumber', formatNumber(source.jumlah_data_sumber || 0), false, 'mdi-database-search-outline', formatNumber(source.jumlah_pasien_sumber || 0) + ' pasien'),
-                miniCard('Item Mapping', formatNumber(source.jumlah_data_mapping || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
-                miniCard('Tarif per Item', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Setiap baris cocok mapping'),
-                miniCard('Grand Total', formatRupiah(source.grand_total || 0), true, 'mdi-cash-multiple', 'Item mapping x tarif'),
+                miniCard('Total Qty Mapping', formatNumber(source.total_qty || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
+                miniCard('Tarif per Qty', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Setiap qty obat cocok mapping'),
+                miniCard('Grand Total', formatRupiah(source.grand_total || 0), true, 'mdi-cash-multiple', 'Total qty mapping x tarif'),
                 miniCard('Pool 50%', formatRupiah(pools.formula_base_total || pools.jasa_farmasi_pool || 0), false, 'mdi-chart-pie', 'Dasar formula penerima'),
                 miniCard('Premi Bersama', formatRupiah(pools.premi_bersama || 0), false, 'mdi-account-group-outline', '30% default dari grand total'),
                 miniCard('Total Dibagikan', formatRupiah(data.total_dibagikan || 0), true, 'mdi-bank-transfer-out', formatNumber((data.recipients || []).length) + ' penerima')
@@ -842,6 +965,7 @@
                     $('input[name="configApotekSourcePeriodMode"][value="' +
                         sourcePeriodMode(data.source_period_mode, activeType) +
                         '"]').prop('checked', true);
+                    $('#configIncludeBpjsInUmum').prop('checked', configIncludesBpjsInUmum(data, false));
                     $('#configJasaFarmasiPercent').val(data.jasa_farmasi_percent ?? 50);
                     $('#configFormula31Percent').val(data.formula_31_percent ?? 31);
                     $('#configFormula31Divider').val(data.formula_31_divider ?? 2.5);
@@ -872,6 +996,7 @@
                     $('input[name="configApotekSourcePeriodMode"]:checked').val(),
                     $('#jenisConfigApotek').val()
                 ),
+                include_bpjs_in_umum: $('#jenisConfigApotek').val() === 'umum' && $('#configIncludeBpjsInUmum').is(':checked') ? 1 : 0,
                 jasa_farmasi_percent: $('#configJasaFarmasiPercent').val(),
                 formula_31_percent: $('#configFormula31Percent').val(),
                 formula_31_divider: $('#configFormula31Divider').val(),
@@ -896,6 +1021,7 @@
             const type = data.jenis_apotek || activeType;
             const sourceMode = data.source_period_mode || source.source_period_mode || config.source_period_mode;
             const sourcePeriode = data.source_periode || config.source_periode || sourcePeriodFor(data.periode, type, sourceMode);
+            const includeBpjs = configIncludesBpjsInUmum(config, data.include_bpjs_in_umum ?? includeBpjsInUmum);
 
             $('#detailApotekTitle').text((data.periode || '-') + ' / ' + (data.jenis_apotek_label || '-'));
             $('#detailApotekMeta').text(
@@ -904,14 +1030,13 @@
             );
             $('#detailApotekSourceMeta').text(
                 'Periode data Khanza: ' + sourcePeriode + ' / ' +
-                (type === 'bpjs' ? 'BPJS memakai ' + sourcePeriodModeLabel(sourceMode, type) : 'UMUM memakai periode aktif')
+                (type === 'bpjs' ? 'BPJS memakai ' + sourcePeriodModeLabel(sourceMode, type) : sourceScopeText(type, includeBpjs))
             );
             $('#detailApotekStatusBadge').html(data.is_locked ? 'Terkunci' : 'Terbuka');
             $('#detailApotekStats').html([
-                miniCard('Data Sumber', formatNumber(source.jumlah_data_sumber || 0), false, 'mdi-database-search-outline', formatNumber(source.jumlah_pasien_sumber || 0) + ' pasien'),
-                miniCard('Item Mapping', formatNumber(source.jumlah_data_mapping || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
-                miniCard('Tarif per Item', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Nominal per data obat'),
-                miniCard('Grand Total', formatRupiah(source.grand_total || data.grand_total || 0), true, 'mdi-cash-multiple', 'Item mapping x tarif'),
+                miniCard('Total Qty Mapping', formatNumber(source.total_qty || 0), false, 'mdi-format-list-numbered', formatNumber(source.jumlah_obat || 0) + ' kode obat'),
+                miniCard('Tarif per Qty', formatRupiah(source.tarif_per_item || 0), false, 'mdi-cash', 'Nominal per qty obat'),
+                miniCard('Grand Total', formatRupiah(source.grand_total || data.grand_total || 0), true, 'mdi-cash-multiple', 'Total qty mapping x tarif'),
                 miniCard('Pool 50%', formatRupiah(pools.formula_base_total || pools.jasa_farmasi_pool || 0), false, 'mdi-chart-pie', 'Dasar formula penerima'),
                 miniCard('Premi Bersama', formatRupiah(pools.premi_bersama || 0), false, 'mdi-account-group-outline', 'Untuk premi bersama'),
                 miniCard('Total Dibagikan', formatRupiah(data.total_dibagikan || 0), true, 'mdi-bank-transfer-out', formatNumber(data.recipients_count || 0) + ' penerima')
@@ -919,6 +1044,7 @@
             $('#detailApotekFormula').html(formulaHtml({
                 jenis_apotek: type,
                 source_periode: sourcePeriode,
+                include_bpjs_in_umum: includeBpjs,
                 source: source,
                 config: config
             }));
@@ -926,6 +1052,10 @@
                 formatNumber(data.recipients_count || 0) + ' penerima dari tiga kelompok formula.'
             );
             $('#detailApotekRecipients').html(recipientGroupsHtml(groups));
+            $('#detailApotekPenjaminSubtitle').text(
+                formatNumber((data.penjamin_groups || []).length) + ' penjamin dari detail obat yang masuk mapping.'
+            );
+            $('#detailApotekPenjaminBreakdown').html(penjaminGroupsHtml(data.penjamin_groups || []));
             detailApotekRows = data.details || [];
             detailApotekFilterKeyword = '';
             $('#filterDetailApotekObat').val('');
@@ -1028,6 +1158,10 @@
             table.search(this.value).draw();
         });
         $('.apotek-type-tab').on('click', function() {
+            if ($(this).data('type') === 'bpjs' && includeBpjsInUmum) {
+                return;
+            }
+
             setActiveType($(this).data('type'));
             refreshAll();
         });
@@ -1047,8 +1181,11 @@
                 },
                 success: function(response) {
                     configModal.hide();
+                    if ((response.data || {}).jenis_apotek === 'umum') {
+                        applyBpjsTabState((response.data || {}).include_bpjs_in_umum);
+                    }
                     Swal.fire('Berhasil', response.message, 'success');
-                    loadFormulaConfig();
+                    refreshAll();
                 },
                 error: function(xhr) {
                     Swal.fire('Gagal', errorMessage(xhr), 'error');

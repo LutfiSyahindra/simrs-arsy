@@ -105,6 +105,20 @@
                     <div class="apotek-info-list" id="configApotekFormulaPreview"></div>
                 </div>
 
+                <div class="apotek-config-section mb-3 d-none" id="configApotekUmumBpjsSection">
+                    <h6><i class="mdi mdi-shield-plus-outline"></i> Cakupan Data UMUM</h6>
+                    <label class="apotek-source-mode-option mb-0">
+                        <input class="form-check-input" type="checkbox" id="configIncludeBpjsInUmum" value="1">
+                        <span>
+                            <strong>Hitung BPJS sekalian di UMUM</strong>
+                            <small>Jika aktif, generate UMUM ikut mengambil reg_periksa.kd_pj = BPJ dan tab BPJS disembunyikan.</small>
+                        </span>
+                    </label>
+                    <small class="apotek-field-help">
+                        Saat aktif, UMUM membaca semua penjamin selain kd_pj "-" termasuk BPJS Kesehatan.
+                    </small>
+                </div>
+
                 <div class="apotek-config-section mb-3 d-none" id="configApotekBpjsSourceSection">
                     <h6><i class="mdi mdi-calendar-sync-outline"></i> Sumber Data BPJS</h6>
                     <div class="apotek-source-mode-grid">
@@ -297,6 +311,12 @@
                         <div class="apotek-simple-section-title">Penerima Formula</div>
                         <div class="apotek-simple-section-subtitle" id="detailApotekRecipientSubtitle">-</div>
                         <div class="apotek-recipient-list mt-2" id="detailApotekRecipients"></div>
+                    </div>
+
+                    <div class="apotek-simple-section mb-3">
+                        <div class="apotek-simple-section-title">Informasi per Penjamin</div>
+                        <div class="apotek-simple-section-subtitle" id="detailApotekPenjaminSubtitle">-</div>
+                        <div class="apotek-info-list mt-2" id="detailApotekPenjaminBreakdown"></div>
                     </div>
 
                     <div class="apotek-simple-section mb-0">

@@ -657,39 +657,47 @@
             overflow-wrap: anywhere;
         }
 
-        .apotek-formula-chip {
-            background: #fff;
-            border: 1px solid #fbcfe8;
-            border-radius: 999px;
-            color: #db2777;
-            display: inline-flex;
+        .apotek-formula-calc {
+            display: grid;
+            gap: 7px;
+            margin-top: 12px;
+        }
+
+        .apotek-formula-calc-row {
+            align-items: start;
+            background: rgba(255, 255, 255, .72);
+            border: 1px solid rgba(226, 232, 240, .9);
+            border-radius: 10px;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: 72px minmax(0, 1fr);
+            padding: 8px 9px;
+        }
+
+        .apotek-formula-calc-row span {
+            color: #64748b;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1.3;
+            text-transform: uppercase;
+        }
+
+        .apotek-formula-calc-row strong {
+            color: #0f172a;
             font-size: 11px;
             font-weight: 950;
-            line-height: 1.25;
-            max-width: 100%;
-            padding: 5px 9px;
-            text-align: left;
-            white-space: normal;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
         }
 
-        .apotek-formula-card.cyan .apotek-formula-chip {
-            border-color: #a5f3fc;
-            color: #0e7490;
+        .apotek-formula-calc-row.result {
+            background: #fff7ed;
+            border-color: #fed7aa;
         }
 
-        .apotek-formula-note {
-            color: #64748b;
-            font-size: 11px;
-            line-height: 1.5;
-            margin-top: 11px;
-        }
-
-        .apotek-formula-meta {
-            color: #94a3b8;
-            font-size: 10px;
-            font-weight: 800;
-            margin-top: 9px;
-            text-transform: uppercase;
+        .apotek-formula-calc-row.result strong {
+            color: #be123c;
+            font-size: 12px;
         }
 
         .apotek-info-list {
@@ -1354,10 +1362,10 @@
                 <i class="mdi mdi-account-cash-outline"></i>
                 <span>
                     <strong>UMUM</strong>
-                    <small>kd_pj selain BPJ dan -</small>
+                    <small id="tabApotekUmumCaption">kd_pj selain BPJ dan -</small>
                 </span>
             </button>
-            <button type="button" class="apotek-type-tab" data-type="bpjs">
+            <button type="button" class="apotek-type-tab" data-type="bpjs" id="tabApotekBpjs">
                 <i class="mdi mdi-shield-account-outline"></i>
                 <span>
                     <strong>BPJS Kesehatan</strong>
@@ -1407,7 +1415,7 @@
                     </div>
                     <div class="apotek-summary-highlight-grid">
                         <div class="apotek-summary-micro">
-                            <div class="apotek-summary-micro-label">Item Mapping</div>
+                            <div class="apotek-summary-micro-label">Total Qty</div>
                             <div class="apotek-summary-micro-value" id="summaryItemApotek">0</div>
                         </div>
                         <div class="apotek-summary-micro">
@@ -1518,7 +1526,7 @@
                                 <th>Periode Data</th>
                                 <th>Jenis</th>
                                 <th>Mapping</th>
-                                <th class="text-center">Item</th>
+                                <th class="text-center">Qty</th>
                                 <th class="text-end">Grand Total</th>
                                 <th class="text-end">Premi Bersama</th>
                                 <th class="text-end">Dibagikan</th>

@@ -39,6 +39,7 @@ class generateApotekService
             'jenis_apotek_label' => $this->typeLabel($jenisApotek),
             'source_period_mode' => $sourcePeriodMode,
             'source_period_mode_label' => $config['source_period_mode_label'],
+            'include_bpjs_in_umum' => $config['include_bpjs_in_umum'],
             'source_periode' => $periode
                 ? PremiSourcePeriod::resolve($periode, $jenisApotek, $sourcePeriodMode)
                 : null,
@@ -168,6 +169,23 @@ class generateApotekService
                 'jumlah_item' => $items->count(),
                 'total_premi' => $items->sum('total_premi'),
             ])
+            ->values();
+        $payload['penjamin_groups'] = collect($payload['details'])
+            ->groupBy(fn ($item) => ($item['kd_pj'] ?: '-').'|'.($item['nama_penjamin'] ?: '-'))
+            ->map(function ($items) {
+                $first = $items->first();
+
+                return [
+                    'kd_pj' => $first['kd_pj'] ?: '-',
+                    'nama_penjamin' => $first['nama_penjamin'] ?: '-',
+                    'jumlah_item' => $items->count(),
+                    'jumlah_pasien' => $items->pluck('no_rawat')->unique()->count(),
+                    'jumlah_obat' => $items->pluck('kode_barang')->unique()->count(),
+                    'total_qty' => round((float) $items->sum('qty'), 2),
+                    'total_premi' => $items->sum('total_premi'),
+                ];
+            })
+            ->sortByDesc('total_premi')
             ->values();
 
         return $payload;
@@ -431,6 +449,8 @@ class generateApotekService
                 $data['source_period_mode'] ?? null,
                 (string) ($data['jenis_apotek'] ?? '')
             ),
+            'include_bpjs_in_umum' => ($data['jenis_apotek'] ?? '') === 'umum'
+                && filter_var($data['include_bpjs_in_umum'] ?? false, FILTER_VALIDATE_BOOL),
             'jasa_farmasi_percent' => 50,
             'formula_31_percent' => (float) ($data['formula_31_percent'] ?? 31),
             'formula_31_divider' => max(0.01, (float) ($data['formula_31_divider'] ?? 2.5)),
@@ -506,6 +526,8 @@ class generateApotekService
                 $config->source_period_mode,
                 $config->jenis_apotek
             ),
+            'include_bpjs_in_umum' => $config->jenis_apotek === 'umum'
+                && (bool) ($config->include_bpjs_in_umum ?? false),
             'jnsTindakan_id' => $config->jnsTindakan_id,
             'jnsTindakan_ids' => $mappingItems->pluck('id')->all(),
             'mapping_items' => $mappingItems->all(),
@@ -538,6 +560,8 @@ class generateApotekService
             'source_periode' => $row->source_periode,
             'source_period_mode' => $sourcePeriodMode,
             'source_period_mode_label' => PremiSourcePeriod::modeLabel($sourcePeriodMode, $row->jenis_apotek),
+            'include_bpjs_in_umum' => $row->jenis_apotek === 'umum'
+                && (bool) ($configSnapshot['include_bpjs_in_umum'] ?? false),
             'source_tgl_awal' => optional($row->source_tgl_awal)->format('Y-m-d'),
             'source_tgl_akhir' => optional($row->source_tgl_akhir)->format('Y-m-d'),
             'jenis_apotek' => $row->jenis_apotek,
