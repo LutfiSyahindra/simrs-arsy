@@ -114,6 +114,10 @@
             return Math.round(Number(amount || 0) * Number(percent || 0) / 100);
         }
 
+        function inputerDivider(config) {
+            return Math.max(1, Math.floor(Number(config?.inputer_divider || 4)));
+        }
+
         function currentAnswers() {
             const answers = {};
             (casemixConfig?.questions || []).forEach(function(question) {
@@ -312,6 +316,8 @@
 
         function formulaHtml(config) {
             config = config || casemixConfig || {};
+            const divider = inputerDivider(config);
+
             return '<div class="casemix-formula-head">' +
                 '<div>' +
                 '<div class="casemix-formula-title">Formula Aktif Casemix</div>' +
@@ -333,7 +339,8 @@
                 formulaCard('Pool Tim', 'Reward Casemix x ' + formatPercent(config.team_pool_percent || 70), 'mdi-account-group-outline') +
                 formulaCard('Pembagian Tim', 'Ketua ' + formatPercent(config.leader_percent || 68) +
                     ' / Kanit ' + formatPercent(config.kanit_percent || 12) +
-                    ' / Inputer ' + formatPercent(config.inputer_percent || 20), 'mdi-vector-arrange-below') +
+                    ' / Inputer ' + formatPercent(config.inputer_percent || 20) + '/' +
+                    formatNumber(divider), 'mdi-vector-arrange-below') +
                 '</div>';
         }
 
@@ -415,12 +422,16 @@
             }
 
             return groups.map(function(group) {
+                const dividerNote = group.role === 'inputer' && group.divider ?
+                    ' / pembagi ' + formatNumber(group.divider) :
+                    '';
+
                 return '<div class="casemix-simple-section">' +
                     '<div class="casemix-simple-section-title">' + escapeHtml(group.role_label || '-') + '</div>' +
                     '<div class="casemix-simple-section-subtitle mb-2">' +
-                    formatPercent(group.allocation_percent || 0) + ' / ' +
+                    formatPercent(group.allocation_percent || 0) + dividerNote + ' / ' +
                     formatNumber(group.recipient_count || 0) + ' penerima / ' +
-                    formatRupiah(group.amount_per_recipient || 0) + ' per penerima / total ' +
+                    formatRupiah(group.amount_per_recipient || 0) + ' per pegawai terpilih / total ' +
                     formatRupiah(group.total_received || 0) +
                     '</div>' +
                     recipientListHtml(group.items || [], true) +
@@ -460,12 +471,15 @@
             const recipientPreview = Object.entries(roleConfig).map(function([role, roleInfo]) {
                 const pool = preview.role_pools[role] || 0;
                 const count = (casemixConfig.recipients?.[role] || []).length;
-                const amount = count > 0 ? Math.round(pool / count) : 0;
+                const divider = role === 'inputer' ? inputerDivider(casemixConfig) : Math.max(1, count);
+                const amount = count > 0 ? Math.round(pool / divider) : 0;
                 return {
+                    role: role,
                     role_label: roleInfo.label,
                     recipient_count: count,
                     allocation_percent: casemixConfig[role + '_percent'] || 0,
                     pool_total: pool,
+                    divider: divider,
                     amount_per_recipient: amount,
                     total_received: amount * count,
                     items: (casemixConfig.recipients?.[role] || []).map(item => ({
@@ -552,6 +566,7 @@
                 leader_percent: $('#configLeaderPercentCasemix').val(),
                 kanit_percent: $('#configKanitPercentCasemix').val(),
                 inputer_percent: $('#configInputerPercentCasemix').val(),
+                inputer_divider: $('#configInputerDividerCasemix').val(),
                 questions: questions,
                 recipients: {
                     leader: $('#configCasemixLeader').val() || [],
@@ -575,7 +590,32 @@
             const total = numberInput('#configLeaderPercentCasemix') +
                 numberInput('#configKanitPercentCasemix') +
                 numberInput('#configInputerPercentCasemix');
-            $('#configCasemixRoleTotal').text('Total role: ' + formatPercent(total) + ' / wajib 100%.');
+            const divider = Math.max(1, Math.floor(numberInput('#configInputerDividerCasemix') || 4));
+            $('#configCasemixRoleTotal').text(
+                'Total role: ' + formatPercent(total) + ' / wajib 100%. Inputer dihitung ' +
+                formatPercent(numberInput('#configInputerPercentCasemix')) + '/' + formatNumber(divider) + '.'
+            );
+        }
+
+        function updateConfigOverview() {
+            const questionCount = $('#configCasemixQuestionScores .casemix-question-card').length ||
+                (casemixConfig?.questions || []).length;
+            const excellentMin = numberInput('#configExcellentMinCasemix');
+            const excellentReward = numberInput('#configExcellentRewardCasemix');
+            const teamPool = numberInput('#configTeamPoolCasemix');
+            const inputerPercent = numberInput('#configInputerPercentCasemix');
+            const divider = Math.max(1, Math.floor(numberInput('#configInputerDividerCasemix') || 4));
+
+            $('#configCasemixOverviewExcellent').text(formatPercent(excellentReward));
+            $('#configCasemixOverviewExcellentNote').text('Score > ' + formatPercent(excellentMin));
+            $('#configCasemixOverviewPool').text(formatPercent(teamPool));
+            $('#configCasemixOverviewInputer').text(formatPercent(inputerPercent) + '/' + formatNumber(divider));
+            $('#configCasemixOverviewQuestions').text(formatNumber(questionCount));
+        }
+
+        function updateConfigLivePreview() {
+            updateConfigRoleTotal();
+            updateConfigOverview();
         }
 
         function loadConfig(callback) {
@@ -698,6 +738,7 @@
                 $('#configLeaderPercentCasemix').val(config.leader_percent ?? 68);
                 $('#configKanitPercentCasemix').val(config.kanit_percent ?? 12);
                 $('#configInputerPercentCasemix').val(config.inputer_percent ?? 20);
+                $('#configInputerDividerCasemix').val(config.inputer_divider ?? 4);
                 $('#configCasemixQuestionScores').html(configQuestionScoresHtml(config.questions || []));
                 fillSelect('#configCasemixLeader', config.recipients?.leader || []);
                 fillSelect('#configCasemixKanit', config.recipients?.kanit || []);
@@ -705,9 +746,10 @@
                 $('#configCasemixRuleText').text(
                     'Reward ' + formatPercent(config.excellent_reward_percent) + ' jika score > ' +
                     formatPercent(config.excellent_min_percent) + ', pool tim ' +
-                    formatPercent(config.team_pool_percent) + '.'
+                    formatPercent(config.team_pool_percent) + ', Inputer ' +
+                    formatPercent(config.inputer_percent) + '/' + formatNumber(inputerDivider(config)) + '.'
                 );
-                updateConfigRoleTotal();
+                updateConfigLivePreview();
                 configModal.show();
             });
         }
@@ -849,7 +891,7 @@
             table.search(this.value).draw();
         });
         $('#formGenerateCasemix').on('input change', 'input', updateGeneratePreview);
-        $('#formConfigCasemix').on('input change', 'input, select', updateConfigRoleTotal);
+        $('#formConfigCasemix').on('input change', 'input, select', updateConfigLivePreview);
 
         $('#formConfigCasemix').on('submit', function(event) {
             event.preventDefault();

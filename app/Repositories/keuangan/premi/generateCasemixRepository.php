@@ -235,6 +235,7 @@ class generateCasemixRepository
                 'leader_percent' => 68,
                 'kanit_percent' => 12,
                 'inputer_percent' => 20,
+                'inputer_divider' => 4,
                 'question_config' => null,
             ]
         );

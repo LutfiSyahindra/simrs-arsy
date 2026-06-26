@@ -20,6 +20,7 @@ return new class extends Migration
             $table->decimal('leader_percent', 8, 4)->default(68);
             $table->decimal('kanit_percent', 8, 4)->default(12);
             $table->decimal('inputer_percent', 8, 4)->default(20);
+            $table->unsignedInteger('inputer_divider')->default(4);
             $table->json('question_config')->nullable();
             $table->timestamps();
         });

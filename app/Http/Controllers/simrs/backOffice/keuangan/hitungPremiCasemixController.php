@@ -94,6 +94,7 @@ class hitungPremiCasemixController extends Controller
             'leader_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'kanit_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'inputer_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'inputer_divider' => ['required', 'integer', 'min:1', 'max:999'],
             'questions' => ['nullable', 'array'],
             'questions.*' => ['nullable', 'array'],
             'questions.*.*.label' => ['nullable', 'string', 'max:120'],

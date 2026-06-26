@@ -91,10 +91,11 @@ class generateCasemixService
     public function updateConfig(array $data): array
     {
         $recipients = $this->hydrateRecipients($data['recipients'] ?? []);
+        $payload = $this->configFormPayload($data);
 
         return $this->configPayload(
             $this->repository->saveConfig(
-                $this->configFormPayload($data),
+                $payload,
                 $recipients
             )
         );
@@ -153,18 +154,28 @@ class generateCasemixService
         $payload['recipient_details'] = collect($payload['details'])
             ->where('row_type', 'recipient')
             ->values();
+        $storedInputerDivider = data_get($payload, 'config_snapshot.pools.inputer_divider')
+            ?? data_get($payload, 'config_snapshot.inputer_divider');
         $payload['recipient_groups'] = collect($payload['recipient_details'])
             ->groupBy('role')
-            ->map(fn ($items) => [
-                'role' => $items->first()['role'],
-                'role_label' => $items->first()['role_label'],
-                'pool_total' => $items->first()['pool_total'],
-                'allocation_percent' => $items->first()['allocation_percent'],
-                'amount_per_recipient' => $items->first()['amount_per_recipient'],
-                'recipient_count' => $items->count(),
-                'total_received' => $items->sum('total_received'),
-                'items' => $items->values(),
-            ])
+            ->map(function ($items) use ($storedInputerDivider) {
+                $role = $items->first()['role'];
+                $divider = $role === 'inputer'
+                    ? max(1, (int) ($storedInputerDivider ?: $items->count()))
+                    : $items->count();
+
+                return [
+                    'role' => $role,
+                    'role_label' => $items->first()['role_label'],
+                    'pool_total' => $items->first()['pool_total'],
+                    'allocation_percent' => $items->first()['allocation_percent'],
+                    'amount_per_recipient' => $items->first()['amount_per_recipient'],
+                    'divider' => $divider,
+                    'recipient_count' => $items->count(),
+                    'total_received' => $items->sum('total_received'),
+                    'items' => $items->values(),
+                ];
+            })
             ->values();
 
         return $payload;
@@ -250,6 +261,7 @@ class generateCasemixService
         $leaderPool = $this->portion($teamPool, $config['leader_percent']);
         $kanitPool = $this->portion($teamPool, $config['kanit_percent']);
         $inputerPool = $this->portion($teamPool, $config['inputer_percent']);
+        $inputerDivider = max(1, (int) ($config['inputer_divider'] ?? 4));
         $rolePools = [
             'leader' => $leaderPool,
             'kanit' => $kanitPool,
@@ -273,9 +285,12 @@ class generateCasemixService
             'leader_total' => $leaderPool,
             'kanit_total' => $kanitPool,
             'inputer_total' => $inputerPool,
+            'inputer_divider' => $inputerDivider,
+            'inputer_per_orang' => (int) round($inputerPool / $inputerDivider),
         ];
         $configSnapshot = [
             ...$config,
+            'pools' => $pools,
             'role_pools' => $rolePools,
         ];
 
@@ -373,7 +388,11 @@ class generateCasemixService
                 continue;
             }
 
-            $amount = (int) round($pool / max(1, count($items)));
+            $divider = $role === 'inputer'
+                ? max(1, (int) ($config['inputer_divider'] ?? 4))
+                : max(1, count($items));
+
+            $amount = (int) round($pool / $divider);
             foreach ($items as $item) {
                 $rows[] = [
                     'row_type' => 'recipient',
@@ -476,6 +495,7 @@ class generateCasemixService
             'leader_percent' => (float) ($data['leader_percent'] ?? 68),
             'kanit_percent' => (float) ($data['kanit_percent'] ?? 12),
             'inputer_percent' => (float) ($data['inputer_percent'] ?? 20),
+            'inputer_divider' => max(1, (int) ($data['inputer_divider'] ?? 4)),
             'question_config' => $this->questionConfigPayload($data['questions'] ?? []),
         ];
     }
@@ -534,6 +554,7 @@ class generateCasemixService
             'leader_percent' => (float) $config->leader_percent,
             'kanit_percent' => (float) $config->kanit_percent,
             'inputer_percent' => (float) $config->inputer_percent,
+            'inputer_divider' => max(1, (int) ($config->inputer_divider ?: 4)),
             'questions' => $questions,
             'recipients' => $recipients,
             'role_labels' => self::ROLE_LABELS,
@@ -542,6 +563,11 @@ class generateCasemixService
 
     private function resultPayload($row): array
     {
+        $configSnapshot = $row->config_snapshot ?: [];
+        $inputerDivider = max(1, (int) (data_get($configSnapshot, 'pools.inputer_divider')
+            ?? data_get($configSnapshot, 'inputer_divider')
+            ?? 1));
+
         return [
             'id' => $row->id,
             'periode' => $row->periode,
@@ -565,9 +591,11 @@ class generateCasemixService
             'leader_total' => $row->leader_total,
             'kanit_total' => $row->kanit_total,
             'inputer_total' => $row->inputer_total,
+            'inputer_divider' => $inputerDivider,
+            'inputer_per_orang' => (int) round($row->inputer_total / $inputerDivider),
             'total_dibagikan' => $row->total_dibagikan,
             'details_count' => $row->details_count ?? $row->details?->count() ?? 0,
-            'config_snapshot' => $row->config_snapshot,
+            'config_snapshot' => $configSnapshot,
             'details' => $row->relationLoaded('details')
                 ? $row->details->map(fn ($detail) => $this->detailPayload($detail))->values()
                 : [],

@@ -20,6 +20,7 @@ class generateCasemixConfigModel extends Model
         'leader_percent',
         'kanit_percent',
         'inputer_percent',
+        'inputer_divider',
         'question_config',
     ];
 
@@ -33,6 +34,7 @@ class generateCasemixConfigModel extends Model
         'leader_percent' => 'float',
         'kanit_percent' => 'float',
         'inputer_percent' => 'float',
+        'inputer_divider' => 'integer',
         'question_config' => 'array',
     ];
 

@@ -140,6 +140,41 @@
                     <span class="casemix-simple-badge">Konfigurasi</span>
                 </div>
 
+                <div class="casemix-config-overview mb-3" id="configCasemixOverview">
+                    <div class="casemix-config-metric featured">
+                        <div class="casemix-config-metric-icon"><i class="mdi mdi-medal-outline"></i></div>
+                        <div>
+                            <span>Reward Excellent</span>
+                            <strong id="configCasemixOverviewExcellent">-</strong>
+                            <small id="configCasemixOverviewExcellentNote">Score terbaik</small>
+                        </div>
+                    </div>
+                    <div class="casemix-config-metric">
+                        <div class="casemix-config-metric-icon"><i class="mdi mdi-account-group-outline"></i></div>
+                        <div>
+                            <span>Pool Tim</span>
+                            <strong id="configCasemixOverviewPool">-</strong>
+                            <small>Dari reward Casemix</small>
+                        </div>
+                    </div>
+                    <div class="casemix-config-metric">
+                        <div class="casemix-config-metric-icon"><i class="mdi mdi-keyboard-outline"></i></div>
+                        <div>
+                            <span>Inputer</span>
+                            <strong id="configCasemixOverviewInputer">-</strong>
+                            <small>Persen / pembagi</small>
+                        </div>
+                    </div>
+                    <div class="casemix-config-metric">
+                        <div class="casemix-config-metric-icon"><i class="mdi mdi-format-list-checks"></i></div>
+                        <div>
+                            <span>Indikator</span>
+                            <strong id="configCasemixOverviewQuestions">-</strong>
+                            <small>Questionnaire aktif</small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="casemix-config-grid mb-3">
                     <div class="casemix-config-section">
                         <h6><i class="mdi mdi-medal-outline"></i> Threshold Reward</h6>
@@ -198,7 +233,7 @@
                             </div>
                         </div>
                         <div class="row g-2">
-                            <div class="col-4">
+                            <div class="col-6 col-lg-3">
                                 <label class="form-label">Ketua</label>
                                 <div class="input-group">
                                     <input type="number" step="0.0001" min="0" max="100" class="form-control"
@@ -206,7 +241,7 @@
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-6 col-lg-3">
                                 <label class="form-label">Kanit</label>
                                 <div class="input-group">
                                     <input type="number" step="0.0001" min="0" max="100" class="form-control"
@@ -214,12 +249,20 @@
                                     <span class="input-group-text">%</span>
                                 </div>
                             </div>
-                            <div class="col-4">
+                            <div class="col-6 col-lg-3">
                                 <label class="form-label">Inputer</label>
                                 <div class="input-group">
                                     <input type="number" step="0.0001" min="0" max="100" class="form-control"
                                         id="configInputerPercentCasemix">
                                     <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-lg-3">
+                                <label class="form-label">Pembagi Inputer</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">/</span>
+                                    <input type="number" min="1" max="999" step="1" class="form-control"
+                                        id="configInputerDividerCasemix">
                                 </div>
                             </div>
                         </div>

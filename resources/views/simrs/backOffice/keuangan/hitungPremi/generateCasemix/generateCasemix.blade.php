@@ -548,6 +548,115 @@
             max-width: 1120px;
         }
 
+        #modalConfigCasemix .modal-dialog {
+            max-width: 1180px;
+        }
+
+        #modalConfigCasemix .modal-content {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, .96) 0%, rgba(248, 250, 252, .98) 46%, #f1f5f9 100%);
+            box-shadow: 0 28px 72px rgba(15, 23, 42, .18);
+        }
+
+        #modalConfigCasemix .modal-header,
+        #modalConfigCasemix .modal-footer {
+            background: rgba(255, 255, 255, .78);
+            backdrop-filter: blur(12px);
+            border-color: rgba(226, 232, 240, .82);
+        }
+
+        #modalConfigCasemix .modal-title {
+            color: #0f172a;
+            font-weight: 950;
+        }
+
+        #modalConfigCasemix .casemix-simple-head {
+            box-shadow: 0 20px 44px rgba(15, 23, 42, .18);
+            padding: 18px;
+        }
+
+        #modalConfigCasemix .casemix-simple-head .casemix-simple-badge {
+            background: rgba(255, 255, 255, .16);
+            border-color: rgba(255, 255, 255, .30);
+            color: #fff;
+        }
+
+        .casemix-config-overview {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 1.1fr repeat(3, minmax(0, .9fr));
+        }
+
+        .casemix-config-metric {
+            align-items: center;
+            background: rgba(255, 255, 255, .92);
+            border: 1px solid rgba(226, 232, 240, .95);
+            border-radius: 13px;
+            box-shadow: 0 14px 30px rgba(15, 23, 42, .06);
+            display: grid;
+            gap: 11px;
+            grid-template-columns: 42px minmax(0, 1fr);
+            min-width: 0;
+            padding: 13px;
+        }
+
+        .casemix-config-metric.featured {
+            background: linear-gradient(135deg, #0f172a, #4f46e5 58%, #0e7490);
+            border-color: transparent;
+            box-shadow: 0 18px 38px rgba(79, 70, 229, .22);
+            color: #fff;
+        }
+
+        .casemix-config-metric-icon {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 11px;
+            color: #4f46e5;
+            display: inline-flex;
+            font-size: 20px;
+            height: 42px;
+            justify-content: center;
+            width: 42px;
+        }
+
+        .casemix-config-metric.featured .casemix-config-metric-icon {
+            background: rgba(255, 255, 255, .15);
+            border-color: rgba(255, 255, 255, .24);
+            color: #fff;
+        }
+
+        .casemix-config-metric span,
+        .casemix-config-metric small {
+            color: #64748b;
+            display: block;
+            font-size: 10px;
+            font-weight: 900;
+            line-height: 1.35;
+            text-transform: uppercase;
+        }
+
+        .casemix-config-metric strong {
+            color: #0f172a;
+            display: block;
+            font-size: 18px;
+            font-weight: 950;
+            line-height: 1.1;
+            margin: 3px 0;
+            overflow-wrap: anywhere;
+        }
+
+        .casemix-config-metric.featured span,
+        .casemix-config-metric.featured small,
+        .casemix-config-metric.featured strong {
+            color: #fff;
+        }
+
+        #modalConfigCasemix .casemix-config-grid {
+            gap: 12px;
+            grid-template-columns: minmax(270px, .92fr) minmax(330px, 1.18fr) minmax(270px, .95fr);
+        }
+
         .casemix-simple-head {
             background: linear-gradient(135deg, #111827, #4f46e5 62%, #0891b2);
             border-radius: 14px;
@@ -889,12 +998,82 @@
             margin-bottom: 12px;
         }
 
+        #modalConfigCasemix .casemix-config-section {
+            background: rgba(255, 255, 255, .94);
+            border: 1px solid rgba(226, 232, 240, .95);
+            border-radius: 14px;
+            box-shadow: 0 16px 34px rgba(15, 23, 42, .06);
+            padding: 15px;
+        }
+
+        #modalConfigCasemix .casemix-config-section h6 {
+            border-bottom: 1px solid #eef2f7;
+            margin: -1px -1px 14px;
+            padding-bottom: 11px;
+        }
+
+        #modalConfigCasemix .casemix-config-section h6 i {
+            align-items: center;
+            background: linear-gradient(135deg, #eef2ff, #ecfeff);
+            border: 1px solid #c7d2fe;
+            border-radius: 10px;
+            color: #4338ca;
+            display: inline-flex;
+            font-size: 17px;
+            height: 34px;
+            justify-content: center;
+            width: 34px;
+        }
+
         .casemix-config-section .form-label {
             color: #334155;
             font-size: 11px;
             font-weight: 900;
             margin-bottom: 6px;
             text-transform: uppercase;
+        }
+
+        #modalConfigCasemix .form-control,
+        #modalConfigCasemix .form-select,
+        #modalConfigCasemix .select2-container--default .select2-selection--multiple {
+            background: #f8fafc;
+            border-color: #dbe3ef;
+            border-radius: 10px;
+            min-height: 42px;
+        }
+
+        #modalConfigCasemix .form-control:focus,
+        #modalConfigCasemix .form-select:focus,
+        #modalConfigCasemix .select2-container--default.select2-container--focus .select2-selection--multiple {
+            background: #fff;
+            border-color: #818cf8;
+            box-shadow: 0 0 0 .18rem rgba(79, 70, 229, .12);
+        }
+
+        #modalConfigCasemix .input-group-text {
+            background: #fff;
+            border-color: #dbe3ef;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 950;
+        }
+
+        #modalConfigCasemix .select2-container--default .select2-selection--multiple .select2-selection__choice {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            border-radius: 999px;
+            color: #3730a3;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 3px 8px;
+        }
+
+        #modalConfigCasemix #configCasemixRoleTotal {
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            margin-top: 12px;
+            padding: 10px 11px;
         }
 
         .casemix-config-answer-list {
@@ -910,6 +1089,15 @@
             gap: 10px;
             grid-template-columns: 38px minmax(0, 1fr) 115px;
             padding: 10px;
+        }
+
+        #modalConfigCasemix .casemix-question-card {
+            background: rgba(255, 255, 255, .95);
+            box-shadow: 0 12px 26px rgba(15, 23, 42, .05);
+        }
+
+        #modalConfigCasemix .casemix-config-answer-row {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
         }
 
         .casemix-config-answer-icon {
@@ -953,6 +1141,7 @@
             .casemix-formula-grid,
             .casemix-mini-grid,
             .casemix-config-grid,
+            .casemix-config-overview,
             .casemix-generate-layout,
             .casemix-loss-grid,
             .casemix-answer-grid,
