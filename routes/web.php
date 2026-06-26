@@ -1,9 +1,10 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
-use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiLaboratoriumController;
@@ -306,6 +307,19 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generateApotek/{id}/lock', [hitungPremiApotekController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateApotek.lock');
         Route::post('/hitung-premi/generateApotek/{id}/unlock', [hitungPremiApotekController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateApotek.unlock');
         Route::delete('/hitung-premi/generateApotek/{id}/delete', [hitungPremiApotekController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateApotek.delete');
+
+        Route::get('/hitung-premi/generateCasemix', [hitungPremiCasemixController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateCasemix');
+        Route::get('/hitung-premi/generateCasemix/table', [hitungPremiCasemixController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateCasemix.table');
+        Route::get('/hitung-premi/generateCasemix/summary', [hitungPremiCasemixController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateCasemix.summary');
+        Route::get('/hitung-premi/generateCasemix/config', [hitungPremiCasemixController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateCasemix.config');
+        Route::put('/hitung-premi/generateCasemix/config', [hitungPremiCasemixController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateCasemix.updateConfig');
+        Route::get('/hitung-premi/generateCasemix/pegawai-options', [hitungPremiCasemixController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateCasemix.pegawaiOptions');
+        Route::get('/hitung-premi/generateCasemix/preview', [hitungPremiCasemixController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generateCasemix.preview');
+        Route::post('/hitung-premi/generateCasemix', [hitungPremiCasemixController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateCasemix.store');
+        Route::get('/hitung-premi/generateCasemix/{id}/detail', [hitungPremiCasemixController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateCasemix.detail');
+        Route::post('/hitung-premi/generateCasemix/{id}/lock', [hitungPremiCasemixController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateCasemix.lock');
+        Route::post('/hitung-premi/generateCasemix/{id}/unlock', [hitungPremiCasemixController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateCasemix.unlock');
+        Route::delete('/hitung-premi/generateCasemix/{id}/delete', [hitungPremiCasemixController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateCasemix.delete');
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');

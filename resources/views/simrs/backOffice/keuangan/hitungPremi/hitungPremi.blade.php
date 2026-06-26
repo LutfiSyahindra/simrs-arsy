@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">12</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">13</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -660,6 +660,33 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Apotek</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generateApotek") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #4f46e5; --card-soft: #e0e7ff;"
+                data-title="Generate Premi Casemix"
+                data-search="generate premi casemix bpjs klaim verifikasi hasil questionnaire indikator">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-file-chart-outline"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Casemix</h5>
+                    <p class="generator-menu-description">
+                        Menghitung premi tim Casemix dari hasil verifikasi BPJS, skor indikator kinerja, dan konfigurasi pembagian tim.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-clipboard-check-outline"></i>
+                        Input biaya, hasil BPJS, dan questionnaire kinerja
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Casemix</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateCasemix") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>
