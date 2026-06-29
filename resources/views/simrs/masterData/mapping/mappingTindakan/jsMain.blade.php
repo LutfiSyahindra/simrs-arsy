@@ -240,7 +240,7 @@
                 width: '100%',
                 placeholder: placeholder,
                 allowClear: true,
-                minimumInputLength: 3,
+                minimumInputLength: 2,
                 ajax: {
                     url: searchTindakanUrl,
                     dataType: 'json',
@@ -445,7 +445,7 @@
                 return;
             }
 
-            if (query.length < 3) {
+            if (query.length < 2) {
                 lastSourceResults = [];
                 renderSourceChecklist('too-short');
                 return;
@@ -729,8 +729,8 @@
             Swal.fire({
                 title: deleteAll ? 'Hapus semua rincian tindakan?' : 'Hapus rincian tindakan terpilih?',
                 text: deleteAll ?
-                    'Semua rincian pada jenis tindakan ini akan dihapus.' :
-                    formatAngka(count) + ' rincian tindakan akan dihapus.',
+                    'Semua rincian pada jenis tindakan ini akan dihapus.' : formatAngka(count) +
+                    ' rincian tindakan akan dihapus.',
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonText: deleteAll ? 'Ya, hapus semua' : 'Ya, hapus',
@@ -748,7 +748,9 @@
                         mapping_ids: mappingIds
                     },
                     beforeSend: function() {
-                        panel.find('.delete-selected-mapping-tindakan, .delete-all-mapping-tindakan')
+                        panel.find(
+                                '.delete-selected-mapping-tindakan, .delete-all-mapping-tindakan'
+                                )
                             .prop('disabled', true);
                     },
                     success: function(response) {
@@ -762,14 +764,17 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: response.message || 'Rincian tindakan tidak dapat dihapus'
+                            text: response.message ||
+                                'Rincian tindakan tidak dapat dihapus'
                         });
                     },
                     error: function(xhr) {
                         Swal.fire({
                             icon: xhr.status === 422 ? 'warning' : 'error',
-                            title: xhr.responseJSON?.message || 'Gagal menghapus rincian tindakan',
-                            text: Object.values(xhr.responseJSON?.errors || {})[0]?.[0] || ''
+                            title: xhr.responseJSON?.message ||
+                                'Gagal menghapus rincian tindakan',
+                            text: Object.values(xhr.responseJSON?.errors || {})[0]
+                                ?.[0] || ''
                         });
                     },
                     complete: function() {
@@ -872,7 +877,8 @@
             slot.find('.inline-source-filter').val(data.sumber_tindakan || '');
 
             if (data.source_key) {
-                select.append(new Option(data.display_text || data.source_key, data.source_key, true, true));
+                select.append(new Option(data.display_text || data.source_key, data.source_key, true,
+                true));
             }
 
             initSourceSelect(select, $(document.body));
@@ -1047,7 +1053,8 @@
                 disabled: visibleChecks.length === 0
             });
             checks.each(function() {
-                $(this).closest('.tindakan-copy-option').toggleClass('is-checked', $(this).is(':checked'));
+                $(this).closest('.tindakan-copy-option').toggleClass('is-checked', $(this).is(
+                    ':checked'));
             });
         }
 
@@ -1400,7 +1407,8 @@
             const editor = $(this).closest('.tindakan-copy-editor');
             const checked = $(this).is(':checked');
 
-            editor.find('.tindakan-copy-option:visible .copy-mapping-tindakan-check').prop('checked', checked);
+            editor.find('.tindakan-copy-option:visible .copy-mapping-tindakan-check').prop('checked',
+                checked);
             updateCopyEditorState(editor);
         });
 
@@ -1464,7 +1472,8 @@
 
             Swal.fire({
                 title: 'Copy rincian tindakan?',
-                text: formatAngka(mappingIds.length) + ' rincian akan dicopy ke jenis tindakan tujuan.',
+                text: formatAngka(mappingIds.length) +
+                    ' rincian akan dicopy ke jenis tindakan tujuan.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, copy',
@@ -1489,13 +1498,16 @@
                         if (response.status === true) {
                             editor.remove();
                             tindakanTable.ajax.reload(null, false);
-                            const targetPanel = $(`.skor-expand-panel[data-jenis-id="${targetJenisId}"]`);
+                            const targetPanel = $(
+                                `.skor-expand-panel[data-jenis-id="${targetJenisId}"]`
+                                );
 
                             if (targetPanel.length) {
                                 refreshDetailPanel(targetPanel, targetJenisId);
                             }
 
-                            showToast((response.data?.copied || 0) > 0 ? 'success' : 'info',
+                            showToast((response.data?.copied || 0) > 0 ? 'success' :
+                                'info',
                                 response.message);
                             return;
                         }
@@ -1503,14 +1515,17 @@
                         Swal.fire({
                             icon: 'error',
                             title: 'Gagal',
-                            text: response.message || 'Rincian tindakan tidak dapat dicopy'
+                            text: response.message ||
+                                'Rincian tindakan tidak dapat dicopy'
                         });
                     },
                     error: function(xhr) {
                         Swal.fire({
                             icon: xhr.status === 422 ? 'warning' : 'error',
-                            title: xhr.responseJSON?.message || 'Gagal copy tindakan',
-                            text: Object.values(xhr.responseJSON?.errors || {})[0]?.[0] || ''
+                            title: xhr.responseJSON?.message ||
+                                'Gagal copy tindakan',
+                            text: Object.values(xhr.responseJSON?.errors ||
+                            {})[0]?.[0] || ''
                         });
                     },
                     complete: function() {
