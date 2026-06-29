@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">13</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">14</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -497,6 +497,33 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">VK</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generateVk") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #0f766e; --card-soft: #ccfbf1;"
+                data-title="Generate Premi Driver Ambulance"
+                data-search="generate premi driver ambulance sopir tujuan harga perjalanan premi bersama">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-ambulance"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Driver Ambulance</h5>
+                    <p class="generator-menu-description">
+                        Input tujuan ambulance dan jumlah perjalanan, lalu hitung premi driver serta bagian premi bersama.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-cog-outline"></i>
+                        Konfigurasi tujuan, harga, dan persentase premi
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Driver</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generatePremiDriver") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>

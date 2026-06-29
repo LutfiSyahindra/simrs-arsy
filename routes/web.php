@@ -5,6 +5,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiDriverController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiFisioController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
@@ -225,6 +226,24 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generateVk/{id}/lock', [hitungPremiVkController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateVk.lock');
         Route::post('/hitung-premi/generateVk/{id}/unlock', [hitungPremiVkController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateVk.unlock');
         Route::delete('/hitung-premi/generateVk/{id}/delete', [hitungPremiVkController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateVk.delete');
+
+        Route::get('/hitung-premi/generatePremiDriver', [hitungPremiDriverController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver');
+        Route::get('/hitung-premi/generatePremiDriver/table', [hitungPremiDriverController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.table');
+        Route::get('/hitung-premi/generatePremiDriver/summary', [hitungPremiDriverController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.summary');
+        Route::get('/hitung-premi/generatePremiDriver/config', [hitungPremiDriverController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.config');
+        Route::put('/hitung-premi/generatePremiDriver/config', [hitungPremiDriverController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.updateConfig');
+        Route::get('/hitung-premi/generatePremiDriver/tujuan', [hitungPremiDriverController::class, 'tujuanList'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.tujuanList');
+        Route::post('/hitung-premi/generatePremiDriver/tujuan', [hitungPremiDriverController::class, 'storeTujuan'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.storeTujuan');
+        Route::get('/hitung-premi/generatePremiDriver/tujuan-options', [hitungPremiDriverController::class, 'tujuanOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.tujuanOptions');
+        Route::put('/hitung-premi/generatePremiDriver/tujuan/{id}', [hitungPremiDriverController::class, 'updateTujuan'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.updateTujuan');
+        Route::delete('/hitung-premi/generatePremiDriver/tujuan/{id}', [hitungPremiDriverController::class, 'deleteTujuan'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.deleteTujuan');
+        Route::get('/hitung-premi/generatePremiDriver/pegawai-options', [hitungPremiDriverController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.pegawaiOptions');
+        Route::post('/hitung-premi/generatePremiDriver/preview', [hitungPremiDriverController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.preview');
+        Route::post('/hitung-premi/generatePremiDriver', [hitungPremiDriverController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.store');
+        Route::get('/hitung-premi/generatePremiDriver/{id}/detail', [hitungPremiDriverController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.detail');
+        Route::post('/hitung-premi/generatePremiDriver/{id}/lock', [hitungPremiDriverController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.lock');
+        Route::post('/hitung-premi/generatePremiDriver/{id}/unlock', [hitungPremiDriverController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.unlock');
+        Route::delete('/hitung-premi/generatePremiDriver/{id}/delete', [hitungPremiDriverController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generatePremiDriver.delete');
 
         Route::get('/hitung-premi/generateOperasi', [hitungPremiOperasiController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateOperasi');
         Route::get('/hitung-premi/generateOperasi/table', [hitungPremiOperasiController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateOperasi.table');
