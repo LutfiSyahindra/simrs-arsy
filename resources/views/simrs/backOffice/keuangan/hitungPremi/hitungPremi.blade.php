@@ -585,6 +585,34 @@
                 </div>
             </article>
 
+            <article class="generator-menu-card" style="--card-color: #0f766e; --card-soft: #ccfbf1;"
+                data-title="Generate Premi Fisio"
+                data-search="generate premi fisio fisioterapi umum bpjs tindakan harga pasien manual konfigurasi">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-human-cane"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Fisio</h5>
+                    <p class="generator-menu-description">
+                        Menghitung premi fisioterapi manual untuk UMUM dari tindakan dan harga konfigurasi, serta BPJS
+                        dari jumlah pasien dan nominal per pasien.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-cog-outline"></i>
+                        Konfigurasi tindakan, rumus, dan petugas penerima
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Fisio</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateFisio") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
             <article class="generator-menu-card" style="--card-color: #dc2626; --card-soft: #fee2e2;"
                 data-title="Generate Premi ICU"
                 data-search="generate premi icu umum bpjs kamar inap tindakan rawat kritikal mapping">

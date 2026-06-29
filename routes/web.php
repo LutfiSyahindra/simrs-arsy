@@ -5,6 +5,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiFisioController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
@@ -264,6 +265,20 @@ Route::middleware('auth')->group(function () {
         Route::post('/hitung-premi/generateLaboratorium/{id}/lock', [hitungPremiLaboratoriumController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateLaboratorium.lock');
         Route::post('/hitung-premi/generateLaboratorium/{id}/unlock', [hitungPremiLaboratoriumController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateLaboratorium.unlock');
         Route::delete('/hitung-premi/generateLaboratorium/{id}/delete', [hitungPremiLaboratoriumController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateLaboratorium.delete');
+
+        Route::get('/hitung-premi/generateFisio', [hitungPremiFisioController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateFisio');
+        Route::get('/hitung-premi/generateFisio/table', [hitungPremiFisioController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateFisio.table');
+        Route::get('/hitung-premi/generateFisio/summary', [hitungPremiFisioController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateFisio.summary');
+        Route::get('/hitung-premi/generateFisio/config', [hitungPremiFisioController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateFisio.config');
+        Route::put('/hitung-premi/generateFisio/config', [hitungPremiFisioController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateFisio.updateConfig');
+        Route::get('/hitung-premi/generateFisio/pegawai-options', [hitungPremiFisioController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateFisio.pegawaiOptions');
+        Route::get('/hitung-premi/generateFisio/tindakan-options', [hitungPremiFisioController::class, 'tindakanOptions'])->name('backOffice.keuangan.hitungPremi.generateFisio.tindakanOptions');
+        Route::get('/hitung-premi/generateFisio/preview', [hitungPremiFisioController::class, 'preview'])->name('backOffice.keuangan.hitungPremi.generateFisio.preview');
+        Route::post('/hitung-premi/generateFisio', [hitungPremiFisioController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateFisio.store');
+        Route::get('/hitung-premi/generateFisio/{id}/detail', [hitungPremiFisioController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateFisio.detail');
+        Route::post('/hitung-premi/generateFisio/{id}/lock', [hitungPremiFisioController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateFisio.lock');
+        Route::post('/hitung-premi/generateFisio/{id}/unlock', [hitungPremiFisioController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateFisio.unlock');
+        Route::delete('/hitung-premi/generateFisio/{id}/delete', [hitungPremiFisioController::class, 'destroy'])->name('backOffice.keuangan.hitungPremi.generateFisio.delete');
 
         Route::get('/hitung-premi/generateIcu', [hitungPremiIcuController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateIcu');
         Route::get('/hitung-premi/generateIcu/table', [hitungPremiIcuController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateIcu.table');
