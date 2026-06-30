@@ -5,6 +5,7 @@ namespace App\Repositories\keuangan\premi;
 use App\Models\dbSimrs\generateBhpModel;
 use App\Models\dbSimrs\generateKamarModel;
 use App\Models\dbSimrs\premiPelayananNonMedisDetailModel;
+use App\Models\dbSimrs\premiPelayananNonMedisDistributionModel;
 use App\Models\dbSimrs\premiPelayananNonMedisModel;
 use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Carbon;
@@ -263,15 +264,71 @@ class generatePelayananNonMedisRepository
     {
         return DB::table('master_jenis_premi as jp')
             ->join('mapping_premi as mp', 'mp.jnsPremi_id', '=', 'jp.id')
+            ->leftJoin('mapping_premi_pegawai as mpp', 'mpp.jnsPremi_id', '=', 'jp.id')
             ->select([
                 'jp.id',
                 'jp.kode',
                 'jp.jenis',
-                DB::raw('COUNT(mp.id) as jumlah_tindakan'),
+                'jp.pembagi',
+                DB::raw('COUNT(DISTINCT mp.id) as jumlah_tindakan'),
+                DB::raw('COUNT(DISTINCT mpp.id) as jumlah_pegawai'),
             ])
-            ->groupBy('jp.id', 'jp.kode', 'jp.jenis')
+            ->groupBy('jp.id', 'jp.kode', 'jp.jenis', 'jp.pembagi')
             ->orderBy('jp.jenis')
             ->get();
+    }
+
+    public function getConfig(): object
+    {
+        $defaultPremiId = DB::table('master_jenis_premi')
+            ->where('kode', 'PRM001')
+            ->where('jenis', 'like', '%Pelayanan non medis%')
+            ->value('id');
+
+        $config = DB::table('premi_pelayanan_non_medis_config')->first();
+
+        if ($config) {
+            return $config;
+        }
+
+        $now = now();
+        $id = DB::table('premi_pelayanan_non_medis_config')->insertGetId([
+            'jnsPremi_id' => $defaultPremiId,
+            'distribution_mode' => 'split_evenly',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return DB::table('premi_pelayanan_non_medis_config')->where('id', $id)->first();
+    }
+
+    public function saveConfig(
+        int $jnsPremiId,
+        string $distributionMode,
+        array $karcisTindakanIds
+    ): object
+    {
+        return DB::transaction(function () use (
+            $jnsPremiId,
+            $distributionMode,
+            $karcisTindakanIds
+        ) {
+            $config = $this->getConfig();
+
+            DB::table('premi_pelayanan_non_medis_config')
+                ->where('id', $config->id)
+                ->update([
+                    'jnsPremi_id' => $jnsPremiId,
+                    'distribution_mode' => $distributionMode,
+                    'updated_at' => now(),
+                ]);
+
+            $this->replaceKarcisConfig($karcisTindakanIds);
+
+            return DB::table('premi_pelayanan_non_medis_config')
+                ->where('id', $config->id)
+                ->first();
+        });
     }
 
     public function getKarcisConfigOptions(): Collection
@@ -302,25 +359,30 @@ class generatePelayananNonMedisRepository
     public function saveKarcisConfig(array $tindakanIds): void
     {
         DB::transaction(function () use ($tindakanIds) {
-            DB::table('premi_pelayanan_non_medis_karcis_config')->delete();
-
-            if (empty($tindakanIds)) {
-                return;
-            }
-
-            $now = now();
-            DB::table('premi_pelayanan_non_medis_karcis_config')->insert(
-                collect($tindakanIds)
-                    ->unique()
-                    ->map(fn ($id) => [
-                        'jnsTindakan_id' => (int) $id,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ])
-                    ->values()
-                    ->all()
-            );
+            $this->replaceKarcisConfig($tindakanIds);
         });
+    }
+
+    private function replaceKarcisConfig(array $tindakanIds): void
+    {
+        DB::table('premi_pelayanan_non_medis_karcis_config')->delete();
+
+        if (empty($tindakanIds)) {
+            return;
+        }
+
+        $now = now();
+        DB::table('premi_pelayanan_non_medis_karcis_config')->insert(
+            collect($tindakanIds)
+                ->unique()
+                ->map(fn ($id) => [
+                    'jnsTindakan_id' => (int) $id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+                ->values()
+                ->all()
+        );
     }
 
     public function findPremi(int $jnsPremiId)
@@ -329,6 +391,21 @@ class generatePelayananNonMedisRepository
             ->select('id', 'kode', 'jenis', 'pembagi')
             ->where('id', $jnsPremiId)
             ->first();
+    }
+
+    public function getMappedPegawai(int $jnsPremiId): Collection
+    {
+        return DB::table('mapping_premi_pegawai as mpp')
+            ->leftJoin('gaji_pokok as gp', 'gp.nik', '=', 'mpp.nik')
+            ->select([
+                'mpp.nik',
+                DB::raw('COALESCE(gp.nama, mpp.nik) as pegawai_name'),
+                'gp.jbtn as pegawai_position',
+                'gp.stts_kerja',
+            ])
+            ->where('mpp.jnsPremi_id', $jnsPremiId)
+            ->orderBy('pegawai_name')
+            ->get();
     }
 
     private function getCalculationMappings(
@@ -557,8 +634,11 @@ class generatePelayananNonMedisRepository
                 'generateBhp:id,kode_ploting,nama_ploting',
                 'generateKamar:id,kode_ploting,nama_ploting',
                 'jnsPremi:id,pembagi',
+                'distributions' => fn ($query) => $query->orderBy('pegawai_name'),
             ])
             ->withCount('details')
+            ->withCount('distributions')
+            ->withSum('distributions as total_dibagikan', 'total_diterima')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when(
                 $jenisPelayanan,
@@ -601,6 +681,7 @@ class generatePelayananNonMedisRepository
                         'data_tindakan',
                     ])
                     ->orderBy('nama_jenis_tindakan'),
+                'distributions' => fn ($query) => $query->orderBy('pegawai_name'),
             ])
             ->where('periode', $periode)
             ->where('jenis_pelayanan', $jenisPelayanan)
@@ -680,6 +761,29 @@ class generatePelayananNonMedisRepository
                 ->insert($chunk->all()));
     }
 
+    public function replaceDistributions(
+        premiPelayananNonMedisModel $header,
+        Collection $distributions
+    ): void {
+        $header->distributions()->delete();
+
+        if ($distributions->isEmpty()) {
+            return;
+        }
+
+        $now = now();
+        $distributions
+            ->map(fn (array $distribution) => [
+                ...$distribution,
+                'premi_pelayanan_non_medis_id' => $header->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->chunk(100)
+            ->each(fn (Collection $chunk) => premiPelayananNonMedisDistributionModel::query()
+                ->insert($chunk->all()));
+    }
+
     public function findWithDetails(int $id): ?premiPelayananNonMedisModel
     {
         return premiPelayananNonMedisModel::query()
@@ -694,6 +798,7 @@ class generatePelayananNonMedisRepository
                 'details' => fn ($query) => $query
                     ->orderBy('nama_jenis_tindakan')
                     ->orderBy('nama_premi'),
+                'distributions' => fn ($query) => $query->orderBy('pegawai_name'),
             ])
             ->find($id);
     }

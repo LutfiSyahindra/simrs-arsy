@@ -7,16 +7,19 @@
         });
 
         const detailModal = new bootstrap.Modal(document.getElementById('modalDetailNonMedis'));
-        const karcisConfigModal = new bootstrap.Modal(document.getElementById('modalKarcisConfig'));
+        const karcisConfigModal = new bootstrap.Modal(document.getElementById('modalNonMedisConfig'));
         let activeType = 'umum';
         let activePremiId = '';
         let mappingPremiList = [];
         let karcisConfigOptions = [];
         let karcisSelectedIds = [];
+        let configPegawaiList = [];
+        let distributionMode = 'split_evenly';
         let summaryData = null;
         let selectedBhpSourceId = '';
         let selectedKamarSourceId = '';
         let detailMappings = [];
+        let detailDistributions = [];
         let selectedMappingId = '';
         let defaultPremiId = '';
 
@@ -51,6 +54,33 @@
             }
 
             return (premi.kode || '-') + ' - ' + (premi.jenis || '-');
+        }
+
+        function updateConfigSummary() {
+            const premi = activePremi();
+
+            $('#activeConfigPremiLabel').text(
+                premi ? activePremiLabel() : 'Belum ada mapping premi aktif'
+            );
+            $('#mappingPremiNonMedisNote').text(
+                premi ?
+                formatNumber(premi.jumlah_tindakan) + ' tindakan / ' +
+                formatNumber(premi.jumlah_pegawai || 0) + ' pegawai penerima / pembagi ' +
+                formatNumber(premi.pembagi || 1) + ' / ' + distributionModeLabel(distributionMode) :
+                'Buka konfigurasi untuk memilih sumber mapping premi.'
+            );
+        }
+
+        function distributionModeLabel(mode) {
+            return mode === 'full_amount' ?
+                'nilai final penuh per pegawai' :
+                'dibagi rata ke pegawai';
+        }
+
+        function distributionModeNote(mode) {
+            return mode === 'full_amount' ?
+                'Setiap pegawai menerima nilai final penuh. Contoh total final Rp 324.361, maka setiap pegawai menerima Rp 324.361.' :
+                'Dibagi rata: total final dibagi jumlah pegawai penerima.';
         }
 
         function normalizedPremiText(item) {
@@ -169,7 +199,7 @@
         }
 
         function renderMappingPremiOptions() {
-            const select = $('#mappingPremiNonMedis');
+            const select = $('#configMappingPremiNonMedis');
             const current = activePremiId;
 
             select.empty().append('<option value="">Pilih mapping premi</option>');
@@ -179,7 +209,8 @@
                     $('<option>', {
                         value: item.id,
                         text: (item.kode || '-') + ' - ' + (item.jenis || '-') +
-                            ' (' + formatNumber(item.jumlah_tindakan) + ' tindakan)'
+                            ' (' + formatNumber(item.jumlah_tindakan) + ' tindakan / ' +
+                            formatNumber(item.jumlah_pegawai || 0) + ' pegawai)'
                     })
                 );
             });
@@ -204,28 +235,64 @@
                 select.val('');
             }
 
-            $('#mappingPremiNonMedisNote').text(
+            $('#configMappingPremiNote').text(
                 activePremiId ?
-                formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan terpasang' :
-                'Pilih mapping premi untuk preview.'
+                formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan / ' +
+                formatNumber(activePremi()?.jumlah_pegawai || 0) + ' pegawai penerima' :
+                'Pilih mapping premi sebagai sumber generate pelayanan non medis.'
             );
+            updateConfigSummary();
+            renderConfigPegawaiPreview();
         }
 
         function loadMappingPremiOptions() {
             return $.get(
-                "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.mappingPremiOptions") }}",
+                "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.config") }}",
                 function(response) {
-                    mappingPremiList = response.data || response || [];
+                    const data = response.data || {};
+                    mappingPremiList = data.mapping_options || [];
+                    activePremiId = data.jnsPremi_id ? String(data.jnsPremi_id) : '';
+                    distributionMode = data.distribution_mode || 'split_evenly';
+                    karcisConfigOptions = (data.karcis || {}).options || [];
+                    karcisSelectedIds = ((data.karcis || {}).selected_ids || []).map(Number);
+                    configPegawaiList = data.pegawai || [];
+                    $('#configDistributionModeNonMedis').val(distributionMode);
+                    $('#configDistributionModeNote').text(distributionModeNote(distributionMode));
                     renderMappingPremiOptions();
+                    renderKarcisConfigList();
                 }
             ).fail(function() {
                 mappingPremiList = [];
                 activePremiId = '';
-                $('#mappingPremiNonMedis')
+                $('#configMappingPremiNonMedis')
                     .empty()
                     .append('<option value="">Mapping premi gagal dimuat</option>');
                 $('#mappingPremiNonMedisNote').text('Mapping premi gagal dimuat.');
+                updateConfigSummary();
             });
+        }
+
+        function renderConfigPegawaiPreview() {
+            if (!configPegawaiList.length) {
+                $('#configPegawaiPreview').text(
+                    activePremiId ?
+                    'Mapping premi ini belum memiliki pegawai penerima.' :
+                    'Pilih mapping premi untuk melihat pegawai penerima.'
+                );
+                return;
+            }
+
+            const names = configPegawaiList.slice(0, 5).map(function(item) {
+                return item.pegawai_name || item.nik;
+            }).join(', ');
+            const suffix = configPegawaiList.length > 5 ?
+                ' +' + formatNumber(configPegawaiList.length - 5) + ' pegawai lain' :
+                '';
+
+            $('#configPegawaiPreview').text(
+                formatNumber(configPegawaiList.length) + ' pegawai / ' +
+                distributionModeLabel(distributionMode) + ': ' + names + suffix
+            );
         }
 
         function updateSourcePeriodInfo(sourcePeriod, karcisSourcePeriod, karcisConfigCount) {
@@ -441,7 +508,13 @@
             $('#summarySebelumPembagi').text(
                 'Sebelum pembagi: ' + formatRupiah(totalSebelumPembagi(data))
             );
-            $('#summaryPembagiNote').text('Pembagi: ' + formatNumber(data.pembagi || 1));
+            $('#summaryPembagiNote').text(
+                'Pembagi: ' + formatNumber(data.pembagi || 1) +
+                ' / Penerima: ' + formatNumber(data.jumlah_penerima || 0) +
+                ' pegawai / ' +
+                (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
+                ' / Dibagikan: ' + formatRupiah(data.total_dibagikan || 0)
+            );
             $('#summaryFormula').text(finalFormulaText(data));
 
             const stateText = data.is_locked ?
@@ -465,6 +538,7 @@
                 selectedBhpSourceId &&
                 selectedKamarSourceId &&
                 Number(data.jumlah_mapping_premi) > 0 &&
+                Number(data.jumlah_penerima) > 0 &&
                 !data.is_locked;
             $('#btnGenerateNonMedis')
                 .prop('disabled', !canGenerate)
@@ -504,7 +578,7 @@
                 $('#nonMedisSummarySubtitle').text(
                     !periode ?
                     'Pilih periode untuk memulai preview.' :
-                    'Pilih mapping premi sebelum preview dan generate.'
+                        'Atur sumber mapping premi di menu konfigurasi sebelum preview dan generate.'
                 );
                 return;
             }
@@ -603,7 +677,13 @@
                         return '<strong class="text-primary">' +
                             formatRupiah(data) + '</strong>' +
                             '<small class="d-block text-muted">Sebelum pembagi ' +
-                            formatRupiah(totalSebelumPembagi(row)) + '</small>';
+                            formatRupiah(totalSebelumPembagi(row)) + '</small>' +
+                            '<small class="d-block text-muted">' +
+                            formatNumber(row.jumlah_penerima || 0) + ' pegawai menerima ' +
+                            formatRupiah(row.total_dibagikan || 0) + '</small>' +
+                            '<small class="d-block text-muted">' +
+                            escapeHtml(row.distribution_mode_label || distributionModeLabel(row
+                                .distribution_mode)) + '</small>';
                     }
                 },
                 {
@@ -689,7 +769,7 @@
         $('#btnKarcisConfig').on('click', function() {
             $('#karcisConfigSearch').val('');
             karcisConfigModal.show();
-            loadKarcisConfig();
+            loadMappingPremiOptions();
         });
 
         $('#karcisConfigSearch').on('input', renderKarcisConfigList);
@@ -710,9 +790,11 @@
 
         $('#btnSaveKarcisConfig').on('click', function() {
             $.ajax({
-                url: "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateKarcisConfig") }}",
+                url: "{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateConfig") }}",
                 method: 'PUT',
                 data: {
+                    jnsPremi_id: $('#configMappingPremiNonMedis').val(),
+                    distribution_mode: $('#configDistributionModeNonMedis').val(),
                     jnsTindakan_id: karcisSelectedIds
                 },
                 beforeSend: function() {
@@ -720,8 +802,15 @@
                 },
                 success: function(response) {
                     const data = response.data || {};
-                    karcisConfigOptions = data.options || [];
-                    karcisSelectedIds = (data.selected_ids || []).map(Number);
+                    mappingPremiList = data.mapping_options || mappingPremiList;
+                    activePremiId = data.jnsPremi_id ? String(data.jnsPremi_id) : '';
+                    distributionMode = data.distribution_mode || 'split_evenly';
+                    karcisConfigOptions = (data.karcis || {}).options || [];
+                    karcisSelectedIds = ((data.karcis || {}).selected_ids || []).map(Number);
+                    configPegawaiList = data.pegawai || [];
+                    $('#configDistributionModeNonMedis').val(distributionMode);
+                    $('#configDistributionModeNote').text(distributionModeNote(distributionMode));
+                    renderMappingPremiOptions();
                     karcisConfigModal.hide();
                     Swal.fire('Berhasil', response.message, 'success');
                     refreshAll();
@@ -735,25 +824,37 @@
             });
         });
 
-        $('#mappingPremiNonMedis').on('change', function() {
-            activePremiId = String($(this).val() || '');
-            $('#mappingPremiNonMedisNote').text(
-                activePremiId ?
-                formatNumber(activePremi()?.jumlah_tindakan) + ' tindakan terpasang' :
-                'Pilih mapping premi untuk preview.'
+        $('#configMappingPremiNonMedis').on('change', function() {
+            const selectedId = String($(this).val() || '');
+            const item = mappingPremiList.find(function(option) {
+                return String(option.id) === selectedId;
+            });
+
+            $('#configMappingPremiNote').text(
+                item ?
+                formatNumber(item.jumlah_tindakan) + ' tindakan / ' +
+                formatNumber(item.jumlah_pegawai || 0) +
+                ' pegawai penerima. Simpan konfigurasi untuk mengaktifkan.' :
+                'Pilih mapping premi sebagai sumber generate pelayanan non medis.'
             );
+            $('#configPegawaiPreview').text(
+                item ?
+                formatNumber(item.jumlah_pegawai || 0) +
+                ' pegawai akan menerima total final setelah konfigurasi disimpan.' :
+                'Pilih mapping premi untuk melihat pegawai penerima.'
+            );
+        });
 
-            if (activePremiId && defaultPremiId && activePremiId !== defaultPremiId) {
-                Swal.fire({
-                    icon: 'warning',
-                    title: 'Mapping premi diganti',
-                    text: 'Default pelayanan non medis adalah ' + defaultPremiLabel +
-                        '. Pastikan mapping pilihan sudah sesuai sebelum generate.',
-                    confirmButtonText: 'Saya mengerti'
-                });
-            }
-
-            refreshAll();
+        $('#configDistributionModeNonMedis').on('change', function() {
+            distributionMode = String($(this).val() || 'split_evenly');
+            $('#configDistributionModeNote').text(distributionModeNote(distributionMode));
+            updateConfigSummary();
+            $('#configPegawaiPreview').text(
+                configPegawaiList.length ?
+                formatNumber(configPegawaiList.length) + ' pegawai / ' +
+                distributionModeLabel(distributionMode) :
+                'Pilih mapping premi untuk melihat pegawai penerima.'
+            );
         });
 
         $('#btnGenerateNonMedis').on('click', function() {
@@ -775,6 +876,13 @@
                     escapeHtml(summaryData.periode_sumber || periode) + '</strong></div>' +
                     '<div class="mb-2">Jenis: <strong>' + typeLabel + '</strong></div>' +
                     '<div class="mb-2">Mapping Premi: <strong>' + escapeHtml(premiLabel) +
+                    '</strong></div>' +
+                    '<div class="mb-2">Penerima: <strong>' +
+                    formatNumber(summaryData.jumlah_penerima || 0) +
+                    ' pegawai</strong></div>' +
+                    '<div class="mb-2">Distribusi: <strong>' +
+                    escapeHtml(summaryData.distribution_mode_label || distributionModeLabel(summaryData
+                        .distribution_mode)) +
                     '</strong></div>' +
                     '<div class="mb-2">Sumber BHP: <strong>' +
                     escapeHtml(summaryData.dependency_bhp?.ploting_label || '-') +
@@ -919,6 +1027,36 @@
                         selected: selected
                     })
                 );
+            });
+        }
+
+        function renderDistributionRows() {
+            const rows = $('#detailDistributionRows').empty();
+
+            $('#detailDistributionCount').text(
+                formatNumber(detailDistributions.length) + ' pegawai'
+            );
+
+            if (!detailDistributions.length) {
+                rows.html(
+                    '<tr><td colspan="3" class="non-medis-empty">Belum ada distribusi pegawai.</td></tr>'
+                );
+                return;
+            }
+
+            detailDistributions.forEach(function(item) {
+                rows.append(`
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(item.pegawai_name || item.nik || '-')}</strong>
+                            <small class="d-block text-muted">${escapeHtml(item.nik || '-')}</small>
+                        </td>
+                        <td>${escapeHtml(item.pegawai_position || '-')}</td>
+                        <td class="text-end fw-bold text-primary">
+                            ${formatRupiah(item.total_diterima || 0)}
+                        </td>
+                    </tr>
+                `);
             });
         }
 
@@ -1093,6 +1231,7 @@
         $('#tableGenerateNonMedis').on('click', '.btn-detail-non-medis', function() {
             const id = $(this).data('id');
             detailMappings = [];
+            detailDistributions = [];
             selectedMappingId = '';
             $('#detailNonMedisContent').addClass('d-none');
             $('#detailNonMedisLoading').removeClass('d-none');
@@ -1108,6 +1247,7 @@
                 success: function(response) {
                     const data = response.data || {};
                     detailMappings = data.details || [];
+                    detailDistributions = data.distributions || [];
                     selectedMappingId = detailMappings.length ?
                         String(detailMappings[0].id) : '';
 
@@ -1129,7 +1269,9 @@
                     $('#detailTotalFinal').text(formatRupiah(data.total_final));
                     $('#detailSebelumPembagi').text(
                         'Sebelum pembagi: ' + formatRupiah(totalSebelumPembagi(data)) +
-                        ' / Pembagi ' + formatNumber(data.pembagi || 1)
+                        ' / Pembagi ' + formatNumber(data.pembagi || 1) +
+                        ' / ' + (data.distribution_mode_label || distributionModeLabel(data
+                            .distribution_mode))
                     );
                     $('#detailFormula').text(finalFormulaText(data));
                     $('#detailMappingCount').text(
@@ -1137,6 +1279,7 @@
                     );
 
                     renderMappingRows();
+                    renderDistributionRows();
                     renderTransactions();
                     $('#detailNonMedisLoading').addClass('d-none');
                     $('#detailNonMedisContent').removeClass('d-none');

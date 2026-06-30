@@ -878,12 +878,10 @@
                     </small>
                 </div>
                 <div class="non-medis-period">
-                    <label for="mappingPremiNonMedis">Mapping Premi</label>
-                    <select id="mappingPremiNonMedis" class="form-select">
-                        <option value="">Memuat mapping premi...</option>
-                    </select>
+                    <label>Konfigurasi Aktif</label>
+                    <div class="fw-bold" id="activeConfigPremiLabel">Memuat konfigurasi...</div>
                     <small class="d-block mt-1 text-white-50" id="mappingPremiNonMedisNote">
-                        Pilih mapping premi untuk preview.
+                        Mapping premi dan karcis diatur dari menu konfigurasi.
                     </small>
                 </div>
             </div>
@@ -916,8 +914,8 @@
                 </div>
                 <div class="non-medis-panel-actions">
                     <button type="button" id="btnKarcisConfig" class="non-medis-config-btn">
-                        <i class="mdi mdi-ticket-confirmation-outline"></i>
-                        <span>Karcis BPJS</span>
+                        <i class="mdi mdi-tune-variant"></i>
+                        <span>Konfigurasi</span>
                     </button>
                     <button type="button" id="btnGenerateNonMedis" class="non-medis-generate" disabled>
                         <i class="mdi mdi-cog-play-outline"></i>
@@ -1070,19 +1068,49 @@
             </div>
         </section>
 
-        <div class="modal fade" id="modalKarcisConfig" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="modalNonMedisConfig" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
                 <div class="modal-content border-0 shadow-sm">
                     <div class="modal-header border-0 pb-0">
                         <div>
-                            <h5 class="modal-title fw-bold">Konfigurasi Karcis BPJS</h5>
+                            <h5 class="modal-title fw-bold">Konfigurasi Pelayanan Non Medis</h5>
                             <small class="text-muted">
-                                Tindakan terpilih akan masuk ke UMUM dari sumber BPJS, dan dikecualikan dari Generate BPJS.
+                                Pilih sumber mapping premi dan tindakan karcis BPJS yang berlaku untuk generate.
                             </small>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
+                        <div class="mb-4">
+                            <label for="configMappingPremiNonMedis" class="form-label fw-semibold">
+                                Sumber Mapping Premi
+                            </label>
+                            <select id="configMappingPremiNonMedis" class="form-select">
+                                <option value="">Memuat mapping premi...</option>
+                            </select>
+                            <small class="text-muted" id="configMappingPremiNote">
+                                Pegawai penerima diambil dari mapping premi yang dipilih.
+                            </small>
+                            <div class="mt-3">
+                                <label for="configDistributionModeNonMedis" class="form-label fw-semibold">
+                                    Distribusi Nilai Final
+                                </label>
+                                <select id="configDistributionModeNonMedis" class="form-select">
+                                    <option value="split_evenly">Dibagi rata ke pegawai</option>
+                                    <option value="full_amount">Nilai final penuh untuk setiap pegawai</option>
+                                </select>
+                                <small class="text-muted" id="configDistributionModeNote">
+                                    Dibagi rata: total final dibagi jumlah pegawai penerima.
+                                </small>
+                            </div>
+                            <div class="mt-3 rounded bg-light p-3">
+                                <div class="fw-semibold mb-1">Pegawai Penerima</div>
+                                <div class="small text-muted" id="configPegawaiPreview">
+                                    Pilih mapping premi untuk melihat pegawai penerima.
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="input-group input-group-sm mb-3">
                             <span class="input-group-text bg-white">
                                 <i class="mdi mdi-magnify text-muted"></i>

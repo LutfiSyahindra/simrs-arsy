@@ -59,6 +59,30 @@
                     <div class="non-medis-detail-section">
                         <div class="non-medis-detail-section-head">
                             <div>
+                                <div class="non-medis-detail-section-title">Distribusi Pegawai</div>
+                                <small class="text-muted">
+                                    Total final dibagikan ke pegawai dari mapping premi saat generate.
+                                </small>
+                            </div>
+                            <span class="badge bg-light text-dark" id="detailDistributionCount">0 pegawai</span>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover non-medis-detail-table">
+                                <thead>
+                                    <tr>
+                                        <th>Pegawai</th>
+                                        <th>Jabatan</th>
+                                        <th class="text-end">Diterima</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="detailDistributionRows"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="non-medis-detail-section">
+                        <div class="non-medis-detail-section-head">
+                            <div>
                                 <div class="non-medis-detail-section-title">Rekap Mapping Premi</div>
                                 <small class="text-muted">Klik baris untuk melihat transaksi pembentuknya.</small>
                             </div>

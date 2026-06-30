@@ -42,10 +42,36 @@ class generatePelayananNonMedisService
                 'id' => (int) $item->id,
                 'kode' => $item->kode,
                 'jenis' => $item->jenis,
+                'pembagi' => max(1, (int) ($item->pembagi ?? 1)),
                 'jumlah_tindakan' => (int) $item->jumlah_tindakan,
+                'jumlah_pegawai' => (int) $item->jumlah_pegawai,
                 'text' => trim($item->kode.' - '.$item->jenis),
             ])
             ->values();
+    }
+
+    public function getConfig(): array
+    {
+        return $this->configPayload($this->repository->getConfig());
+    }
+
+    public function updateConfig(
+        int $jnsPremiId,
+        string $distributionMode,
+        array $karcisTindakanIds
+    ): array
+    {
+        return $this->configPayload(
+            $this->repository->saveConfig(
+                $jnsPremiId,
+                $distributionMode,
+                collect($karcisTindakanIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all()
+            )
+        );
     }
 
     public function getKarcisConfig(): array
@@ -84,10 +110,13 @@ class generatePelayananNonMedisService
     public function getSummary(
         string $periode,
         string $jenis,
-        int $jnsPremiId,
+        ?int $jnsPremiId = null,
         ?int $generateBhpId = null,
         ?int $generateKamarId = null
     ): array {
+        $config = $this->repository->getConfig();
+        $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+        $distributionMode = $this->distributionMode($config->distribution_mode ?? null);
         $existing = $this->repository->findByPeriodAndType(
             $periode,
             $jenis,
@@ -148,6 +177,15 @@ class generatePelayananNonMedisService
             + (float) $totalKamar,
             2
         );
+        $totalFinal = $calculation
+            ? round($totalSebelumPembagi / $pembagi, 2)
+            : ($existing?->total_final ?? 0);
+        $pegawai = $this->repository->getMappedPegawai($jnsPremiId);
+        $distributions = $existing?->is_locked
+            ? $this->distributionPayload($existing->distributions ?? collect())
+            : $this->distributeFinal($totalFinal, $pegawai, $jnsPremiId, $distributionMode);
+        $distributionMode = data_get($distributions->first(), 'distribution_mode')
+            ?? $distributionMode;
 
         return [
             'periode' => $periode,
@@ -199,9 +237,16 @@ class generatePelayananNonMedisService
             'total_kamar_inap' => $totalKamar,
             'total_sebelum_pembagi' => $totalSebelumPembagi,
             'pembagi' => $pembagi,
-            'total_final' => $calculation
-                ? round($totalSebelumPembagi / $pembagi, 2)
-                : ($existing?->total_final ?? 0),
+            'total_final' => $totalFinal,
+            'jumlah_penerima' => $distributions->count(),
+            'distribution_mode' => $distributionMode,
+            'distribution_mode_label' => $this->distributionModeLabel($distributionMode),
+            'total_dibagikan' => round((float) $distributions->sum('total_diterima'), 2),
+            'total_belum_dibagikan' => max(
+                0,
+                round((float) $totalFinal - (float) $distributions->sum('total_diterima'), 2)
+            ),
+            'distributions' => $distributions->values(),
             'is_locked' => $existing?->is_locked ?? false,
             'locked_at' => optional($existing?->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $existing?->lockedBy?->name,
@@ -217,7 +262,7 @@ class generatePelayananNonMedisService
     public function generate(
         string $periode,
         string $jenis,
-        int $jnsPremiId,
+        ?int $jnsPremiId,
         int $generateBhpId,
         int $generateKamarId
     ): array {
@@ -228,6 +273,9 @@ class generatePelayananNonMedisService
             $generateBhpId,
             $generateKamarId
         ) {
+            $config = $this->repository->getConfig();
+            $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+            $distributionMode = $this->distributionMode($config->distribution_mode ?? null);
             $existing = $this->repository
                 ->findByPeriodAndTypeForUpdate($periode, $jenis, $jnsPremiId);
 
@@ -285,6 +333,20 @@ class generatePelayananNonMedisService
                 ]);
             }
 
+            $pegawai = $this->repository->getMappedPegawai($jnsPremiId);
+
+            if ($pegawai->isEmpty()) {
+                $selectedPremi = $this->repository->findPremi($jnsPremiId);
+                $premiName = trim(
+                    ($selectedPremi?->kode ? $selectedPremi->kode.' - ' : '')
+                    .($selectedPremi?->jenis ?? 'mapping premi terpilih')
+                );
+
+                throw ValidationException::withMessages([
+                    'pegawai' => "Mapping {$premiName} belum memiliki pegawai penerima.",
+                ]);
+            }
+
             $result = $this->repository->saveResult(
                 $periode,
                 $jenis,
@@ -293,8 +355,19 @@ class generatePelayananNonMedisService
                 $calculation
             );
             $this->repository->replaceDetails($result, $calculation['details']);
+            $this->repository->replaceDistributions(
+                $result,
+                $this->distributeFinal(
+                    (float) $result->total_final,
+                    $pegawai,
+                    $jnsPremiId,
+                    $distributionMode
+                )
+            );
 
-            return $this->resultPayload($result->fresh(['generateBhp', 'generateKamar', 'jnsPremi']));
+            return $this->resultPayload(
+                $result->fresh(['generateBhp', 'generateKamar', 'jnsPremi', 'distributions'])
+            );
         });
     }
 
@@ -329,6 +402,7 @@ class generatePelayananNonMedisService
                 'hasil_mapping' => $detail->hasil_mapping,
                 'data_tindakan' => $detail->data_tindakan,
             ])->values(),
+            'distributions' => $this->distributionPayload($result->distributions)->values(),
         ];
     }
 
@@ -409,6 +483,30 @@ class generatePelayananNonMedisService
             ),
             'pembagi' => max(1, (int) ($result->jnsPremi?->pembagi ?? 1)),
             'total_final' => $result->total_final,
+            'jumlah_penerima' => $result->relationLoaded('distributions')
+                ? $result->distributions->count()
+                : (int) ($result->distributions_count ?? 0),
+            'distribution_mode' => $result->relationLoaded('distributions')
+                ? data_get($result->distributions->first(), 'distribution_mode', 'split_evenly')
+                : 'split_evenly',
+            'distribution_mode_label' => $this->distributionModeLabel(
+                $result->relationLoaded('distributions')
+                    ? data_get($result->distributions->first(), 'distribution_mode', 'split_evenly')
+                    : 'split_evenly'
+            ),
+            'total_dibagikan' => $result->relationLoaded('distributions')
+                ? round((float) $result->distributions->sum('total_diterima'), 2)
+                : round((float) ($result->total_dibagikan ?? 0), 2),
+            'total_belum_dibagikan' => max(
+                0,
+                round(
+                    (float) $result->total_final
+                    - ($result->relationLoaded('distributions')
+                        ? (float) $result->distributions->sum('total_diterima')
+                        : (float) ($result->total_dibagikan ?? 0)),
+                    2
+                )
+            ),
             'generate_bhp_id' => $result->generate_bhp_id,
             'generate_kamar_inap_id' => $result->generate_kamar_inap_id,
             'generate_bhp_label' => $this->sourceLabel($result->generateBhp),
@@ -473,6 +571,137 @@ class generatePelayananNonMedisService
         }
 
         return trim(($row->kode_ploting ? $row->kode_ploting.' - ' : '').($row->nama_ploting ?? '-'));
+    }
+
+    private function selectedConfigPremiId(
+        ?int $requestPremiId = null,
+        ?object $config = null
+    ): int
+    {
+        $config ??= $this->repository->getConfig();
+        $jnsPremiId = (int) ($config->jnsPremi_id ?? $requestPremiId ?? 0);
+
+        if ($jnsPremiId < 1 || ! $this->repository->findPremi($jnsPremiId)) {
+            throw ValidationException::withMessages([
+                'jnsPremi_id' => 'Konfigurasi sumber mapping premi wajib dipilih terlebih dahulu.',
+            ]);
+        }
+
+        return $jnsPremiId;
+    }
+
+    private function configPayload(object $config): array
+    {
+        $jnsPremiId = $config->jnsPremi_id ? (int) $config->jnsPremi_id : null;
+        $premi = $jnsPremiId ? $this->repository->findPremi($jnsPremiId) : null;
+        $pegawai = $jnsPremiId
+            ? $this->repository->getMappedPegawai($jnsPremiId)
+            : collect();
+
+        return [
+            'id' => (int) $config->id,
+            'jnsPremi_id' => $jnsPremiId,
+            'distribution_mode' => $this->distributionMode($config->distribution_mode ?? null),
+            'distribution_mode_label' => $this->distributionModeLabel(
+                $this->distributionMode($config->distribution_mode ?? null)
+            ),
+            'premi' => $premi ? [
+                'id' => (int) $premi->id,
+                'kode' => $premi->kode,
+                'jenis' => $premi->jenis,
+                'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
+                'label' => trim($premi->kode.' - '.$premi->jenis),
+            ] : null,
+            'mapping_options' => $this->getMappingPremiOptions(),
+            'karcis' => $this->getKarcisConfig(),
+            'pegawai' => $pegawai
+                ->map(fn ($item) => [
+                    'nik' => $item->nik,
+                    'pegawai_name' => $item->pegawai_name,
+                    'pegawai_position' => $item->pegawai_position,
+                    'text' => trim($item->nik.' - '.$item->pegawai_name),
+                ])
+                ->values(),
+        ];
+    }
+
+    private function distributeFinal(
+        float $totalFinal,
+        $pegawai,
+        int $jnsPremiId,
+        string $distributionMode
+    )
+    {
+        $pegawai = collect($pegawai)->values();
+        $count = $pegawai->count();
+
+        if ($count === 0) {
+            return collect();
+        }
+
+        $distributionMode = $this->distributionMode($distributionMode);
+        $totalCents = (int) round($totalFinal * 100);
+        $baseCents = $distributionMode === 'full_amount'
+            ? $totalCents
+            : intdiv($totalCents, $count);
+        $remainder = $distributionMode === 'full_amount'
+            ? 0
+            : $totalCents % $count;
+
+        return $pegawai
+            ->map(function ($item, int $index) use (
+                $jnsPremiId,
+                $totalFinal,
+                $count,
+                $baseCents,
+                $remainder,
+                $distributionMode
+            ) {
+                $amountCents = $baseCents + ($index < $remainder ? 1 : 0);
+
+                return [
+                    'jnsPremi_id' => $jnsPremiId,
+                    'nik' => $item->nik,
+                    'pegawai_name' => $item->pegawai_name,
+                    'pegawai_position' => $item->pegawai_position,
+                    'distribution_mode' => $distributionMode,
+                    'total_final' => round($totalFinal, 2),
+                    'jumlah_penerima' => $count,
+                    'total_diterima' => round($amountCents / 100, 2),
+                ];
+            });
+    }
+
+    private function distributionPayload($distributions)
+    {
+        return collect($distributions)
+            ->map(fn ($item) => [
+                'nik' => data_get($item, 'nik'),
+                'pegawai_name' => data_get($item, 'pegawai_name'),
+                'pegawai_position' => data_get($item, 'pegawai_position'),
+                'distribution_mode' => $this->distributionMode(data_get($item, 'distribution_mode')),
+                'distribution_mode_label' => $this->distributionModeLabel(
+                    $this->distributionMode(data_get($item, 'distribution_mode'))
+                ),
+                'total_final' => data_get($item, 'total_final'),
+                'jumlah_penerima' => data_get($item, 'jumlah_penerima'),
+                'total_diterima' => data_get($item, 'total_diterima'),
+            ])
+            ->values();
+    }
+
+    private function distributionMode(?string $mode): string
+    {
+        return in_array($mode, ['split_evenly', 'full_amount'], true)
+            ? $mode
+            : 'split_evenly';
+    }
+
+    private function distributionModeLabel(?string $mode): string
+    {
+        return $this->distributionMode($mode) === 'full_amount'
+            ? 'Nilai final penuh per pegawai'
+            : 'Dibagi rata ke pegawai';
     }
 
     private function dependenciesAreLocked(array $dependencies): bool

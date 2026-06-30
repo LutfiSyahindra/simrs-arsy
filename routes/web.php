@@ -195,6 +195,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generatePelayananNonMedis', [hitungPremiPelayananNonMedisController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis');
         Route::get('/hitung-premi/generatePelayananNonMedis/table', [hitungPremiPelayananNonMedisController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.table');
         Route::get('/hitung-premi/generatePelayananNonMedis/mapping-premi-options', [hitungPremiPelayananNonMedisController::class, 'mappingPremiOptions'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.mappingPremiOptions');
+        Route::get('/hitung-premi/generatePelayananNonMedis/config', [hitungPremiPelayananNonMedisController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.config');
+        Route::put('/hitung-premi/generatePelayananNonMedis/config', [hitungPremiPelayananNonMedisController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateConfig');
         Route::get('/hitung-premi/generatePelayananNonMedis/karcis-config', [hitungPremiPelayananNonMedisController::class, 'karcisConfig'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.karcisConfig');
         Route::put('/hitung-premi/generatePelayananNonMedis/karcis-config', [hitungPremiPelayananNonMedisController::class, 'updateKarcisConfig'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.updateKarcisConfig');
         Route::get('/hitung-premi/generatePelayananNonMedis/summary', [hitungPremiPelayananNonMedisController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePelayananNonMedis.summary');

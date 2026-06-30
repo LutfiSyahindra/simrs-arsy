@@ -55,6 +55,14 @@ class premiPelayananNonMedisModel extends Model
         );
     }
 
+    public function distributions(): HasMany
+    {
+        return $this->hasMany(
+            premiPelayananNonMedisDistributionModel::class,
+            'premi_pelayanan_non_medis_id'
+        );
+    }
+
     public function generateBhp(): BelongsTo
     {
         return $this->belongsTo(generateBhpModel::class, 'generate_bhp_id');

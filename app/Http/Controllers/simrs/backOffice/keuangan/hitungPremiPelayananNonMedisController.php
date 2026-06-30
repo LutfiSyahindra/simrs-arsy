@@ -81,6 +81,52 @@ class hitungPremiPelayananNonMedisController extends Controller
         ]);
     }
 
+    public function config()
+    {
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->getConfig(),
+        ]);
+    }
+
+    public function updateConfig(Request $request)
+    {
+        $request->merge([
+            'jnsTindakan_id' => $request->input('jnsTindakan_id', []),
+        ]);
+
+        $validated = $request->validate([
+            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'distribution_mode' => ['required', 'in:split_evenly,full_amount'],
+            'jnsTindakan_id' => ['present', 'array'],
+            'jnsTindakan_id.*' => [
+                'required',
+                'integer',
+                'distinct',
+                'exists:master_jenis_tindakan,id',
+            ],
+        ], [
+            'jnsPremi_id.required' => 'Sumber mapping premi wajib dipilih.',
+            'jnsPremi_id.exists' => 'Sumber mapping premi tidak ditemukan.',
+            'distribution_mode.required' => 'Mode distribusi nilai final wajib dipilih.',
+            'distribution_mode.in' => 'Mode distribusi nilai final tidak valid.',
+            'jnsTindakan_id.present' => 'Daftar tindakan karcis wajib dikirim.',
+            'jnsTindakan_id.array' => 'Format tindakan karcis tidak valid.',
+            'jnsTindakan_id.*.exists' => 'Jenis tindakan tidak ditemukan.',
+            'jnsTindakan_id.*.distinct' => 'Jenis tindakan tidak boleh duplikat.',
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi pelayanan non medis berhasil disimpan.',
+            'data' => $this->service->updateConfig(
+                (int) $validated['jnsPremi_id'],
+                $validated['distribution_mode'],
+                $validated['jnsTindakan_id']
+            ),
+        ]);
+    }
+
     public function karcisConfig()
     {
         return response()->json([
@@ -124,7 +170,7 @@ class hitungPremiPelayananNonMedisController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
-            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
             'generate_bhp_id' => ['nullable', 'integer', 'exists:generate_bhp,id'],
             'generate_kamar_inap_id' => ['nullable', 'integer', 'exists:generate_kamar_inap,id'],
         ]);
@@ -134,7 +180,7 @@ class hitungPremiPelayananNonMedisController extends Controller
             'data' => $this->service->getSummary(
                 $validated['periode'],
                 $validated['jenis_pelayanan'],
-                (int) $validated['jnsPremi_id'],
+                isset($validated['jnsPremi_id']) ? (int) $validated['jnsPremi_id'] : null,
                 isset($validated['generate_bhp_id']) ? (int) $validated['generate_bhp_id'] : null,
                 isset($validated['generate_kamar_inap_id'])
                     ? (int) $validated['generate_kamar_inap_id']
@@ -148,14 +194,14 @@ class hitungPremiPelayananNonMedisController extends Controller
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
-            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
             'generate_bhp_id' => ['required', 'integer', 'exists:generate_bhp,id'],
             'generate_kamar_inap_id' => ['required', 'integer', 'exists:generate_kamar_inap,id'],
         ]);
         $result = $this->service->generate(
             $validated['periode'],
             $validated['jenis_pelayanan'],
-            (int) $validated['jnsPremi_id'],
+            isset($validated['jnsPremi_id']) ? (int) $validated['jnsPremi_id'] : null,
             (int) $validated['generate_bhp_id'],
             (int) $validated['generate_kamar_inap_id']
         );
