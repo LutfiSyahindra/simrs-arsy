@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">14</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">15</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -445,6 +445,33 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Pelayanan Non Medis</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generatePelayananNonMedis") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #0f766e; --card-soft: #ccfbf1;"
+                data-title="Generate Premi Tindakan Medis"
+                data-search="generate premi tindakan medis dokter perawat rawat jalan rawat inap ugd vk mapping premi">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-stethoscope"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Tindakan Medis</h5>
+                    <p class="generator-menu-description">
+                        Memproses tindakan dokter dan paramedis dari empat tabel rawat, lalu menggabungkan hasil UGD dan VK.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        Rawat jalan/inap, mapping premi, UGD, dan VK
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Tindakan Medis</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generateTindakanMedis") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>
