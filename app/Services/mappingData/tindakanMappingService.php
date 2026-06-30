@@ -165,12 +165,13 @@ class tindakanMappingService
             $existingKeys = $this->tindakanMappingRepository
                 ->getMappingsByJenis($targetJenisId)
                 ->map(fn ($item) => $this->sourceKeyFromMapping($item))
-                ->values();
-            $preparedKeys = collect();
+                ->flip()
+                ->all();
+            $preparedKeys = [];
             $now = now();
 
             $data = $uniqueIds
-                ->map(function ($id) use ($rows, $targetJenisId, $existingKeys, $preparedKeys, $now) {
+                ->map(function ($id) use ($rows, $targetJenisId, $existingKeys, &$preparedKeys, $now) {
                     $row = $rows->get($id);
 
                     if (!$row) {
@@ -179,11 +180,11 @@ class tindakanMappingService
 
                     $sourceKey = $this->sourceKeyFromMapping($row);
 
-                    if ($existingKeys->contains($sourceKey) || $preparedKeys->contains($sourceKey)) {
+                    if (isset($existingKeys[$sourceKey]) || isset($preparedKeys[$sourceKey])) {
                         return null;
                     }
 
-                    $preparedKeys->push($sourceKey);
+                    $preparedKeys[$sourceKey] = true;
 
                     return $this->mappingPayloadFromMapping($targetJenisId, $row, $now);
                 })

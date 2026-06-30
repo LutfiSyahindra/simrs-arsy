@@ -133,9 +133,24 @@ class tindakanMappingRepository
 
     public function findByIds(array $ids)
     {
-        return $this->mappingTindakanModel::select('id', 'jnsTindakan_id', 'sumber_tindakan', 'kd_tindakan', 'nm_tindakan', 'kd_pj', 'nm_pj', 'parent_kd_tindakan', 'parent_nm_tindakan')
-            ->whereIn('id', $ids)
-            ->get();
+        $ids = collect($ids)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return $ids
+            ->chunk(500)
+            ->flatMap(function ($chunk) {
+                return $this->mappingTindakanModel::select('id', 'jnsTindakan_id', 'sumber_tindakan', 'kd_tindakan', 'nm_tindakan', 'kd_pj', 'nm_pj', 'parent_kd_tindakan', 'parent_nm_tindakan')
+                    ->whereIn('id', $chunk->all())
+                    ->get();
+            })
+            ->values();
     }
 
     public function existsMapping(int $jenisId, string $source, string $kodeTindakan, $exceptId = null)
@@ -149,7 +164,15 @@ class tindakanMappingRepository
 
     public function insert(array $data)
     {
-        return $this->mappingTindakanModel::insert($data);
+        if (empty($data)) {
+            return false;
+        }
+
+        foreach (array_chunk($data, 500) as $chunk) {
+            $this->mappingTindakanModel::insert($chunk);
+        }
+
+        return true;
     }
 
     public function update($id, array $data)
