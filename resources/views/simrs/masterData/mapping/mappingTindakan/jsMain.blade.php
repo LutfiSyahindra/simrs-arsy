@@ -742,11 +742,12 @@
                 $.ajax({
                     url: bulkDeleteTindakanUrl,
                     type: 'DELETE',
-                    data: {
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         jnsTindakan_id: jenisId,
                         delete_all: deleteAll ? 1 : 0,
                         mapping_ids: mappingIds
-                    },
+                    }),
                     beforeSend: function() {
                         panel.find(
                                 '.delete-selected-mapping-tindakan, .delete-all-mapping-tindakan'
@@ -1490,10 +1491,11 @@
                 $.ajax({
                     url: copyTindakanUrl,
                     method: 'POST',
-                    data: {
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         target_jnsTindakan_id: targetJenisId,
                         mapping_ids: mappingIds
-                    },
+                    }),
                     success: function(response) {
                         if (response.status === true) {
                             editor.remove();
