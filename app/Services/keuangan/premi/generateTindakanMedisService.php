@@ -242,7 +242,7 @@ class generateTindakanMedisService
             : ($existing?->total_final ?? 0);
         $pegawai = $this->repository->getMappedPegawai($jnsPremiId);
         $recipientBonuses = $this->repository->getRecipientBonuses(
-            $calculation['source_periode'] ?? $existing?->source_periode ?? $sourcePeriode,
+            $periode,
             $jenis,
             $pegawai->pluck('nik')
         );
@@ -474,7 +474,7 @@ class generateTindakanMedisService
             }
 
             $recipientBonuses = $this->repository->getRecipientBonuses(
-                $calculation['source_periode'],
+                $periode,
                 $jenis,
                 $pegawai->pluck('nik')
             );

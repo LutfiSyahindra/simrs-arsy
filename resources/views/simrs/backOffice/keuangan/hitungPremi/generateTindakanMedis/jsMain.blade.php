@@ -100,7 +100,7 @@
             $('#configBpjsSourceModeNote').text(
                 (mode === 'previous' ? 'Tindakan BPJS memakai bulan sebelumnya.' :
                     'Tindakan BPJS memakai periode generate.') +
-                ' UGD dan VK tetap mengambil periode generate.'
+                ' UGD, VK, ICU, dan NICU tetap mengambil periode generate.'
             );
         }
 
