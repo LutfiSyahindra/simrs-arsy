@@ -2,6 +2,7 @@
 
 @push("style")
     @include("template.AddOn.dataTables")
+    @include("template.AddOn.select2")
     @include("template.AddOn.mdiicon")
     @include("template.AddOn.sweetAlert")
 
@@ -325,6 +326,123 @@
             margin-top: 6px;
         }
 
+        .tm-readiness-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-bottom: 12px;
+        }
+
+        .tm-readiness-item {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 34px minmax(0, 1fr);
+            padding: 11px;
+        }
+
+        .tm-readiness-item.success {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .tm-readiness-item.warning {
+            border-color: #fde68a;
+            background: #fffbeb;
+        }
+
+        .tm-readiness-item.danger {
+            border-color: #fecaca;
+            background: #fef2f2;
+        }
+
+        .tm-readiness-icon {
+            align-items: center;
+            background: #e2e8f0;
+            border-radius: 8px;
+            color: #334155;
+            display: flex;
+            font-size: 18px;
+            height: 34px;
+            justify-content: center;
+            width: 34px;
+        }
+
+        .tm-readiness-item.success .tm-readiness-icon {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tm-readiness-item.warning .tm-readiness-icon {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .tm-readiness-item.danger .tm-readiness-icon {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .tm-readiness-label {
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .tm-readiness-value {
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 900;
+            margin: 2px 0;
+        }
+
+        .tm-readiness-note {
+            color: var(--tm-muted);
+            font-size: 11px;
+            line-height: 1.35;
+        }
+
+        .tm-info-strip,
+        .tm-insight-strip {
+            align-items: stretch;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .tm-info-pill {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: inline-flex;
+            gap: 8px;
+            min-height: 36px;
+            padding: 8px 10px;
+        }
+
+        .tm-info-pill i {
+            color: #0f766e;
+            font-size: 16px;
+        }
+
+        .tm-info-pill span {
+            color: #475569;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .tm-info-pill strong {
+            color: #0f172a;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
         .tm-summary-grid {
             grid-template-columns: repeat(6, minmax(0, 1fr));
         }
@@ -399,6 +517,21 @@
             font-size: 12px;
         }
 
+        .tm-preview-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .tm-preview-actions .form-control,
+        .tm-preview-actions .form-select {
+            font-size: 12px;
+            min-height: 34px;
+            width: 190px;
+        }
+
         .tm-badge {
             border-radius: 999px;
             display: inline-flex;
@@ -457,6 +590,21 @@
         .tm-kind.nominal {
             background: #fef3c7;
             color: #92400e;
+        }
+
+        .tm-progress {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 5px;
+            margin-top: 7px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .tm-progress span {
+            background: #2563eb;
+            display: block;
+            height: 100%;
         }
 
         .tm-actions {
@@ -625,6 +773,7 @@
 
         @media (max-width: 1199.98px) {
             .tm-hero,
+            .tm-readiness-grid,
             .tm-summary-grid,
             .tm-detail-metrics {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -641,6 +790,7 @@
             .tm-tabs,
             .tm-dependencies,
             .tm-source-grid,
+            .tm-readiness-grid,
             .tm-summary-grid,
             .tm-config-grid,
             .tm-detail-metrics {
@@ -655,8 +805,14 @@
             }
 
             .tm-panel-actions,
+            .tm-preview-actions,
             .tm-transaction-toolbar {
                 min-width: 0;
+                width: 100%;
+            }
+
+            .tm-preview-actions .form-control,
+            .tm-preview-actions .form-select {
                 width: 100%;
             }
 
@@ -786,6 +942,30 @@
                     </div>
                 </div>
 
+                <div class="tm-readiness-grid" id="summaryReadinessStepsMedis">
+                    <div class="tm-readiness-item">
+                        <div class="tm-readiness-icon"><i class="mdi mdi-timer-sand"></i></div>
+                        <div>
+                            <div class="tm-readiness-label">Kesiapan</div>
+                            <div class="tm-readiness-value">Memeriksa...</div>
+                            <div class="tm-readiness-note">Pilih periode untuk melihat status.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tm-info-strip" id="summaryPeriodInfoMedis">
+                    <div class="tm-info-pill">
+                        <i class="mdi mdi-calendar-month-outline"></i>
+                        <span>Tindakan</span>
+                        <strong>-</strong>
+                    </div>
+                    <div class="tm-info-pill">
+                        <i class="mdi mdi-hospital-building"></i>
+                        <span>UGD/VK</span>
+                        <strong>-</strong>
+                    </div>
+                </div>
+
                 <div class="tm-summary-grid">
                     <div class="tm-summary-card">
                         <div class="tm-summary-label">Transaksi Rawat</div>
@@ -834,8 +1014,18 @@
                                 Hasil final dibagikan ke pegawai mapping premi.
                             </div>
                         </div>
-                        <span class="tm-badge umum" id="summaryDistributionCountMedis">0 penerima</span>
+                        <div class="tm-preview-actions">
+                            <input type="search" id="summaryDistributionSearchMedis" class="form-control"
+                                placeholder="Cari pegawai">
+                            <select id="summaryDistributionBonusFilterMedis" class="form-select">
+                                <option value="all">Semua penerima</option>
+                                <option value="bonus">Ada ICU/NICU</option>
+                                <option value="no_bonus">Tanpa ICU/NICU</option>
+                            </select>
+                            <span class="tm-badge umum" id="summaryDistributionCountMedis">0 penerima</span>
+                        </div>
                     </div>
+                    <div class="tm-insight-strip" id="summaryDistributionInsightMedis"></div>
                     <div class="table-responsive">
                         <table class="table table-hover tm-preview-table">
                             <thead>
@@ -864,8 +1054,19 @@
                                 Nilai sebelum dan sesudah olah mengikuti jenis persen atau nominal.
                             </div>
                         </div>
-                        <span class="tm-badge umum" id="summaryPreviewCountMedis">0 tindakan</span>
+                        <div class="tm-preview-actions">
+                            <input type="search" id="summaryPreviewSearchMedis" class="form-control"
+                                placeholder="Cari tindakan">
+                            <select id="summaryPreviewSourceFilterMedis" class="form-select">
+                                <option value="all">Semua sumber</option>
+                                <option value="doctor">Rawat dokter</option>
+                                <option value="paramedic">Rawat paramedis</option>
+                                <option value="karcis">Karcis BPJS</option>
+                            </select>
+                            <span class="tm-badge umum" id="summaryPreviewCountMedis">0 tindakan</span>
+                        </div>
                     </div>
+                    <div class="tm-insight-strip" id="summaryPreviewInsightMedis"></div>
                     <div class="table-responsive">
                         <table class="table table-hover tm-preview-table">
                             <thead>
@@ -980,6 +1181,31 @@
                                 <span class="fw-semibold">Abaikan tindakan dalam rentang NICU</span>
                                 <small class="text-muted d-block mt-1">Mengikuti kamar dengan kelas NICU.</small>
                             </label>
+                        </div>
+
+                        <div class="tm-config-box mb-3">
+                            <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                                <div>
+                                    <div class="fw-semibold">Filter Dokter Rawat Dokter</div>
+                                    <small class="text-muted">
+                                        Kosong berarti rawat_jl_dr dan rawat_inap_dr mengambil semua dokter.
+                                    </small>
+                                </div>
+                                <span class="badge bg-light text-dark" id="configDoctorCountTindakan">
+                                    Semua dokter
+                                </span>
+                            </div>
+                            <select id="configDoctorFilterTindakan" class="form-select" multiple="multiple"
+                                style="width: 100%;"></select>
+                            <div class="d-flex justify-content-between align-items-center gap-2 mt-3 mb-2">
+                                <div class="fw-semibold">Tindakan yang Difilter Dokter</div>
+                                <span class="badge bg-light text-dark" id="configDoctorActionCountTindakan">
+                                    0 tindakan dipilih
+                                </span>
+                            </div>
+                            <div class="tm-karcis-list" id="configDoctorActionListTindakan">
+                                <div class="tm-empty">Pilih mapping premi terlebih dahulu.</div>
+                            </div>
                         </div>
 
                         <div class="tm-config-box mb-3">

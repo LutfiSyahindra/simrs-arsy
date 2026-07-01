@@ -10,6 +10,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class generateTindakanMedisRepository
 {
@@ -126,7 +127,9 @@ class generateTindakanMedisRepository
         bool $ignoreIcu,
         bool $ignoreNicu,
         array $sourceMappings,
-        array $karcisTindakanIds = []
+        array $karcisTindakanIds = [],
+        array $doctorCodes = [],
+        array $doctorTindakanIds = []
     ): object {
         return DB::transaction(function () use (
             $jnsPremiId,
@@ -135,7 +138,9 @@ class generateTindakanMedisRepository
             $ignoreIcu,
             $ignoreNicu,
             $sourceMappings,
-            $karcisTindakanIds
+            $karcisTindakanIds,
+            $doctorCodes,
+            $doctorTindakanIds
         ) {
             $config = $this->getConfig();
 
@@ -170,11 +175,104 @@ class generateTindakanMedisRepository
             }
 
             $this->replaceKarcisConfig($karcisTindakanIds);
+            $this->replaceDoctorConfig((int) $config->id, $doctorCodes);
+            $this->replaceDoctorActionConfig((int) $config->id, $doctorTindakanIds);
 
             return DB::table('generate_tindakan_medis_configs')
                 ->where('id', $config->id)
                 ->first();
         });
+    }
+
+    public function getDokterOptions(?string $keyword = null): Collection
+    {
+        return DB::connection('mysql_khanza')
+            ->table('dokter')
+            ->select('kd_dokter', 'nm_dokter')
+            ->whereNotIn('kd_dokter', ['-', ''])
+            ->whereNotIn('nm_dokter', ['-', ''])
+            ->when($keyword, function ($query) use ($keyword) {
+                $query->where(function ($search) use ($keyword) {
+                    $search
+                        ->where('kd_dokter', 'like', "%{$keyword}%")
+                        ->orWhere('nm_dokter', 'like', "%{$keyword}%");
+                });
+            })
+            ->orderBy('nm_dokter')
+            ->limit(50)
+            ->get();
+    }
+
+    public function getSelectedDoctors(?int $configId = null): Collection
+    {
+        if (! Schema::hasTable('generate_tindakan_medis_config_doctor')) {
+            return collect();
+        }
+
+        $configId ??= (int) $this->getConfig()->id;
+
+        return DB::table('generate_tindakan_medis_config_doctor')
+            ->select('kd_dokter', 'nm_dokter')
+            ->where('config_id', $configId)
+            ->orderBy('nm_dokter')
+            ->get();
+    }
+
+    public function getSelectedDoctorActionIds(?int $configId = null): Collection
+    {
+        if (! Schema::hasTable('generate_tindakan_medis_config_doctor_action')) {
+            return collect();
+        }
+
+        $configId ??= (int) $this->getConfig()->id;
+
+        return DB::table('generate_tindakan_medis_config_doctor_action')
+            ->where('config_id', $configId)
+            ->pluck('jnsTindakan_id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
+    public function getSelectedDoctorActions(?int $configId = null): Collection
+    {
+        if (! Schema::hasTable('generate_tindakan_medis_config_doctor_action')) {
+            return collect();
+        }
+
+        $configId ??= (int) $this->getConfig()->id;
+
+        return DB::table('generate_tindakan_medis_config_doctor_action as da')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'da.jnsTindakan_id')
+            ->select([
+                'jt.id',
+                'jt.kode',
+                'jt.jenis',
+            ])
+            ->where('da.config_id', $configId)
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function findDoctors(Collection $doctorCodes): Collection
+    {
+        $doctorCodes = $doctorCodes
+            ->filter()
+            ->map(fn ($code) => (string) $code)
+            ->unique()
+            ->values();
+
+        if ($doctorCodes->isEmpty()) {
+            return collect();
+        }
+
+        return DB::connection('mysql_khanza')
+            ->table('dokter')
+            ->select('kd_dokter', 'nm_dokter')
+            ->whereIn('kd_dokter', $doctorCodes->all())
+            ->whereNotIn('kd_dokter', ['-', ''])
+            ->whereNotIn('nm_dokter', ['-', ''])
+            ->orderBy('nm_dokter')
+            ->get();
     }
 
     public function getKarcisConfigOptions(): Collection
@@ -223,6 +321,72 @@ class generateTindakanMedisRepository
                 ->unique()
                 ->map(fn ($id) => [
                     'jnsTindakan_id' => (int) $id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+                ->values()
+                ->all()
+        );
+    }
+
+    private function replaceDoctorActionConfig(int $configId, array $tindakanIds): void
+    {
+        if (! Schema::hasTable('generate_tindakan_medis_config_doctor_action')) {
+            return;
+        }
+
+        DB::table('generate_tindakan_medis_config_doctor_action')
+            ->where('config_id', $configId)
+            ->delete();
+
+        if (empty($tindakanIds)) {
+            return;
+        }
+
+        $now = now();
+        DB::table('generate_tindakan_medis_config_doctor_action')->insert(
+            collect($tindakanIds)
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->map(fn ($id) => [
+                    'config_id' => $configId,
+                    'jnsTindakan_id' => $id,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ])
+                ->values()
+                ->all()
+        );
+    }
+
+    private function replaceDoctorConfig(int $configId, array $doctorCodes): void
+    {
+        if (! Schema::hasTable('generate_tindakan_medis_config_doctor')) {
+            return;
+        }
+
+        DB::table('generate_tindakan_medis_config_doctor')
+            ->where('config_id', $configId)
+            ->delete();
+
+        $doctors = $this->findDoctors(
+            collect($doctorCodes)
+                ->map(fn ($code) => (string) $code)
+                ->unique()
+                ->values()
+        );
+
+        if ($doctors->isEmpty()) {
+            return;
+        }
+
+        $now = now();
+        DB::table('generate_tindakan_medis_config_doctor')->insert(
+            $doctors
+                ->map(fn ($doctor) => [
+                    'config_id' => $configId,
+                    'kd_dokter' => $doctor->kd_dokter,
+                    'nm_dokter' => $doctor->nm_dokter,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ])
@@ -431,6 +595,12 @@ class generateTindakanMedisRepository
             $jnsPremiId,
             $karcisTindakanIds
         );
+        $doctorCodes = $this->getSelectedDoctors((int) $config->id)
+            ->pluck('kd_dokter')
+            ->map(fn ($code) => (string) $code)
+            ->unique()
+            ->values();
+        $doctorActionIds = $this->getSelectedDoctorActionIds((int) $config->id);
         $selectedPremi = $this->findPremi($jnsPremiId);
         $range = PremiSourcePeriod::range(
             $periode,
@@ -473,7 +643,9 @@ class generateTindakanMedisRepository
             $sourceMappings,
             (bool) ($config->ignore_icu ?? true),
             (bool) ($config->ignore_nicu ?? true),
-            $jenisPelayanan
+            $jenisPelayanan,
+            $doctorCodes,
+            $doctorActionIds
         );
 
         if ($jenisPelayanan === 'umum' && $karcisTindakanIds->isNotEmpty()) {
@@ -497,7 +669,9 @@ class generateTindakanMedisRepository
                     $sourceMappings,
                     (bool) ($config->ignore_icu ?? true),
                     (bool) ($config->ignore_nicu ?? true),
-                    'bpjs_karcis'
+                    'bpjs_karcis',
+                    collect(),
+                    collect()
                 );
                 $transactionsPayload['transactions'] = $transactionsPayload['transactions']
                     ->merge($karcisPayload['transactions']);
@@ -691,6 +865,13 @@ class generateTindakanMedisRepository
                     'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
                     'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
                     'karcis_tindakan_ids' => $this->getKarcisTindakanIds()->all(),
+                    'doctor_codes' => $this->getSelectedDoctors((int) $config->id)
+                        ->pluck('kd_dokter')
+                        ->values()
+                        ->all(),
+                    'doctor_tindakan_ids' => $this->getSelectedDoctorActionIds((int) $config->id)
+                        ->values()
+                        ->all(),
                 ],
                 'generate_by' => Auth::id(),
             ]
@@ -1020,7 +1201,9 @@ class generateTindakanMedisRepository
         Collection $sourceMappings,
         bool $ignoreIcu,
         bool $ignoreNicu,
-        string $sourceType
+        string $sourceType,
+        Collection $doctorCodes,
+        Collection $doctorActionIds
     ): array {
         $mappingBySource = $mappings
             ->groupBy(fn ($mapping) => $mapping->sumber_tindakan.'|'.$mapping->kd_tindakan);
@@ -1048,15 +1231,7 @@ class generateTindakanMedisRepository
             );
         }
 
-        $noRawats = $rawRows->pluck('no_rawat')->filter()->unique()->values();
-        $icuRanges = $ignoreIcu && $noRawats->isNotEmpty()
-            ? $this->icuRanges($noRawats)
-            : collect();
-        $nicuRanges = $ignoreNicu && $noRawats->isNotEmpty()
-            ? $this->nicuRanges($noRawats)
-            : collect();
-        $transactions = collect();
-        $ignored = collect();
+        $candidateRows = collect();
 
         foreach ($rawRows as $row) {
             $key = $row->sumber_tindakan.'|'.$row->kd_tindakan;
@@ -1067,13 +1242,6 @@ class generateTindakanMedisRepository
                 continue;
             }
 
-            $rowIcuRange = $ignoreIcu
-                ? $this->matchingRoomRange($row, $icuRanges->get($row->no_rawat, collect()))
-                : null;
-            $rowNicuRange = $ignoreNicu
-                ? $this->matchingRoomRange($row, $nicuRanges->get($row->no_rawat, collect()))
-                : null;
-
             foreach ($actionMappings as $mapping) {
                 if (! $this->sourceAllowedForAction(
                     (int) $mapping->jnsTindakan_id,
@@ -1083,26 +1251,66 @@ class generateTindakanMedisRepository
                     continue;
                 }
 
-                if ($rowIcuRange || $rowNicuRange) {
-                    $ignored->push($this->rawatPayload(
-                        $row,
-                        $mapping,
-                        $rowIcuRange,
-                        $rowNicuRange,
-                        $sourceType
-                    ));
-
+                if (! $this->doctorAllowedForMappedRow(
+                    $row,
+                    (int) $mapping->jnsTindakan_id,
+                    $sourceType,
+                    $doctorCodes,
+                    $doctorActionIds
+                )) {
                     continue;
                 }
 
-                $transactions->push($this->rawatPayload(
+                $candidateRows->push([
+                    'row' => $row,
+                    'mapping' => $mapping,
+                ]);
+            }
+        }
+
+        $noRawats = $candidateRows
+            ->map(fn (array $candidate) => $candidate['row']->no_rawat)
+            ->filter()
+            ->unique()
+            ->values();
+        $icuRanges = $ignoreIcu && $noRawats->isNotEmpty()
+            ? $this->icuRanges($noRawats)
+            : collect();
+        $nicuRanges = $ignoreNicu && $noRawats->isNotEmpty()
+            ? $this->nicuRanges($noRawats)
+            : collect();
+        $transactions = collect();
+        $ignored = collect();
+
+        foreach ($candidateRows as $candidate) {
+            $row = $candidate['row'];
+            $mapping = $candidate['mapping'];
+            $rowIcuRange = $ignoreIcu
+                ? $this->matchingRoomRange($row, $icuRanges->get($row->no_rawat, collect()))
+                : null;
+            $rowNicuRange = $ignoreNicu
+                ? $this->matchingRoomRange($row, $nicuRanges->get($row->no_rawat, collect()))
+                : null;
+
+            if ($rowIcuRange || $rowNicuRange) {
+                $ignored->push($this->rawatPayload(
                     $row,
                     $mapping,
-                    null,
-                    null,
+                    $rowIcuRange,
+                    $rowNicuRange,
                     $sourceType
                 ));
+
+                continue;
             }
+
+            $transactions->push($this->rawatPayload(
+                $row,
+                $mapping,
+                null,
+                null,
+                $sourceType
+            ));
         }
 
         $unique = fn (array $row) => implode('|', [
@@ -1405,6 +1613,28 @@ class generateTindakanMedisRepository
         $allowedTables = $allowedTablesByAction->get($jnsTindakanId);
 
         return ! $allowedTables || $allowedTables->contains($sourceTable);
+    }
+
+    private function doctorAllowedForMappedRow(
+        object $row,
+        int $jnsTindakanId,
+        string $sourceType,
+        Collection $doctorCodes,
+        Collection $doctorActionIds
+    ): bool {
+        if ($doctorCodes->isEmpty() || $doctorActionIds->isEmpty() || $sourceType === 'bpjs_karcis') {
+            return true;
+        }
+
+        if (! in_array($row->source_table, ['rawat_jl_dr', 'rawat_inap_dr'], true)) {
+            return true;
+        }
+
+        if (! $doctorActionIds->contains($jnsTindakanId)) {
+            return true;
+        }
+
+        return $doctorCodes->contains((string) $row->kd_dokter);
     }
 
     private function sourceRulesForAction(int $jnsTindakanId, Collection $sourceMappings): array

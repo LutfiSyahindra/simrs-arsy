@@ -110,6 +110,8 @@ class hitungPremiTindakanMedisController extends Controller
         $request->merge([
             'source_mappings' => $request->input('source_mappings', []),
             'jnsTindakan_id' => $request->input('jnsTindakan_id', []),
+            'doctor_codes' => $request->input('doctor_codes', []),
+            'doctor_tindakan_ids' => $request->input('doctor_tindakan_ids', []),
         ]);
 
         $validated = $request->validate([
@@ -132,6 +134,15 @@ class hitungPremiTindakanMedisController extends Controller
                 'distinct',
                 'exists:master_jenis_tindakan,id',
             ],
+            'doctor_codes' => ['present', 'array'],
+            'doctor_codes.*' => ['required', 'string', 'max:30', 'distinct'],
+            'doctor_tindakan_ids' => ['present', 'array'],
+            'doctor_tindakan_ids.*' => [
+                'required',
+                'integer',
+                'distinct',
+                'exists:master_jenis_tindakan,id',
+            ],
         ], [
             'jnsPremi_id.required' => 'Sumber mapping premi wajib dipilih.',
             'jnsPremi_id.exists' => 'Sumber mapping premi tidak ditemukan.',
@@ -149,6 +160,13 @@ class hitungPremiTindakanMedisController extends Controller
             'jnsTindakan_id.array' => 'Format tindakan karcis tidak valid.',
             'jnsTindakan_id.*.exists' => 'Jenis tindakan karcis tidak ditemukan.',
             'jnsTindakan_id.*.distinct' => 'Jenis tindakan karcis tidak boleh duplikat.',
+            'doctor_codes.present' => 'Daftar dokter wajib dikirim.',
+            'doctor_codes.array' => 'Format daftar dokter tidak valid.',
+            'doctor_codes.*.distinct' => 'Dokter tidak boleh duplikat.',
+            'doctor_tindakan_ids.present' => 'Daftar tindakan filter dokter wajib dikirim.',
+            'doctor_tindakan_ids.array' => 'Format tindakan filter dokter tidak valid.',
+            'doctor_tindakan_ids.*.exists' => 'Tindakan filter dokter tidak ditemukan.',
+            'doctor_tindakan_ids.*.distinct' => 'Tindakan filter dokter tidak boleh duplikat.',
         ]);
 
         return response()->json([
@@ -161,8 +179,22 @@ class hitungPremiTindakanMedisController extends Controller
                 (bool) $validated['ignore_icu'],
                 (bool) $validated['ignore_nicu'],
                 $validated['source_mappings'],
-                $validated['jnsTindakan_id']
+                $validated['jnsTindakan_id'],
+                $validated['doctor_codes'],
+                $validated['doctor_tindakan_ids']
             ),
+        ]);
+    }
+
+    public function dokterOptions(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->dokterOptions($validated['q'] ?? null),
         ]);
     }
 

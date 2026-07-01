@@ -210,6 +210,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateTindakanMedis/table', [hitungPremiTindakanMedisController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.table');
         Route::get('/hitung-premi/generateTindakanMedis/mapping-premi-options', [hitungPremiTindakanMedisController::class, 'mappingPremiOptions'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.mappingPremiOptions');
         Route::get('/hitung-premi/generateTindakanMedis/mapping-premi-options/{id}/actions', [hitungPremiTindakanMedisController::class, 'mappingActionOptions'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.mappingActionOptions');
+        Route::get('/hitung-premi/generateTindakanMedis/dokter-options', [hitungPremiTindakanMedisController::class, 'dokterOptions'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.dokterOptions');
         Route::get('/hitung-premi/generateTindakanMedis/config', [hitungPremiTindakanMedisController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.config');
         Route::put('/hitung-premi/generateTindakanMedis/config', [hitungPremiTindakanMedisController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.updateConfig');
         Route::get('/hitung-premi/generateTindakanMedis/summary', [hitungPremiTindakanMedisController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.summary');

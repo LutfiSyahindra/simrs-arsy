@@ -68,7 +68,9 @@ class generateTindakanMedisService
         bool $ignoreIcu,
         bool $ignoreNicu,
         array $sourceMappings,
-        array $karcisTindakanIds = []
+        array $karcisTindakanIds = [],
+        array $doctorCodes = [],
+        array $doctorTindakanIds = []
     ): array {
         $sourceMappings = $this->normalizeSourceMappings($sourceMappings);
         $this->assertSourceMappingsBelongToPremi($jnsPremiId, $sourceMappings);
@@ -77,6 +79,10 @@ class generateTindakanMedisService
             ->unique()
             ->values()
             ->all();
+        $doctorCodes = $this->normalizeDoctorCodes($doctorCodes);
+        $this->assertDoctorsExist($doctorCodes);
+        $doctorTindakanIds = $this->normalizeTindakanIds($doctorTindakanIds);
+        $this->assertDoctorActionsBelongToPremi($jnsPremiId, $doctorTindakanIds);
 
         return $this->configPayload(
             $this->repository->saveConfig(
@@ -86,9 +92,24 @@ class generateTindakanMedisService
                 $ignoreIcu,
                 $ignoreNicu,
                 $sourceMappings,
-                $karcisTindakanIds
+                $karcisTindakanIds,
+                $doctorCodes,
+                $doctorTindakanIds
             )
         );
+    }
+
+    public function dokterOptions(?string $keyword = null): Collection
+    {
+        return $this->repository
+            ->getDokterOptions($keyword)
+            ->map(fn ($item) => [
+                'id' => $item->kd_dokter,
+                'kd_dokter' => $item->kd_dokter,
+                'nm_dokter' => $item->nm_dokter,
+                'text' => trim($item->kd_dokter.' - '.$item->nm_dokter),
+            ])
+            ->values();
     }
 
     public function getKarcisConfig(): array
@@ -144,7 +165,9 @@ class generateTindakanMedisService
             'bpjs'
         );
         $sourcePeriode = PremiSourcePeriod::resolve($periode, $jenis, $bpjsSourceMode);
-        $dependencyOptions = $this->repository->getDependencyOptions($sourcePeriode, $jenis);
+        $dependencySourcePeriode = $periode;
+        $doctorFilter = $this->doctorFilterPayload((int) $config->id);
+        $dependencyOptions = $this->repository->getDependencyOptions($dependencySourcePeriode, $jenis);
         $existing = $this->repository->findByPeriodAndType($periode, $jenis, $jnsPremiId);
 
         if ($existing?->is_locked) {
@@ -164,12 +187,21 @@ class generateTindakanMedisService
         }
 
         $dependencies = $this->repository->getDependencies(
-            $sourcePeriode,
+            $dependencySourcePeriode,
             $jenis,
             $ugdPlotingId,
             $vkPlotingId
         );
-        $dependenciesReady = $this->dependenciesAreLocked($dependencies);
+        if ($existing?->is_locked) {
+            $dependencies = [
+                'ugd' => $this->existingDependencySnapshot($existing, 'ugd'),
+                'vk' => $this->existingDependencySnapshot($existing, 'vk'),
+            ];
+        }
+
+        $dependenciesReady = $existing?->is_locked
+            ? true
+            : $this->dependenciesAreLocked($dependencies);
         $calculation = null;
 
         if ($dependenciesReady && ! $existing?->is_locked) {
@@ -233,10 +265,15 @@ class generateTindakanMedisService
         $readinessMessage = $dependenciesReady && ! $hasRecipients
             ? 'Mapping premi belum memiliki pegawai penerima.'
             : $this->readinessMessage($dependencies, $dependencyOptions);
+        $previewDetails = $calculation
+            ? $this->previewDetails($calculation['details'])
+            : $this->previewDetails($existing?->details ?? []);
 
         return [
             'periode' => $periode,
             'source_periode' => $sourcePeriode,
+            'dependency_source_periode' => $dependencySourcePeriode,
+            'dependency_source_mode_label' => 'Periode Generate',
             'source_tgl_awal' => $calculation['source_tgl_awal']
                 ?? optional($existing?->source_tgl_awal)->format('Y-m-d'),
             'source_tgl_akhir' => $calculation['source_tgl_akhir']
@@ -245,6 +282,7 @@ class generateTindakanMedisService
             'jenis_pelayanan_label' => $this->typeLabel($jenis),
             'bpjs_source_mode' => $bpjsSourceMode,
             'bpjs_source_mode_label' => PremiSourcePeriod::modeLabel($bpjsSourceMode, $jenis),
+            'doctor_filter' => $doctorFilter,
             'jnsPremi_id' => $jnsPremiId,
             'kode_premi' => $calculation['kode_premi']
                 ?? $existing?->kode_premi
@@ -267,6 +305,16 @@ class generateTindakanMedisService
             'selected_vk_plotingPremi_id' => data_get($dependencies, 'vk.plotingPremi_id'),
             'ready' => $dependenciesReady && $hasRecipients,
             'readiness_message' => $readinessMessage,
+            'readiness_steps' => $this->readinessSteps(
+                $dependencies,
+                $dependencyOptions,
+                $hasRecipients,
+                $calculation,
+                $existing,
+                $sourcePeriode,
+                $dependencySourcePeriode,
+                $doctorFilter
+            ),
             'is_generated' => (bool) $existing,
             'is_locked' => $existing?->is_locked ?? false,
             'locked_at' => optional($existing?->locked_at)->format('d-m-Y H:i'),
@@ -319,9 +367,9 @@ class generateTindakanMedisService
                 round((float) $totalFinal - $totalDasarDibagikan, 2)
             ),
             'distributions' => $distributions->values(),
-            'preview_details' => $calculation
-                ? $this->previewDetails($calculation['details'])
-                : $this->previewDetails($existing?->details ?? []),
+            'distribution_insight' => $this->distributionInsight($distributions, (float) $totalFinal),
+            'preview_details' => $previewDetails,
+            'preview_insight' => $this->previewInsight($previewDetails),
             'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
         ];
     }
@@ -357,8 +405,9 @@ class generateTindakanMedisService
                 $jenis,
                 $config->bpjs_source_mode ?? null
             );
+            $dependencySourcePeriode = $periode;
             $dependencies = $this->repository->getDependencies(
-                $sourcePeriode,
+                $dependencySourcePeriode,
                 $jenis,
                 $ugdPlotingId,
                 $vkPlotingId,
@@ -629,6 +678,7 @@ class generateTindakanMedisService
         $jnsPremiId = $config->jnsPremi_id ? (int) $config->jnsPremi_id : null;
         $premi = $jnsPremiId ? $this->repository->findPremi($jnsPremiId) : null;
         $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
+        $doctorFilter = $this->doctorFilterPayload((int) $config->id);
         $pegawai = $jnsPremiId
             ? $this->repository->getMappedPegawai($jnsPremiId)
             : collect();
@@ -664,6 +714,7 @@ class generateTindakanMedisService
             'source_options' => $this->repository->sourcePatternOptions(),
             'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
             'karcis' => $this->getKarcisConfig(),
+            'doctor_filter' => $doctorFilter,
             'pegawai' => $pegawai
                 ->map(fn ($item) => [
                     'nik' => $item->nik,
@@ -837,6 +888,54 @@ class generateTindakanMedisService
             ->values();
     }
 
+    private function doctorFilterPayload(int $configId): array
+    {
+        $selectedDoctors = $this->repository->getSelectedDoctors($configId);
+        $selectedActions = $this->repository->getSelectedDoctorActions($configId);
+        $count = $selectedDoctors->count();
+        $actionCount = $selectedActions->count();
+        $summary = 'Filter dokter nonaktif.';
+
+        if ($count > 0 && $actionCount > 0) {
+            $summary = "Rawat dokter hanya mengambil {$count} dokter terpilih pada {$actionCount} tindakan terpilih.";
+        } elseif ($count > 0) {
+            $summary = 'Dokter sudah dipilih, tetapi belum ada tindakan yang difilter dokter.';
+        }
+
+        return [
+            'mode' => $count > 0 && $actionCount > 0 ? 'selected' : 'all',
+            'mode_label' => $count > 0 && $actionCount > 0
+                ? "{$count} dokter / {$actionCount} tindakan"
+                : 'Semua dokter',
+            'summary' => $summary,
+            'selected_count' => $count,
+            'selected_codes' => $selectedDoctors
+                ->pluck('kd_dokter')
+                ->values(),
+            'selected_action_count' => $actionCount,
+            'selected_action_ids' => $selectedActions
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values(),
+            'selected_actions' => $selectedActions
+                ->map(fn ($item) => [
+                    'id' => (int) $item->id,
+                    'kode' => $item->kode,
+                    'jenis' => $item->jenis,
+                    'text' => trim($item->kode.' - '.$item->jenis),
+                ])
+                ->values(),
+            'selected_doctors' => $selectedDoctors
+                ->map(fn ($item) => [
+                    'id' => $item->kd_dokter,
+                    'kd_dokter' => $item->kd_dokter,
+                    'nm_dokter' => $item->nm_dokter,
+                    'text' => trim($item->kd_dokter.' - '.$item->nm_dokter),
+                ])
+                ->values(),
+        ];
+    }
+
     private function selectedConfigPremiId(?int $requestPremiId, ?object $config = null): int
     {
         $config ??= $this->repository->getConfig();
@@ -862,6 +961,68 @@ class generateTindakanMedisService
             ->unique(fn ($item) => $item['source_pattern'].'|'.$item['jnsTindakan_id'])
             ->values()
             ->all();
+    }
+
+    private function normalizeTindakanIds(array $tindakanIds): array
+    {
+        return collect($tindakanIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeDoctorCodes(array $doctorCodes): array
+    {
+        return collect($doctorCodes)
+            ->map(fn ($code) => trim((string) $code))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function assertDoctorsExist(array $doctorCodes): void
+    {
+        if (empty($doctorCodes)) {
+            return;
+        }
+
+        $foundCodes = $this->repository
+            ->findDoctors(collect($doctorCodes))
+            ->pluck('kd_dokter')
+            ->map(fn ($code) => (string) $code);
+        $invalidCodes = collect($doctorCodes)
+            ->reject(fn ($code) => $foundCodes->contains((string) $code))
+            ->values();
+
+        if ($invalidCodes->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'doctor_codes' => 'Dokter tidak ditemukan di data Khanza: '.$invalidCodes->implode(', '),
+            ]);
+        }
+    }
+
+    private function assertDoctorActionsBelongToPremi(int $jnsPremiId, array $tindakanIds): void
+    {
+        if (empty($tindakanIds)) {
+            return;
+        }
+
+        $allowedIds = $this->repository
+            ->getPremiActionOptions($jnsPremiId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
+        $invalidIds = collect($tindakanIds)
+            ->reject(fn ($id) => $allowedIds->contains((int) $id))
+            ->values();
+
+        if ($invalidIds->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'doctor_tindakan_ids' => 'Tindakan filter dokter hanya boleh dari mapping premi aktif.',
+            ]);
+        }
     }
 
     private function assertSourceMappingsBelongToPremi(int $jnsPremiId, array $sourceMappings): void
@@ -954,6 +1115,106 @@ class generateTindakanMedisService
         return 'Data UGD dan VK sudah tersedia, terpilih, dan terkunci.';
     }
 
+    private function readinessSteps(
+        array $dependencies,
+        array $dependencyOptions,
+        bool $hasRecipients,
+        ?array $calculation,
+        ?generateTindakanMedisModel $existing,
+        string $sourcePeriode,
+        string $dependencySourcePeriode,
+        array $doctorFilter
+    ): array {
+        $jumlahMapping = (int) (
+            $calculation['jumlah_mapping_premi']
+            ?? $existing?->jumlah_mapping_premi
+            ?? 0
+        );
+        $jumlahTransaksi = (int) (
+            $calculation['jumlah_transaksi']
+            ?? $existing?->jumlah_transaksi
+            ?? 0
+        );
+        $dependenciesReady = $this->dependenciesAreLocked($dependencies);
+
+        $steps = [
+            [
+                'key' => 'rawat',
+                'label' => 'Tindakan Rawat',
+                'status' => $jumlahMapping > 0
+                    ? 'success'
+                    : ($dependenciesReady ? 'danger' : 'muted'),
+                'value' => $jumlahMapping > 0
+                    ? "{$jumlahMapping} mapping"
+                    : 'Belum terhitung',
+                'note' => $jumlahMapping > 0
+                    ? "{$jumlahTransaksi} transaksi dari periode sumber {$sourcePeriode}. ".$doctorFilter['summary']
+                    : "Preview tindakan menunggu UGD dan VK terpilih serta terkunci. Periode tindakan {$sourcePeriode}.",
+            ],
+            $this->dependencyStep('ugd', 'UGD', $dependencies['ugd'], $dependencyOptions['ugd'], $dependencySourcePeriode),
+            $this->dependencyStep('vk', 'VK', $dependencies['vk'], $dependencyOptions['vk'], $dependencySourcePeriode),
+            [
+                'key' => 'pegawai',
+                'label' => 'Penerima',
+                'status' => $hasRecipients ? 'success' : 'danger',
+                'value' => $hasRecipients ? 'Pegawai tersedia' : 'Belum ada pegawai',
+                'note' => $hasRecipients
+                    ? 'Distribusi mengikuti pegawai pada mapping premi aktif.'
+                    : 'Tambahkan pegawai penerima pada mapping premi aktif.',
+            ],
+        ];
+
+        return $steps;
+    }
+
+    private function dependencyStep(
+        string $key,
+        string $label,
+        ?array $dependency,
+        Collection $options,
+        string $sourcePeriode
+    ): array {
+        if ($dependency) {
+            $locked = (bool) data_get($dependency, 'is_locked');
+            $generatedCount = data_get($dependency, 'generated_count');
+            $lockNote = $generatedCount === null
+                ? 'snapshot tersimpan'
+                : (int) data_get($dependency, 'locked_count', 0)
+                    .' dari '
+                    .(int) $generatedCount
+                    .' data terkunci';
+
+            return [
+                'key' => $key,
+                'label' => $label,
+                'status' => $locked ? 'success' : 'warning',
+                'value' => $locked ? 'Terkunci' : 'Belum dikunci',
+                'note' => trim(
+                    (data_get($dependency, 'ploting_label') ?: "Sumber {$label}")
+                    ." / {$lockNote} / periode {$sourcePeriode}."
+                ),
+            ];
+        }
+
+        if ($options->isNotEmpty()) {
+            return [
+                'key' => $key,
+                'label' => $label,
+                'status' => 'warning',
+                'value' => 'Perlu dipilih',
+                'note' => "{$options->count()} sumber {$label} periode {$sourcePeriode} tersedia.",
+            ];
+        }
+
+        return [
+            'key' => $key,
+            'label' => $label,
+            'status' => 'danger',
+            'value' => 'Belum tersedia',
+            'note' => "Generate {$label} periode {$sourcePeriode} terlebih dahulu.",
+        ];
+    }
+
     private function dependencyPayload(?array $dependency, ?generateTindakanMedisModel $existing, string $key): array
     {
         if ($dependency) {
@@ -988,27 +1249,140 @@ class generateTindakanMedisService
         ];
     }
 
+    private function existingDependencySnapshot(
+        generateTindakanMedisModel $existing,
+        string $key
+    ): array {
+        return [
+            'exists' => true,
+            'plotingPremi_id' => $key === 'ugd'
+                ? $existing->ugd_plotingPremi_id
+                : $existing->vk_plotingPremi_id,
+            'ploting_label' => $key === 'ugd'
+                ? $this->plotingLabel($existing->ugd_kode_ploting, $existing->ugd_nama_ploting)
+                : $this->plotingLabel($existing->vk_kode_ploting, $existing->vk_nama_ploting),
+            'generated_count' => null,
+            'locked_count' => null,
+            'jumlah_data' => null,
+            'total' => $key === 'ugd' ? $existing->total_ugd : $existing->total_vk,
+            'is_locked' => true,
+            'updated_at' => optional($existing->updated_at)->format('d-m-Y H:i'),
+        ];
+    }
+
     private function previewDetails($details): array
     {
         return collect($details)
+            ->map(function ($detail) {
+                $rawat = collect(data_get($detail, 'data_rawat', []));
+                $sourceBreakdown = $rawat
+                    ->groupBy(fn ($row) => data_get($row, 'source_label') ?: data_get($row, 'source_table') ?: '-')
+                    ->map(fn (Collection $items, string $label) => [
+                        'label' => $label,
+                        'count' => $items->count(),
+                        'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
+                    ])
+                    ->sortByDesc('count')
+                    ->values()
+                    ->all();
+                $doctorBreakdown = $rawat
+                    ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
+                    ->groupBy(fn ($row) => data_get($row, 'kd_dokter'))
+                    ->map(function (Collection $items, string $code) {
+                        $first = $items->first();
+
+                        return [
+                            'kd_dokter' => $code,
+                            'nm_dokter' => data_get($first, 'nm_dokter'),
+                            'count' => $items->count(),
+                            'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
+                        ];
+                    })
+                    ->sortByDesc('count')
+                    ->values()
+                    ->all();
+
+                return [
+                    'mapping_premi_id' => data_get($detail, 'mapping_premi_id'),
+                    'jnsTindakan_id' => data_get($detail, 'jnsTindakan_id'),
+                    'kode_jenis_tindakan' => data_get($detail, 'kode_jenis_tindakan'),
+                    'nama_jenis_tindakan' => data_get($detail, 'nama_jenis_tindakan'),
+                    'jenis_mapping' => data_get($detail, 'jenis_mapping'),
+                    'nilai_mapping' => data_get($detail, 'nilai_mapping'),
+                    'source_rules' => data_get($detail, 'source_rules', []),
+                    'jumlah_data' => data_get($detail, 'jumlah_data'),
+                    'jumlah_data_dokter' => $rawat
+                        ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
+                        ->count(),
+                    'jumlah_data_paramedis' => $rawat
+                        ->filter(fn ($row) => filled(data_get($row, 'nip')))
+                        ->count(),
+                    'jumlah_data_karcis_bpjs' => $rawat
+                        ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
+                        ->count(),
+                    'total_biaya_rawat' => data_get($detail, 'total_biaya_rawat'),
+                    'dasar_hitung' => data_get($detail, 'dasar_hitung'),
+                    'hasil_mapping' => data_get($detail, 'hasil_mapping'),
+                    'source_breakdown' => $sourceBreakdown,
+                    'doctor_breakdown' => $doctorBreakdown,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function distributionInsight(Collection $distributions, float $totalFinal): array
+    {
+        $count = $distributions->count();
+        $totals = $distributions->pluck('total_diterima')->map(fn ($value) => (float) $value);
+        $totalBonus = round(
+            (float) $distributions->sum('total_icu')
+            + (float) $distributions->sum('total_nicu'),
+            2
+        );
+
+        return [
+            'jumlah_penerima' => $count,
+            'average_total' => $count > 0 ? round((float) $totals->avg(), 2) : 0,
+            'highest_total' => $count > 0 ? round((float) $totals->max(), 2) : 0,
+            'lowest_total' => $count > 0 ? round((float) $totals->min(), 2) : 0,
+            'total_bonus' => $totalBonus,
+            'bonus_recipient_count' => $distributions
+                ->filter(fn ($item) => (float) data_get($item, 'total_icu', 0) > 0
+                    || (float) data_get($item, 'total_nicu', 0) > 0)
+                ->count(),
+            'total_final' => round($totalFinal, 2),
+        ];
+    }
+
+    private function previewInsight(array $details): array
+    {
+        $rows = collect($details);
+        $sourceCount = $rows
+            ->flatMap(fn ($detail) => collect(data_get($detail, 'source_breakdown', []))->pluck('label'))
+            ->filter()
+            ->unique()
+            ->count();
+        $topDetails = $rows
+            ->sortByDesc(fn ($detail) => (float) data_get($detail, 'hasil_mapping', 0))
+            ->take(3)
             ->map(fn ($detail) => [
-                'mapping_premi_id' => data_get($detail, 'mapping_premi_id'),
-                'jnsTindakan_id' => data_get($detail, 'jnsTindakan_id'),
                 'kode_jenis_tindakan' => data_get($detail, 'kode_jenis_tindakan'),
                 'nama_jenis_tindakan' => data_get($detail, 'nama_jenis_tindakan'),
-                'jenis_mapping' => data_get($detail, 'jenis_mapping'),
-                'nilai_mapping' => data_get($detail, 'nilai_mapping'),
-                'source_rules' => data_get($detail, 'source_rules', []),
-                'jumlah_data' => data_get($detail, 'jumlah_data'),
-                'jumlah_data_karcis_bpjs' => collect(data_get($detail, 'data_rawat', []))
-                    ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
-                    ->count(),
-                'total_biaya_rawat' => data_get($detail, 'total_biaya_rawat'),
-                'dasar_hitung' => data_get($detail, 'dasar_hitung'),
-                'hasil_mapping' => data_get($detail, 'hasil_mapping'),
+                'hasil_mapping' => round((float) data_get($detail, 'hasil_mapping', 0), 2),
+                'jumlah_data' => (int) data_get($detail, 'jumlah_data', 0),
             ])
             ->values()
             ->all();
+
+        return [
+            'jumlah_tindakan' => $rows->count(),
+            'jumlah_data' => (int) $rows->sum('jumlah_data'),
+            'jumlah_data_dokter' => (int) $rows->sum('jumlah_data_dokter'),
+            'jumlah_data_paramedis' => (int) $rows->sum('jumlah_data_paramedis'),
+            'jumlah_sumber' => $sourceCount,
+            'top_details' => $topDetails,
+        ];
     }
 
     private function karcisRuleMessage(string $jenis): string
