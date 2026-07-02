@@ -42,6 +42,10 @@
                             <span>VK</span>
                             <strong id="detailVkMedis">Rp 0</strong>
                         </div>
+                        <div class="tm-detail-metric">
+                            <span>Pool ICU BPJS</span>
+                            <strong id="detailIcuPoolBpjsMedis">Rp 0</strong>
+                        </div>
                         <div class="tm-detail-metric grand">
                             <span>Grand Total</span>
                             <strong id="detailGrandMedis">Rp 0</strong>
@@ -60,7 +64,7 @@
                         <i class="mdi mdi-function-variant"></i>
                         <span id="detailFormulaMedis">
                             Grand total sebelum pembagi: <strong>Rp 0</strong>
-                            <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
+                            <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
                         </span>
                     </div>
 

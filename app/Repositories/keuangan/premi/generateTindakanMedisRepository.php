@@ -157,6 +157,14 @@ class generateTindakanMedisRepository
             'updated_at' => $now,
         ];
 
+        if (Schema::hasColumn('generate_tindakan_medis_configs', 'jnsPremi_umum_id')) {
+            $payload['jnsPremi_umum_id'] = $defaultPremiId;
+        }
+
+        if (Schema::hasColumn('generate_tindakan_medis_configs', 'jnsPremi_bpjs_id')) {
+            $payload['jnsPremi_bpjs_id'] = $defaultPremiId;
+        }
+
         if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_ugd')) {
             $payload['bpjs_ignore_ugd'] = false;
         }
@@ -165,32 +173,40 @@ class generateTindakanMedisRepository
             $payload['bpjs_ignore_vk'] = false;
         }
 
+        if (Schema::hasColumn('generate_tindakan_medis_configs', 'include_bpjs_icu_pool')) {
+            $payload['include_bpjs_icu_pool'] = true;
+        }
+
         $id = DB::table('generate_tindakan_medis_configs')->insertGetId($payload);
 
         return DB::table('generate_tindakan_medis_configs')->where('id', $id)->first();
     }
 
     public function saveConfig(
-        int $jnsPremiId,
+        int $jnsPremiUmumId,
+        int $jnsPremiBpjsId,
         string $bpjsSourceMode,
         string $distributionMode,
         bool $ignoreIcu,
         bool $ignoreNicu,
         bool $bpjsIgnoreUgd,
         bool $bpjsIgnoreVk,
+        bool $includeBpjsIcuPool,
         array $sourceMappings,
         array $karcisTindakanIds = [],
         array $doctorCodes = [],
         array $doctorTindakanIds = []
     ): object {
         return DB::transaction(function () use (
-            $jnsPremiId,
+            $jnsPremiUmumId,
+            $jnsPremiBpjsId,
             $bpjsSourceMode,
             $distributionMode,
             $ignoreIcu,
             $ignoreNicu,
             $bpjsIgnoreUgd,
             $bpjsIgnoreVk,
+            $includeBpjsIcuPool,
             $sourceMappings,
             $karcisTindakanIds,
             $doctorCodes,
@@ -198,7 +214,7 @@ class generateTindakanMedisRepository
         ) {
             $config = $this->getConfig();
             $updates = [
-                'jnsPremi_id' => $jnsPremiId,
+                'jnsPremi_id' => $jnsPremiUmumId,
                 'bpjs_source_mode' => $bpjsSourceMode,
                 'distribution_mode' => $distributionMode,
                 'ignore_icu' => $ignoreIcu,
@@ -206,12 +222,24 @@ class generateTindakanMedisRepository
                 'updated_at' => now(),
             ];
 
+            if (Schema::hasColumn('generate_tindakan_medis_configs', 'jnsPremi_umum_id')) {
+                $updates['jnsPremi_umum_id'] = $jnsPremiUmumId;
+            }
+
+            if (Schema::hasColumn('generate_tindakan_medis_configs', 'jnsPremi_bpjs_id')) {
+                $updates['jnsPremi_bpjs_id'] = $jnsPremiBpjsId;
+            }
+
             if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_ugd')) {
                 $updates['bpjs_ignore_ugd'] = $bpjsIgnoreUgd;
             }
 
             if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_vk')) {
                 $updates['bpjs_ignore_vk'] = $bpjsIgnoreVk;
+            }
+
+            if (Schema::hasColumn('generate_tindakan_medis_configs', 'include_bpjs_icu_pool')) {
+                $updates['include_bpjs_icu_pool'] = $includeBpjsIcuPool;
             }
 
             DB::table('generate_tindakan_medis_configs')
@@ -596,6 +624,36 @@ class generateTindakanMedisRepository
         ]);
     }
 
+    public function getBpjsIcuPool(string $periode, bool $forUpdate = false): array
+    {
+        if (! Schema::hasTable('generate_icu')) {
+            return [
+                'total' => 0,
+                'source_count' => 0,
+                'locked_count' => 0,
+                'items' => collect(),
+            ];
+        }
+
+        $query = DB::table('generate_icu')
+            ->where('periode', $periode)
+            ->where('jenis_icu', 'bpjs');
+
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
+        $rows = $query->get();
+        $lockedRows = $rows->where('is_locked', true);
+
+        return [
+            'total' => round((float) $lockedRows->sum('total_premi_medis_pool'), 2),
+            'source_count' => $rows->count(),
+            'locked_count' => $lockedRows->count(),
+            'items' => $rows,
+        ];
+    }
+
     public function getDependencyOptions(string $sourcePeriode, string $jenisPelayanan): array
     {
         return [
@@ -674,6 +732,9 @@ class generateTindakanMedisRepository
             $jenisPelayanan,
             $config->bpjs_source_mode ?? null
         );
+        $bpjsIcuPool = $jenisPelayanan === 'bpjs' && (bool) ($config->include_bpjs_icu_pool ?? true)
+            ? $this->getBpjsIcuPool($periode)
+            : ['total' => 0, 'source_count' => 0, 'locked_count' => 0, 'items' => collect()];
 
         if ($mappings->isEmpty()) {
             return [
@@ -699,6 +760,8 @@ class generateTindakanMedisRepository
                 'jumlah_terabaikan_nicu' => 0,
                 'total_biaya_rawat' => 0,
                 'total_mapping_premi' => 0,
+                'total_icu_pool_bpjs' => $bpjsIcuPool['total'],
+                'icu_pool_bpjs' => $bpjsIcuPool,
             ];
         }
 
@@ -832,6 +895,8 @@ class generateTindakanMedisRepository
                 ->count(),
             'total_biaya_rawat' => round((float) $transactions->sum('biaya_rawat'), 2),
             'total_mapping_premi' => round((float) $details->sum('hasil_mapping'), 2),
+            'total_icu_pool_bpjs' => $bpjsIcuPool['total'],
+            'icu_pool_bpjs' => $bpjsIcuPool,
         ];
     }
 
@@ -879,8 +944,79 @@ class generateTindakanMedisRepository
         $totalUgd = (float) data_get($dependencies, 'ugd.total', 0);
         $totalVk = (float) data_get($dependencies, 'vk.total', 0);
         $totalMapping = (float) $calculation['total_mapping_premi'];
-        $grandTotal = round($totalMapping + $totalUgd + $totalVk, 2);
+        $totalIcuPoolBpjs = (float) ($calculation['total_icu_pool_bpjs'] ?? 0);
+        $grandTotal = round($totalMapping + $totalUgd + $totalVk + $totalIcuPoolBpjs, 2);
         $pembagi = max(1, (int) ($calculation['pembagi'] ?? 1));
+        $payload = [
+            'source_periode' => $calculation['source_periode'],
+            'source_tgl_awal' => $calculation['source_tgl_awal'],
+            'source_tgl_akhir' => $calculation['source_tgl_akhir'],
+            'kode_premi' => $calculation['kode_premi'],
+            'nama_premi' => $calculation['nama_premi'],
+            'ugd_plotingPremi_id' => data_get($dependencies, 'ugd.plotingPremi_id'),
+            'ugd_kode_ploting' => data_get($dependencies, 'ugd.kode_ploting'),
+            'ugd_nama_ploting' => data_get($dependencies, 'ugd.nama_ploting'),
+            'vk_plotingPremi_id' => data_get($dependencies, 'vk.plotingPremi_id'),
+            'vk_kode_ploting' => data_get($dependencies, 'vk.kode_ploting'),
+            'vk_nama_ploting' => data_get($dependencies, 'vk.nama_ploting'),
+            'bpjs_source_mode' => PremiSourcePeriod::normalizeMode(
+                $config->bpjs_source_mode ?? null,
+                $jenisPelayanan
+            ),
+            'ignore_icu' => (bool) ($config->ignore_icu ?? true),
+            'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
+            'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
+                && (bool) ($config->bpjs_ignore_ugd ?? false),
+            'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
+                && (bool) ($config->bpjs_ignore_vk ?? false),
+            'jumlah_transaksi' => $calculation['jumlah_transaksi'],
+            'jumlah_pasien' => $calculation['jumlah_pasien'],
+            'jumlah_jenis_tindakan' => $calculation['jumlah_jenis_tindakan'],
+            'jumlah_mapping_premi' => $calculation['jumlah_mapping_premi'],
+            'jumlah_terabaikan_icu' => $calculation['jumlah_terabaikan_icu'],
+            'jumlah_terabaikan_nicu' => $calculation['jumlah_terabaikan_nicu'],
+            'total_biaya_rawat' => $calculation['total_biaya_rawat'],
+            'total_mapping_premi' => $totalMapping,
+            'total_ugd' => $totalUgd,
+            'total_vk' => $totalVk,
+            'grand_total' => $grandTotal,
+            'pembagi' => $pembagi,
+            'total_final' => round($grandTotal / $pembagi, 2),
+            'distribution_mode' => $config->distribution_mode ?? 'split_evenly',
+            'jumlah_penerima' => 0,
+            'total_dasar_dibagikan' => 0,
+            'total_tambahan_icu' => 0,
+            'total_tambahan_nicu' => 0,
+            'total_dibagikan' => 0,
+            'config_snapshot' => [
+                'bpjs_source_mode' => PremiSourcePeriod::normalizeMode(
+                    $config->bpjs_source_mode ?? null,
+                    $jenisPelayanan
+                ),
+                'distribution_mode' => $config->distribution_mode ?? 'split_evenly',
+                'ignore_icu' => (bool) ($config->ignore_icu ?? true),
+                'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
+                'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
+                    && (bool) ($config->bpjs_ignore_ugd ?? false),
+                'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
+                    && (bool) ($config->bpjs_ignore_vk ?? false),
+                'include_bpjs_icu_pool' => (bool) ($config->include_bpjs_icu_pool ?? true),
+                'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
+                'karcis_tindakan_ids' => $this->getKarcisTindakanIds()->all(),
+                'doctor_codes' => $this->getSelectedDoctors((int) $config->id)
+                    ->pluck('kd_dokter')
+                    ->values()
+                    ->all(),
+                'doctor_tindakan_ids' => $this->getSelectedDoctorActionIds((int) $config->id)
+                    ->values()
+                    ->all(),
+            ],
+            'generate_by' => Auth::id(),
+        ];
+
+        if (Schema::hasColumn('generate_tindakan_medis', 'total_icu_pool_bpjs')) {
+            $payload['total_icu_pool_bpjs'] = $totalIcuPoolBpjs;
+        }
 
         return generateTindakanMedisModel::query()->updateOrCreate(
             [
@@ -888,71 +1024,7 @@ class generateTindakanMedisRepository
                 'jenis_pelayanan' => $jenisPelayanan,
                 'jnsPremi_id' => $jnsPremiId,
             ],
-            [
-                'source_periode' => $calculation['source_periode'],
-                'source_tgl_awal' => $calculation['source_tgl_awal'],
-                'source_tgl_akhir' => $calculation['source_tgl_akhir'],
-                'kode_premi' => $calculation['kode_premi'],
-                'nama_premi' => $calculation['nama_premi'],
-                'ugd_plotingPremi_id' => data_get($dependencies, 'ugd.plotingPremi_id'),
-                'ugd_kode_ploting' => data_get($dependencies, 'ugd.kode_ploting'),
-                'ugd_nama_ploting' => data_get($dependencies, 'ugd.nama_ploting'),
-                'vk_plotingPremi_id' => data_get($dependencies, 'vk.plotingPremi_id'),
-                'vk_kode_ploting' => data_get($dependencies, 'vk.kode_ploting'),
-                'vk_nama_ploting' => data_get($dependencies, 'vk.nama_ploting'),
-                'bpjs_source_mode' => PremiSourcePeriod::normalizeMode(
-                    $config->bpjs_source_mode ?? null,
-                    $jenisPelayanan
-                ),
-                'ignore_icu' => (bool) ($config->ignore_icu ?? true),
-                'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
-                'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
-                    && (bool) ($config->bpjs_ignore_ugd ?? false),
-                'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
-                    && (bool) ($config->bpjs_ignore_vk ?? false),
-                'jumlah_transaksi' => $calculation['jumlah_transaksi'],
-                'jumlah_pasien' => $calculation['jumlah_pasien'],
-                'jumlah_jenis_tindakan' => $calculation['jumlah_jenis_tindakan'],
-                'jumlah_mapping_premi' => $calculation['jumlah_mapping_premi'],
-                'jumlah_terabaikan_icu' => $calculation['jumlah_terabaikan_icu'],
-                'jumlah_terabaikan_nicu' => $calculation['jumlah_terabaikan_nicu'],
-                'total_biaya_rawat' => $calculation['total_biaya_rawat'],
-                'total_mapping_premi' => $totalMapping,
-                'total_ugd' => $totalUgd,
-                'total_vk' => $totalVk,
-                'grand_total' => $grandTotal,
-                'pembagi' => $pembagi,
-                'total_final' => round($grandTotal / $pembagi, 2),
-                'distribution_mode' => $config->distribution_mode ?? 'split_evenly',
-                'jumlah_penerima' => 0,
-                'total_dasar_dibagikan' => 0,
-                'total_tambahan_icu' => 0,
-                'total_tambahan_nicu' => 0,
-                'total_dibagikan' => 0,
-                'config_snapshot' => [
-                    'bpjs_source_mode' => PremiSourcePeriod::normalizeMode(
-                        $config->bpjs_source_mode ?? null,
-                        $jenisPelayanan
-                    ),
-                    'distribution_mode' => $config->distribution_mode ?? 'split_evenly',
-                    'ignore_icu' => (bool) ($config->ignore_icu ?? true),
-                    'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
-                    'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
-                        && (bool) ($config->bpjs_ignore_ugd ?? false),
-                    'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
-                        && (bool) ($config->bpjs_ignore_vk ?? false),
-                    'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
-                    'karcis_tindakan_ids' => $this->getKarcisTindakanIds()->all(),
-                    'doctor_codes' => $this->getSelectedDoctors((int) $config->id)
-                        ->pluck('kd_dokter')
-                        ->values()
-                        ->all(),
-                    'doctor_tindakan_ids' => $this->getSelectedDoctorActionIds((int) $config->id)
-                        ->values()
-                        ->all(),
-                ],
-                'generate_by' => Auth::id(),
-            ]
+            $payload
         );
     }
 

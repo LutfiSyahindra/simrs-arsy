@@ -115,16 +115,26 @@ class hitungPremiTindakanMedisController extends Controller
             'jnsTindakan_id' => $request->input('jnsTindakan_id', []),
             'doctor_codes' => $request->input('doctor_codes', []),
             'doctor_tindakan_ids' => $request->input('doctor_tindakan_ids', []),
+            'jnsPremi_umum_id' => $request->input(
+                'jnsPremi_umum_id',
+                $request->input('jnsPremi_id')
+            ),
+            'jnsPremi_bpjs_id' => $request->input(
+                'jnsPremi_bpjs_id',
+                $request->input('jnsPremi_id')
+            ),
         ]);
 
         $validated = $request->validate([
-            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_umum_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_bpjs_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
             'bpjs_source_mode' => ['required', Rule::in(['current', 'previous'])],
             'distribution_mode' => ['required', Rule::in(['split_evenly', 'full_amount'])],
             'ignore_icu' => ['required', 'boolean'],
             'ignore_nicu' => ['required', 'boolean'],
             'bpjs_ignore_ugd' => ['required', 'boolean'],
             'bpjs_ignore_vk' => ['required', 'boolean'],
+            'include_bpjs_icu_pool' => ['required', 'boolean'],
             'source_mappings' => ['present', 'array'],
             'source_mappings.*.source_pattern' => ['required', Rule::in(self::SOURCE_PATTERNS)],
             'source_mappings.*.jnsTindakan_id' => [
@@ -149,14 +159,17 @@ class hitungPremiTindakanMedisController extends Controller
                 'exists:master_jenis_tindakan,id',
             ],
         ], [
-            'jnsPremi_id.required' => 'Sumber mapping premi wajib dipilih.',
-            'jnsPremi_id.exists' => 'Sumber mapping premi tidak ditemukan.',
+            'jnsPremi_umum_id.required' => 'Sumber mapping premi UMUM wajib dipilih.',
+            'jnsPremi_umum_id.exists' => 'Sumber mapping premi UMUM tidak ditemukan.',
+            'jnsPremi_bpjs_id.required' => 'Sumber mapping premi BPJS wajib dipilih.',
+            'jnsPremi_bpjs_id.exists' => 'Sumber mapping premi BPJS tidak ditemukan.',
             'bpjs_source_mode.required' => 'Mode periode sumber BPJS wajib dipilih.',
             'bpjs_source_mode.in' => 'Mode periode sumber BPJS tidak valid.',
             'distribution_mode.required' => 'Mode distribusi nilai final wajib dipilih.',
             'distribution_mode.in' => 'Mode distribusi nilai final tidak valid.',
             'bpjs_ignore_ugd.required' => 'Konfigurasi BPJS untuk UGD wajib dikirim.',
             'bpjs_ignore_vk.required' => 'Konfigurasi BPJS untuk VK wajib dikirim.',
+            'include_bpjs_icu_pool.required' => 'Konfigurasi pool ICU BPJS wajib dikirim.',
             'source_mappings.present' => 'Mapping sumber tindakan wajib dikirim.',
             'source_mappings.array' => 'Format mapping sumber tindakan tidak valid.',
             'source_mappings.*.source_pattern.required' => 'Sumber data wajib dipilih.',
@@ -180,13 +193,15 @@ class hitungPremiTindakanMedisController extends Controller
             'status' => true,
             'message' => 'Konfigurasi tindakan medis berhasil disimpan.',
             'data' => $this->service->updateConfig(
-                (int) $validated['jnsPremi_id'],
+                (int) $validated['jnsPremi_umum_id'],
+                (int) $validated['jnsPremi_bpjs_id'],
                 $validated['bpjs_source_mode'],
                 $validated['distribution_mode'],
                 (bool) $validated['ignore_icu'],
                 (bool) $validated['ignore_nicu'],
                 (bool) $validated['bpjs_ignore_ugd'],
                 (bool) $validated['bpjs_ignore_vk'],
+                (bool) $validated['include_bpjs_icu_pool'],
                 $validated['source_mappings'],
                 $validated['jnsTindakan_id'],
                 $validated['doctor_codes'],

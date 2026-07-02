@@ -444,7 +444,7 @@
         }
 
         .tm-summary-grid {
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         }
 
         .tm-summary-card {
@@ -736,7 +736,7 @@
         .tm-detail-metrics {
             display: grid;
             gap: 10px;
-            grid-template-columns: repeat(8, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
             margin-bottom: 12px;
         }
 
@@ -1038,6 +1038,11 @@
                         <div class="tm-summary-value" id="summaryUgdVkMedis">Rp 0</div>
                         <div class="tm-summary-note" id="summaryUgdVkNote">UGD Rp 0 / VK Rp 0</div>
                     </div>
+                    <div class="tm-summary-card">
+                        <div class="tm-summary-label">Pool ICU BPJS</div>
+                        <div class="tm-summary-value" id="summaryIcuPoolBpjsMedis">Rp 0</div>
+                        <div class="tm-summary-note" id="summaryIcuPoolBpjsNote">Khusus BPJS</div>
+                    </div>
                     <div class="tm-summary-card total">
                         <div class="tm-summary-label">Grand Total</div>
                         <div class="tm-summary-value" id="summaryGrandMedis">Rp 0</div>
@@ -1056,7 +1061,7 @@
                     <i class="mdi mdi-function-variant"></i>
                     <span id="summaryFormulaMedis">
                         Grand total sebelum pembagi: <strong>Rp 0</strong>
-                        <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
+                        <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
                     </span>
                 </div>
 
@@ -1167,6 +1172,7 @@
                                 <th class="text-end">Mapping</th>
                                 <th class="text-end">UGD</th>
                                 <th class="text-end">VK</th>
+                                <th class="text-end">Pool ICU BPJS</th>
                                 <th class="text-end">Grand Total</th>
                                 <th>Status</th>
                                 <th>Generate Oleh</th>
@@ -1186,7 +1192,7 @@
                         <div>
                             <h5 class="modal-title fw-bold">Konfigurasi Tindakan Medis</h5>
                             <small class="text-muted">
-                                Mapping sumber rawat mengatur tindakan mana yang menerima data dari dokter atau paramedis.
+                                Pilih sumber mapping UMUM dan BPJS, lalu atur aturan tindakan yang mengikat data rawat.
                             </small>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -1194,13 +1200,31 @@
                     <div class="modal-body">
                         <div class="tm-config-grid mb-3">
                             <div>
-                                <label for="configMappingPremiTindakan" class="form-label fw-semibold">
-                                    Sumber Mapping Premi
+                                <label for="configMappingPremiUmumTindakan" class="form-label fw-semibold">
+                                    Mapping Premi UMUM
                                 </label>
-                                <select id="configMappingPremiTindakan" class="form-select">
+                                <select id="configMappingPremiUmumTindakan" class="form-select">
                                     <option value="">Memuat mapping premi...</option>
                                 </select>
-                                <small class="text-muted" id="configMappingPremiTindakanNote">-</small>
+                                <small class="text-muted" id="configMappingPremiUmumTindakanNote">-</small>
+                            </div>
+                            <div>
+                                <label for="configMappingPremiBpjsTindakan" class="form-label fw-semibold">
+                                    Mapping Premi BPJS
+                                </label>
+                                <select id="configMappingPremiBpjsTindakan" class="form-select">
+                                    <option value="">Memuat mapping premi...</option>
+                                </select>
+                                <small class="text-muted" id="configMappingPremiBpjsTindakanNote">-</small>
+                            </div>
+                        </div>
+
+                        <div class="tm-config-grid mb-3">
+                            <div class="tm-config-box">
+                                <div class="fw-semibold">Sumber Aktif di Halaman</div>
+                                <small class="text-muted d-block mt-1" id="configActiveTypeNote">
+                                    Aturan sumber memakai gabungan tindakan dari mapping UMUM dan BPJS.
+                                </small>
                             </div>
                             <div>
                                 <label for="configBpjsSourceModeTindakan" class="form-label fw-semibold">
@@ -1240,6 +1264,13 @@
                         </div>
 
                         <div class="tm-config-grid mb-3">
+                            <label class="tm-config-box mb-0">
+                                <input type="checkbox" class="form-check-input me-2" id="configIncludeBpjsIcuPoolTindakan">
+                                <span class="fw-semibold">Tambahkan pool premi medis ICU BPJS</span>
+                                <small class="text-muted d-block mt-1">
+                                    Saat generate BPJS, grand total ditambah total_premi_medis_pool dari ICU BPJS terkunci.
+                                </small>
+                            </label>
                             <label class="tm-config-box mb-0">
                                 <input type="checkbox" class="form-check-input me-2" id="configBpjsIgnoreUgdTindakan">
                                 <span class="fw-semibold">BPJS abaikan UGD</span>
@@ -1297,9 +1328,11 @@
                         </div>
 
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <div class="fw-semibold">Mapping Sumber Data ke Tindakan</div>
-                                <small class="text-muted" id="sourceRuleMeta">0 aturan sumber</small>
+                                <div>
+                                    <div class="fw-semibold">Mapping Sumber Data ke Tindakan</div>
+                                <small class="text-muted" id="sourceRuleMeta">
+                                    0 aturan sumber
+                                </small>
                             </div>
                             <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddSourceRule">
                                 <i class="mdi mdi-plus me-1"></i>

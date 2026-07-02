@@ -10,6 +10,10 @@
         const configModal = new bootstrap.Modal(document.getElementById('modalTindakanMedisConfig'));
         let activeType = 'umum';
         let activePremiId = '';
+        let activePremiIds = {
+            umum: '',
+            bpjs: ''
+        };
         let distributionMode = 'split_evenly';
         let mappingPremiList = [];
         let actionOptions = [];
@@ -21,6 +25,7 @@
         let doctorActionSelectedIds = [];
         let bpjsIgnoreUgd = false;
         let bpjsIgnoreVk = false;
+        let includeBpjsIcuPool = true;
         let summaryData = null;
         let detailData = null;
         let selectedUgdSourceId = '';
@@ -60,6 +65,10 @@
             return mappingPremiList.find(function(item) {
                 return String(item.id) === String(activePremiId);
             });
+        }
+
+        function syncActivePremiId() {
+            activePremiId = String(activePremiIds[activeType] || '');
         }
 
         function activePremiLabel() {
@@ -103,7 +112,7 @@
             $('#configBpjsSourceModeNote').text(
                 (mode === 'previous' ? 'Tindakan BPJS memakai bulan sebelumnya.' :
                     'Tindakan BPJS memakai periode generate.') +
-                ' UGD/VK BPJS mengikuti opsi abaikan di bawah.'
+                ' UGD/VK dan pool ICU BPJS mengikuti opsi di bawah.'
             );
         }
 
@@ -246,11 +255,17 @@
         }
 
         function renderMappingPremiOptions() {
-            const select = $('#configMappingPremiTindakan');
-            select.empty().append('<option value="">Pilih mapping premi</option>');
+            const selects = $('#configMappingPremiUmumTindakan, #configMappingPremiBpjsTindakan');
+            selects.empty().append('<option value="">Pilih mapping premi</option>');
 
             mappingPremiList.forEach(function(item) {
-                select.append(
+                const option = $('<option>', {
+                    value: item.id,
+                    text: (item.kode || '-') + ' - ' + (item.jenis || '-') +
+                        ' (' + formatNumber(item.jumlah_tindakan) + ' tindakan)'
+                });
+                $('#configMappingPremiUmumTindakan').append(option.clone());
+                $('#configMappingPremiBpjsTindakan').append(
                     $('<option>', {
                         value: item.id,
                         text: (item.kode || '-') + ' - ' + (item.jenis || '-') +
@@ -259,14 +274,21 @@
                 );
             });
 
-            select.val(activePremiId || '');
+            $('#configMappingPremiUmumTindakan').val(activePremiIds.umum || '');
+            $('#configMappingPremiBpjsTindakan').val(activePremiIds.bpjs || '');
         }
 
         function updateActiveConfig() {
             const premi = activePremi();
 
+            const umumPremi = mappingPremiList.find(item => String(item.id) === String(activePremiIds.umum));
+            const bpjsPremi = mappingPremiList.find(item => String(item.id) === String(activePremiIds.bpjs));
+            const umumLabel = umumPremi ? (umumPremi.kode || '-') + ' - ' + (umumPremi.jenis || '-') : 'UMUM belum dipilih';
+            const bpjsLabel = bpjsPremi ? (bpjsPremi.kode || '-') + ' - ' + (bpjsPremi.jenis || '-') : 'BPJS belum dipilih';
+
             $('#activeConfigPremiTindakan').text(
-                premi ? activePremiLabel() : 'Belum ada mapping premi aktif'
+                premi ? (activeType === 'bpjs' ? 'BPJS: ' : 'UMUM: ') + activePremiLabel() :
+                'Belum ada mapping premi aktif'
             );
             $('#activeConfigPremiTindakanNote').text(
                 premi ?
@@ -276,17 +298,31 @@
                 distributionModeLabel(distributionMode) + ' / ' +
                 formatNumber(karcisSelectedIds.length) + ' karcis BPJS / ' +
                 'BPJS ' + (bpjsIgnoreUgd ? 'tanpa UGD' : 'pakai UGD') + ', ' +
-                (bpjsIgnoreVk ? 'tanpa VK' : 'pakai VK') + ' / ' +
+                (bpjsIgnoreVk ? 'tanpa VK' : 'pakai VK') + ' / ICU pool ' +
+                (includeBpjsIcuPool ? 'aktif' : 'nonaktif') + ' / ' +
                 doctorFilterLabel({
                     selected_count: selectedDoctorCodes().length,
                     selected_action_count: selectedDoctorActionIds().length
                 }) :
                 'Buka konfigurasi untuk memilih mapping premi.'
             );
-            $('#configMappingPremiTindakanNote').text(
-                premi ?
-                formatNumber(premi.jumlah_tindakan) + ' tindakan tersedia untuk mapping sumber.' :
-                'Pilih mapping premi untuk memuat tindakan.'
+            $('#configMappingPremiUmumTindakanNote').text(
+                umumPremi ?
+                formatNumber(umumPremi.jumlah_tindakan) + ' tindakan / ' +
+                formatNumber(umumPremi.jumlah_pegawai || 0) + ' pegawai / pembagi ' +
+                formatNumber(umumPremi.pembagi || 1) :
+                'Pilih mapping premi untuk generate UMUM.'
+            );
+            $('#configMappingPremiBpjsTindakanNote').text(
+                bpjsPremi ?
+                formatNumber(bpjsPremi.jumlah_tindakan) + ' tindakan / ' +
+                formatNumber(bpjsPremi.jumlah_pegawai || 0) + ' pegawai / pembagi ' +
+                formatNumber(bpjsPremi.pembagi || 1) :
+                'Pilih mapping premi untuk generate BPJS.'
+            );
+            $('#configActiveTypeNote').text(
+                'Aktif: ' + (activeType === 'bpjs' ? bpjsLabel : umumLabel) +
+                '. Aturan sumber memakai gabungan tindakan dari mapping UMUM dan BPJS.'
             );
         }
 
@@ -305,6 +341,63 @@
 
             return $.get(url, function(response) {
                 actionOptions = response.data || [];
+                renderSourceRuleList();
+                renderDoctorActionList();
+            }).fail(function(xhr) {
+                Swal.fire('Gagal', errorMessage(xhr), 'error');
+            });
+        }
+
+        function mergeActionOptionRows(rows) {
+            const map = {};
+
+            rows.forEach(function(item) {
+                const key = String(item.id);
+
+                if (!map[key]) {
+                    map[key] = item;
+                    return;
+                }
+
+                map[key].jumlah_mapping_tindakan = Math.max(
+                    Number(map[key].jumlah_mapping_tindakan || 0),
+                    Number(item.jumlah_mapping_tindakan || 0)
+                );
+            });
+
+            return Object.values(map).sort(function(a, b) {
+                return String(a.jenis || '').localeCompare(String(b.jenis || ''));
+            });
+        }
+
+        function loadActionOptionsForConfig() {
+            const ids = [...new Set([
+                String(activePremiIds.umum || ''),
+                String(activePremiIds.bpjs || '')
+            ].filter(Boolean))];
+
+            actionOptions = [];
+
+            if (!ids.length) {
+                renderSourceRuleList();
+                renderDoctorActionList();
+                return $.Deferred().resolve().promise();
+            }
+
+            const requests = ids.map(function(id) {
+                const url =
+                    "{{ route("backOffice.keuangan.hitungPremi.generateTindakanMedis.mappingActionOptions", ["id" => "__ID__"]) }}"
+                    .replace('__ID__', id);
+
+                return $.get(url);
+            });
+
+            return $.when.apply($, requests).done(function() {
+                const responses = requests.length === 1 ? [arguments[0]] :
+                    Array.from(arguments).map(item => item[0]);
+                actionOptions = mergeActionOptionRows(
+                    responses.flatMap(response => response.data || [])
+                );
                 renderSourceRuleList();
                 renderDoctorActionList();
             }).fail(function(xhr) {
@@ -375,7 +468,11 @@
                     karcisSelectedIds = ((data.karcis || {}).selected_ids || []).map(Number);
                     doctorActionSelectedIds = ((data.doctor_filter || {}).selected_action_ids || []).map(Number);
                     setSelectedDoctors((data.doctor_filter || {}).selected_doctors || []);
-                    activePremiId = data.jnsPremi_id ? String(data.jnsPremi_id) : '';
+                    activePremiIds = {
+                        umum: data.jnsPremi_umum_id ? String(data.jnsPremi_umum_id) : '',
+                        bpjs: data.jnsPremi_bpjs_id ? String(data.jnsPremi_bpjs_id) : ''
+                    };
+                    syncActivePremiId();
                     distributionMode = data.distribution_mode || 'split_evenly';
 
                     $('#configBpjsSourceModeTindakan').val(data.bpjs_source_mode || 'previous');
@@ -387,8 +484,10 @@
                     $('#configIgnoreNicuTindakan').prop('checked', Boolean(data.ignore_nicu));
                     bpjsIgnoreUgd = Boolean(data.bpjs_ignore_ugd);
                     bpjsIgnoreVk = Boolean(data.bpjs_ignore_vk);
+                    includeBpjsIcuPool = data.include_bpjs_icu_pool !== false;
                     $('#configBpjsIgnoreUgdTindakan').prop('checked', bpjsIgnoreUgd);
                     $('#configBpjsIgnoreVkTindakan').prop('checked', bpjsIgnoreVk);
+                    $('#configIncludeBpjsIcuPoolTindakan').prop('checked', includeBpjsIcuPool);
                     renderMappingPremiOptions();
                     renderSourceRuleList();
                     renderDoctorActionList();
@@ -658,11 +757,13 @@
             const mapping = formatRupiah(data.total_mapping_premi || 0);
             const ugd = formatRupiah(data.total_ugd || 0);
             const vk = formatRupiah(data.total_vk || 0);
+            const icuPool = formatRupiah(data.total_icu_pool_bpjs || 0);
             const grand = formatRupiah(data.grand_total || 0);
             const finalTotal = formatRupiah(data.total_final || 0);
 
             return 'Grand total sebelum pembagi: <strong>' + grand + '</strong> ' +
-                '<span class="tm-formula-muted">(' + mapping + ' + ' + ugd + ' + ' + vk + ')</span> ' +
+                '<span class="tm-formula-muted">(' + mapping + ' + ' + ugd + ' + ' + vk +
+                ' + ' + icuPool + ')</span> ' +
                 '&rarr; / ' + formatNumber(data.pembagi || 1) + ' = ' + finalTotal;
         }
 
@@ -674,6 +775,9 @@
                 infoPill('mdi-hospital-building', 'UGD/VK', (data.dependency_source_periode || data.periode || '-') +
                     ' / Periode Generate'),
                 infoPill('mdi-tune-variant', 'Kebijakan', data.dependency_policy_label || 'UGD dan VK aktif'),
+                infoPill('mdi-hospital-box-outline', 'Pool ICU BPJS',
+                    data.jenis_pelayanan === 'bpjs' && data.include_bpjs_icu_pool ?
+                    formatRupiah(data.total_icu_pool_bpjs || 0) : 'Tidak aktif'),
                 infoPill('mdi-doctor', 'Dokter', doctorFilterLabel(filter)),
                 infoPill('mdi-ticket-confirmation-outline', 'Karcis', formatNumber(data.karcis_config_count || 0) +
                     ' tindakan')
@@ -873,6 +977,14 @@
                 'UGD ' + (ignoredDependencies.ugd ? 'diabaikan' : formatRupiah(data.total_ugd)) +
                 ' / VK ' + (ignoredDependencies.vk ? 'diabaikan' : formatRupiah(data.total_vk))
             );
+            const icuPool = data.icu_pool_bpjs || {};
+            const showIcuPool = data.jenis_pelayanan === 'bpjs' && data.include_bpjs_icu_pool;
+            $('#summaryIcuPoolBpjsMedis').text(formatRupiah(showIcuPool ? data.total_icu_pool_bpjs : 0));
+            $('#summaryIcuPoolBpjsNote').text(showIcuPool ?
+                formatNumber(icuPool.locked_count || 0) + ' dari ' +
+                formatNumber(icuPool.source_count || 0) + ' ICU BPJS terkunci' :
+                'Hanya ditambahkan saat BPJS dan opsi aktif'
+            );
             $('#summaryGrandMedis').text(formatRupiah(data.grand_total));
             $('#summaryFinalMedis').text('Setelah pembagi: ' + formatRupiah(data.total_final));
             $('#summaryPembagiMedis').text('Pembagi: ' + formatNumber(data.pembagi || 1));
@@ -889,6 +1001,7 @@
                 ' / Setelah pembagi ' + formatRupiah(data.total_final || 0) +
                 ' / ' + (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
                 ' / Total dasar ' + formatRupiah(data.total_dasar_dibagikan || 0) +
+                ' / Pool ICU BPJS ' + formatRupiah(data.total_icu_pool_bpjs || 0) +
                 ' / Tambahan ICU+NICU ' +
                 formatRupiah((Number(data.total_tambahan_icu) || 0) + (Number(data.total_tambahan_nicu) || 0))
             );
@@ -1016,6 +1129,11 @@
                     render: formatRupiah
                 },
                 {
+                    data: 'total_icu_pool_bpjs',
+                    className: 'text-end',
+                    render: formatRupiah
+                },
+                {
                     data: 'grand_total',
                     className: 'text-end fw-bold',
                     render: function(data, type, row) {
@@ -1063,13 +1181,15 @@
 
         function saveConfig() {
             const payload = {
-                jnsPremi_id: $('#configMappingPremiTindakan').val(),
+                jnsPremi_umum_id: $('#configMappingPremiUmumTindakan').val(),
+                jnsPremi_bpjs_id: $('#configMappingPremiBpjsTindakan').val(),
                 bpjs_source_mode: $('#configBpjsSourceModeTindakan').val(),
                 distribution_mode: $('#configDistributionModeTindakan').val(),
                 ignore_icu: $('#configIgnoreIcuTindakan').is(':checked') ? 1 : 0,
                 ignore_nicu: $('#configIgnoreNicuTindakan').is(':checked') ? 1 : 0,
                 bpjs_ignore_ugd: $('#configBpjsIgnoreUgdTindakan').is(':checked') ? 1 : 0,
                 bpjs_ignore_vk: $('#configBpjsIgnoreVkTindakan').is(':checked') ? 1 : 0,
+                include_bpjs_icu_pool: $('#configIncludeBpjsIcuPoolTindakan').is(':checked') ? 1 : 0,
                 source_mappings: collectSourceRules(),
                 jnsTindakan_id: karcisSelectedIds,
                 doctor_codes: selectedDoctorCodes(),
@@ -1084,10 +1204,15 @@
             }).done(function(response) {
                 const data = response.data || {};
                 mappingPremiList = data.mapping_options || mappingPremiList;
-                activePremiId = data.jnsPremi_id ? String(data.jnsPremi_id) : '';
+                activePremiIds = {
+                    umum: data.jnsPremi_umum_id ? String(data.jnsPremi_umum_id) : '',
+                    bpjs: data.jnsPremi_bpjs_id ? String(data.jnsPremi_bpjs_id) : ''
+                };
+                syncActivePremiId();
                 distributionMode = data.distribution_mode || distributionMode;
                 bpjsIgnoreUgd = Boolean(data.bpjs_ignore_ugd);
                 bpjsIgnoreVk = Boolean(data.bpjs_ignore_vk);
+                includeBpjsIcuPool = data.include_bpjs_icu_pool !== false;
                 actionOptions = data.action_options || [];
                 sourceOptions = data.source_options || sourceOptions;
                 sourceMappings = data.source_mappings || [];
@@ -1098,6 +1223,7 @@
                 setSelectedDoctors((data.doctor_filter || {}).selected_doctors || []);
                 $('#configBpjsIgnoreUgdTindakan').prop('checked', bpjsIgnoreUgd);
                 $('#configBpjsIgnoreVkTindakan').prop('checked', bpjsIgnoreVk);
+                $('#configIncludeBpjsIcuPoolTindakan').prop('checked', includeBpjsIcuPool);
                 renderMappingPremiOptions();
                 renderSourceRuleList();
                 renderDoctorActionList();
@@ -1200,6 +1326,7 @@
             $('#detailMappingMedis').text(formatRupiah(data.total_mapping_premi));
             $('#detailUgdMedis').text(formatRupiah(data.total_ugd));
             $('#detailVkMedis').text(formatRupiah(data.total_vk));
+            $('#detailIcuPoolBpjsMedis').text(formatRupiah(data.total_icu_pool_bpjs || 0));
             $('#detailGrandMedis').text(formatRupiah(data.grand_total));
             $('#detailFinalMedis').text(formatRupiah(data.total_final));
             $('#detailDibagikanMedis').text(formatRupiah(data.total_dibagikan || 0));
@@ -1209,6 +1336,7 @@
                 'Grand total ' + formatRupiah(data.grand_total || 0) +
                 ' / Setelah pembagi ' + formatRupiah(data.total_final || 0) +
                 ' / ' + (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
+                ' / Pool ICU BPJS ' + formatRupiah(data.total_icu_pool_bpjs || 0) +
                 ' / ICU ' + formatRupiah(data.total_tambahan_icu || 0) +
                 ' / NICU ' + formatRupiah(data.total_tambahan_nicu || 0)
             );
@@ -1233,6 +1361,7 @@
                     (data.bpjs_source_mode_label || '-')),
                 infoPill('mdi-format-list-checks', 'Jenis Tindakan', formatNumber(data.jumlah_jenis_tindakan || 0)),
                 infoPill('mdi-calculator', 'Grand Total', formatRupiah(data.grand_total || 0)),
+                infoPill('mdi-hospital-box-outline', 'Pool ICU BPJS', formatRupiah(data.total_icu_pool_bpjs || 0)),
                 infoPill('mdi-tune-variant', 'UGD/VK', data.dependency_policy_label || 'UGD dan VK aktif'),
                 infoPill('mdi-account-switch-outline', 'Dialihkan', formatNumber(shifted) + ' rawat'),
                 infoPill('mdi-plus-circle-outline', 'Bonus Medis', 'ICU ' + formatRupiah(data.total_tambahan_icu || 0) +
@@ -1512,12 +1641,16 @@
             configModal.show();
         });
 
-        $('#configMappingPremiTindakan').on('change', function() {
-            activePremiId = String($(this).val() || '');
+        $('#configMappingPremiUmumTindakan, #configMappingPremiBpjsTindakan').on('change', function() {
+            activePremiIds = {
+                umum: String($('#configMappingPremiUmumTindakan').val() || ''),
+                bpjs: String($('#configMappingPremiBpjsTindakan').val() || '')
+            };
+            syncActivePremiId();
             sourceMappings = [];
             doctorActionSelectedIds = [];
             updateActiveConfig();
-            loadActionOptions(activePremiId);
+            loadActionOptionsForConfig();
         });
 
         $('#configDistributionModeTindakan').on('change', function() {
@@ -1528,9 +1661,10 @@
 
         $('#configBpjsSourceModeTindakan').on('change', updateBpjsSourceModeNote);
 
-        $('#configBpjsIgnoreUgdTindakan, #configBpjsIgnoreVkTindakan').on('change', function() {
+        $('#configBpjsIgnoreUgdTindakan, #configBpjsIgnoreVkTindakan, #configIncludeBpjsIcuPoolTindakan').on('change', function() {
             bpjsIgnoreUgd = $('#configBpjsIgnoreUgdTindakan').is(':checked');
             bpjsIgnoreVk = $('#configBpjsIgnoreVkTindakan').is(':checked');
+            includeBpjsIcuPool = $('#configIncludeBpjsIcuPoolTindakan').is(':checked');
             updateActiveConfig();
         });
 
@@ -1627,6 +1761,7 @@
 
         $('.tm-tab').on('click', function() {
             activeType = $(this).data('type');
+            syncActivePremiId();
             selectedUgdSourceId = '';
             selectedVkSourceId = '';
             $('.tm-tab').removeClass('active');
@@ -1635,6 +1770,7 @@
                 .removeClass('umum bpjs')
                 .addClass(activeType)
                 .text(activeType === 'bpjs' ? 'BPJS' : 'UMUM');
+            updateActiveConfig();
             loadSummary();
             reloadTable();
         });

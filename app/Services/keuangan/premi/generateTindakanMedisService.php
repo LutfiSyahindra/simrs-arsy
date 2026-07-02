@@ -62,20 +62,23 @@ class generateTindakanMedisService
     }
 
     public function updateConfig(
-        int $jnsPremiId,
+        int $jnsPremiUmumId,
+        int $jnsPremiBpjsId,
         string $bpjsSourceMode,
         string $distributionMode,
         bool $ignoreIcu,
         bool $ignoreNicu,
         bool $bpjsIgnoreUgd,
         bool $bpjsIgnoreVk,
+        bool $includeBpjsIcuPool,
         array $sourceMappings,
         array $karcisTindakanIds = [],
         array $doctorCodes = [],
         array $doctorTindakanIds = []
     ): array {
         $sourceMappings = $this->normalizeSourceMappings($sourceMappings);
-        $this->assertSourceMappingsBelongToPremi($jnsPremiId, $sourceMappings);
+        $premiIds = [$jnsPremiUmumId, $jnsPremiBpjsId];
+        $this->assertSourceMappingsBelongToPremi($premiIds, $sourceMappings);
         $karcisTindakanIds = collect($karcisTindakanIds)
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -84,17 +87,19 @@ class generateTindakanMedisService
         $doctorCodes = $this->normalizeDoctorCodes($doctorCodes);
         $this->assertDoctorsExist($doctorCodes);
         $doctorTindakanIds = $this->normalizeTindakanIds($doctorTindakanIds);
-        $this->assertDoctorActionsBelongToPremi($jnsPremiId, $doctorTindakanIds);
+        $this->assertDoctorActionsBelongToPremi($premiIds, $doctorTindakanIds);
 
         return $this->configPayload(
             $this->repository->saveConfig(
-                $jnsPremiId,
+                $jnsPremiUmumId,
+                $jnsPremiBpjsId,
                 PremiSourcePeriod::normalizeMode($bpjsSourceMode, 'bpjs'),
                 $this->distributionMode($distributionMode),
                 $ignoreIcu,
                 $ignoreNicu,
                 $bpjsIgnoreUgd,
                 $bpjsIgnoreVk,
+                $includeBpjsIcuPool,
                 $sourceMappings,
                 $karcisTindakanIds,
                 $doctorCodes,
@@ -157,7 +162,7 @@ class generateTindakanMedisService
         ?int $vkPlotingId = null
     ): array {
         $config = $this->repository->getConfig();
-        $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+        $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
         $distributionMode = $this->distributionMode($config->distribution_mode ?? null);
         $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
         $bpjsSourceMode = PremiSourcePeriod::normalizeMode(
@@ -253,7 +258,14 @@ class generateTindakanMedisService
                 ?? $existing?->total_vk
                 ?? 0
             );
-        $grandTotal = round($totalMapping + $totalUgd + $totalVk, 2);
+        $totalIcuPoolBpjs = $jenis === 'bpjs' && (bool) ($config->include_bpjs_icu_pool ?? true)
+            ? (float) (
+                $calculation['total_icu_pool_bpjs']
+                ?? $existing?->total_icu_pool_bpjs
+                ?? 0
+            )
+            : 0;
+        $grandTotal = round($totalMapping + $totalUgd + $totalVk + $totalIcuPoolBpjs, 2);
         $totalFinal = $calculation
             ? round($grandTotal / $pembagi, 2)
             : ($existing?->total_final ?? 0);
@@ -380,6 +392,16 @@ class generateTindakanMedisService
             'total_mapping_premi' => $totalMapping,
             'total_ugd' => $totalUgd,
             'total_vk' => $totalVk,
+            'total_icu_pool_bpjs' => $totalIcuPoolBpjs,
+            'include_bpjs_icu_pool' => (bool) ($config->include_bpjs_icu_pool ?? true),
+            'icu_pool_bpjs' => $this->icuPoolPayload(
+                $calculation['icu_pool_bpjs']
+                ?? [
+                    'total' => $totalIcuPoolBpjs,
+                    'source_count' => 0,
+                    'locked_count' => 0,
+                ]
+            ),
             'grand_total' => $grandTotal,
             'pembagi' => $pembagi,
             'total_final' => $totalFinal,
@@ -417,7 +439,7 @@ class generateTindakanMedisService
             $vkPlotingId
         ) {
             $config = $this->repository->getConfig();
-            $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+            $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
             $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
             $ignoredDependencies = $this->ignoredDependencies($jenis, $config);
             $existing = $this->repository
@@ -480,6 +502,7 @@ class generateTindakanMedisService
                 $calculation['jumlah_mapping_premi'] === 0
                 && (float) data_get($dependencies, 'ugd.total', 0) <= 0
                 && (float) data_get($dependencies, 'vk.total', 0) <= 0
+                && (float) ($calculation['total_icu_pool_bpjs'] ?? 0) <= 0
             ) {
                 $selectedPremi = $this->repository->findPremi($jnsPremiId);
                 $premiName = trim(
@@ -672,6 +695,7 @@ class generateTindakanMedisService
             'total_mapping_premi' => $result->total_mapping_premi,
             'total_ugd' => $result->total_ugd,
             'total_vk' => $result->total_vk,
+            'total_icu_pool_bpjs' => $result->total_icu_pool_bpjs ?? 0,
             'grand_total' => $result->grand_total,
             'pembagi' => max(1, (int) ($result->pembagi ?? $result->jnsPremi?->pembagi ?? 1)),
             'total_final' => $result->total_final,
@@ -725,17 +749,37 @@ class generateTindakanMedisService
 
     private function configPayload(object $config): array
     {
-        $jnsPremiId = $config->jnsPremi_id ? (int) $config->jnsPremi_id : null;
-        $premi = $jnsPremiId ? $this->repository->findPremi($jnsPremiId) : null;
+        $legacyPremiId = $config->jnsPremi_id ? (int) $config->jnsPremi_id : null;
+        $jnsPremiUmumId = (int) (
+            data_get($config, 'jnsPremi_umum_id')
+            ?: $legacyPremiId
+            ?: 0
+        ) ?: null;
+        $jnsPremiBpjsId = (int) (
+            data_get($config, 'jnsPremi_bpjs_id')
+            ?: $legacyPremiId
+            ?: 0
+        ) ?: null;
+        $premiUmum = $jnsPremiUmumId ? $this->repository->findPremi($jnsPremiUmumId) : null;
+        $premiBpjs = $jnsPremiBpjsId ? $this->repository->findPremi($jnsPremiBpjsId) : null;
         $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
         $doctorFilter = $this->doctorFilterPayload((int) $config->id);
-        $pegawai = $jnsPremiId
-            ? $this->repository->getMappedPegawai($jnsPremiId)
+        $pegawai = $jnsPremiUmumId
+            ? $this->repository->getMappedPegawai($jnsPremiUmumId)
             : collect();
+        $actionOptions = collect([$jnsPremiUmumId, $jnsPremiBpjsId])
+            ->filter()
+            ->unique()
+            ->flatMap(fn ($premiId) => $this->actionOptions((int) $premiId))
+            ->unique('id')
+            ->sortBy('jenis')
+            ->values();
 
         return [
             'id' => (int) $config->id,
-            'jnsPremi_id' => $jnsPremiId,
+            'jnsPremi_id' => $jnsPremiUmumId,
+            'jnsPremi_umum_id' => $jnsPremiUmumId,
+            'jnsPremi_bpjs_id' => $jnsPremiBpjsId,
             'distribution_mode' => $this->distributionMode($config->distribution_mode ?? null),
             'distribution_mode_label' => $this->distributionModeLabel(
                 $this->distributionMode($config->distribution_mode ?? null)
@@ -752,17 +796,18 @@ class generateTindakanMedisService
             'ignore_nicu' => (bool) $config->ignore_nicu,
             'bpjs_ignore_ugd' => (bool) ($config->bpjs_ignore_ugd ?? false),
             'bpjs_ignore_vk' => (bool) ($config->bpjs_ignore_vk ?? false),
-            'premi' => $premi ? [
-                'id' => (int) $premi->id,
-                'kode' => $premi->kode,
-                'jenis' => $premi->jenis,
-                'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
-                'label' => trim($premi->kode.' - '.$premi->jenis),
+            'include_bpjs_icu_pool' => (bool) ($config->include_bpjs_icu_pool ?? true),
+            'premi' => $premiUmum ? [
+                'id' => (int) $premiUmum->id,
+                'kode' => $premiUmum->kode,
+                'jenis' => $premiUmum->jenis,
+                'pembagi' => max(1, (int) ($premiUmum->pembagi ?? 1)),
+                'label' => trim($premiUmum->kode.' - '.$premiUmum->jenis),
             ] : null,
+            'premi_umum' => $this->premiPayload($premiUmum),
+            'premi_bpjs' => $this->premiPayload($premiBpjs),
             'mapping_options' => $this->getMappingPremiOptions(),
-            'action_options' => $jnsPremiId
-                ? $this->actionOptions($jnsPremiId)
-                : collect(),
+            'action_options' => $actionOptions,
             'source_options' => $this->repository->sourcePatternOptions(),
             'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
             'karcis' => $this->getKarcisConfig(),
@@ -892,6 +937,43 @@ class generateTindakanMedisService
             : 'Dibagi rata ke pegawai';
     }
 
+    private function icuPoolPayload(array $pool): array
+    {
+        $items = collect($pool['items'] ?? []);
+
+        return [
+            'total' => round((float) ($pool['total'] ?? 0), 2),
+            'source_count' => (int) ($pool['source_count'] ?? $items->count()),
+            'locked_count' => (int) ($pool['locked_count'] ?? $items->where('is_locked', true)->count()),
+            'sources' => $items
+                ->map(fn ($item) => [
+                    'id' => (int) data_get($item, 'id'),
+                    'periode' => data_get($item, 'periode'),
+                    'source_periode' => data_get($item, 'source_periode'),
+                    'grand_total' => round((float) data_get($item, 'grand_total', 0), 2),
+                    'total_premi_medis_pool' => round((float) data_get($item, 'total_premi_medis_pool', 0), 2),
+                    'is_locked' => (bool) data_get($item, 'is_locked'),
+                ])
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function premiPayload(?object $premi): ?array
+    {
+        if (! $premi) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $premi->id,
+            'kode' => $premi->kode,
+            'jenis' => $premi->jenis,
+            'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
+            'label' => trim($premi->kode.' - '.$premi->jenis),
+        ];
+    }
+
     private function bonusInfoPayload($info): array
     {
         if (is_string($info)) {
@@ -992,14 +1074,21 @@ class generateTindakanMedisService
         ];
     }
 
-    private function selectedConfigPremiId(?int $requestPremiId, ?object $config = null): int
+    private function selectedConfigPremiId(
+        ?int $requestPremiId,
+        ?object $config = null,
+        string $jenis = 'umum'
+    ): int
     {
         $config ??= $this->repository->getConfig();
-        $jnsPremiId = (int) ($config->jnsPremi_id ?? $requestPremiId ?? 0);
+        $configuredId = $jenis === 'bpjs'
+            ? data_get($config, 'jnsPremi_bpjs_id')
+            : data_get($config, 'jnsPremi_umum_id');
+        $jnsPremiId = (int) ($configuredId ?: ($config->jnsPremi_id ?? $requestPremiId ?? 0));
 
         if ($jnsPremiId < 1 || ! $this->repository->findPremi($jnsPremiId)) {
             throw ValidationException::withMessages([
-                'jnsPremi_id' => 'Konfigurasi sumber mapping premi wajib dipilih terlebih dahulu.',
+                'jnsPremi_id' => 'Konfigurasi sumber mapping premi '.strtoupper($jenis).' wajib dipilih terlebih dahulu.',
             ]);
         }
 
@@ -1060,16 +1149,13 @@ class generateTindakanMedisService
         }
     }
 
-    private function assertDoctorActionsBelongToPremi(int $jnsPremiId, array $tindakanIds): void
+    private function assertDoctorActionsBelongToPremi(array $jnsPremiIds, array $tindakanIds): void
     {
         if (empty($tindakanIds)) {
             return;
         }
 
-        $allowedIds = $this->repository
-            ->getPremiActionOptions($jnsPremiId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id);
+        $allowedIds = $this->premiActionIds($jnsPremiIds);
         $invalidIds = collect($tindakanIds)
             ->reject(fn ($id) => $allowedIds->contains((int) $id))
             ->values();
@@ -1081,16 +1167,13 @@ class generateTindakanMedisService
         }
     }
 
-    private function assertSourceMappingsBelongToPremi(int $jnsPremiId, array $sourceMappings): void
+    private function assertSourceMappingsBelongToPremi(array $jnsPremiIds, array $sourceMappings): void
     {
         if (empty($sourceMappings)) {
             return;
         }
 
-        $allowedIds = $this->repository
-            ->getPremiActionOptions($jnsPremiId)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id);
+        $allowedIds = $this->premiActionIds($jnsPremiIds);
         $invalidIds = collect($sourceMappings)
             ->pluck('jnsTindakan_id')
             ->unique()
@@ -1102,6 +1185,18 @@ class generateTindakanMedisService
                 'source_mappings' => 'Mapping sumber hanya boleh memilih tindakan dari mapping premi aktif.',
             ]);
         }
+    }
+
+    private function premiActionIds(array $jnsPremiIds): Collection
+    {
+        return collect($jnsPremiIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->flatMap(fn ($id) => $this->repository->getPremiActionOptions($id)->pluck('id'))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
     }
 
     private function resolveDependencyId(?int $requestedId, ?int $existingId, Collection $options): ?int
