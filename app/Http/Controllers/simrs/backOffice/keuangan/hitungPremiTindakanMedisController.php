@@ -17,6 +17,9 @@ class hitungPremiTindakanMedisController extends Controller
         'rawat_*_dr',
         'rawat_jl_dr',
         'rawat_inap_dr',
+        'rawat_*_drpr',
+        'rawat_jl_drpr',
+        'rawat_inap_drpr',
     ];
 
     public function __construct(
@@ -120,6 +123,8 @@ class hitungPremiTindakanMedisController extends Controller
             'distribution_mode' => ['required', Rule::in(['split_evenly', 'full_amount'])],
             'ignore_icu' => ['required', 'boolean'],
             'ignore_nicu' => ['required', 'boolean'],
+            'bpjs_ignore_ugd' => ['required', 'boolean'],
+            'bpjs_ignore_vk' => ['required', 'boolean'],
             'source_mappings' => ['present', 'array'],
             'source_mappings.*.source_pattern' => ['required', Rule::in(self::SOURCE_PATTERNS)],
             'source_mappings.*.jnsTindakan_id' => [
@@ -150,6 +155,8 @@ class hitungPremiTindakanMedisController extends Controller
             'bpjs_source_mode.in' => 'Mode periode sumber BPJS tidak valid.',
             'distribution_mode.required' => 'Mode distribusi nilai final wajib dipilih.',
             'distribution_mode.in' => 'Mode distribusi nilai final tidak valid.',
+            'bpjs_ignore_ugd.required' => 'Konfigurasi BPJS untuk UGD wajib dikirim.',
+            'bpjs_ignore_vk.required' => 'Konfigurasi BPJS untuk VK wajib dikirim.',
             'source_mappings.present' => 'Mapping sumber tindakan wajib dikirim.',
             'source_mappings.array' => 'Format mapping sumber tindakan tidak valid.',
             'source_mappings.*.source_pattern.required' => 'Sumber data wajib dipilih.',
@@ -178,6 +185,8 @@ class hitungPremiTindakanMedisController extends Controller
                 $validated['distribution_mode'],
                 (bool) $validated['ignore_icu'],
                 (bool) $validated['ignore_nicu'],
+                (bool) $validated['bpjs_ignore_ugd'],
+                (bool) $validated['bpjs_ignore_vk'],
                 $validated['source_mappings'],
                 $validated['jnsTindakan_id'],
                 $validated['doctor_codes'],
@@ -230,15 +239,19 @@ class hitungPremiTindakanMedisController extends Controller
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
             'jnsPremi_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
-            'ugd_plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
-            'vk_plotingPremi_id' => ['required', 'integer', 'exists:master_ploting_premi,id'],
+            'ugd_plotingPremi_id' => ['nullable', 'integer', 'exists:master_ploting_premi,id'],
+            'vk_plotingPremi_id' => ['nullable', 'integer', 'exists:master_ploting_premi,id'],
         ]);
         $result = $this->service->generate(
             $validated['periode'],
             $validated['jenis_pelayanan'],
             isset($validated['jnsPremi_id']) ? (int) $validated['jnsPremi_id'] : null,
-            (int) $validated['ugd_plotingPremi_id'],
-            (int) $validated['vk_plotingPremi_id']
+            isset($validated['ugd_plotingPremi_id'])
+                ? (int) $validated['ugd_plotingPremi_id']
+                : null,
+            isset($validated['vk_plotingPremi_id'])
+                ? (int) $validated['vk_plotingPremi_id']
+                : null
         );
 
         return response()->json([

@@ -19,7 +19,10 @@
         let karcisSelectedIds = [];
         let selectedDoctors = [];
         let doctorActionSelectedIds = [];
+        let bpjsIgnoreUgd = false;
+        let bpjsIgnoreVk = false;
         let summaryData = null;
+        let detailData = null;
         let selectedUgdSourceId = '';
         let selectedVkSourceId = '';
         let detailMappings = [];
@@ -100,7 +103,7 @@
             $('#configBpjsSourceModeNote').text(
                 (mode === 'previous' ? 'Tindakan BPJS memakai bulan sebelumnya.' :
                     'Tindakan BPJS memakai periode generate.') +
-                ' UGD, VK, ICU, dan NICU tetap mengambil periode generate.'
+                ' UGD/VK BPJS mengikuti opsi abaikan di bawah.'
             );
         }
 
@@ -272,6 +275,8 @@
                 formatNumber(premi.pembagi || 1) + ' / ' +
                 distributionModeLabel(distributionMode) + ' / ' +
                 formatNumber(karcisSelectedIds.length) + ' karcis BPJS / ' +
+                'BPJS ' + (bpjsIgnoreUgd ? 'tanpa UGD' : 'pakai UGD') + ', ' +
+                (bpjsIgnoreVk ? 'tanpa VK' : 'pakai VK') + ' / ' +
                 doctorFilterLabel({
                     selected_count: selectedDoctorCodes().length,
                     selected_action_count: selectedDoctorActionIds().length
@@ -380,6 +385,10 @@
                         distributionModeLabel(distributionMode));
                     $('#configIgnoreIcuTindakan').prop('checked', Boolean(data.ignore_icu));
                     $('#configIgnoreNicuTindakan').prop('checked', Boolean(data.ignore_nicu));
+                    bpjsIgnoreUgd = Boolean(data.bpjs_ignore_ugd);
+                    bpjsIgnoreVk = Boolean(data.bpjs_ignore_vk);
+                    $('#configBpjsIgnoreUgdTindakan').prop('checked', bpjsIgnoreUgd);
+                    $('#configBpjsIgnoreVkTindakan').prop('checked', bpjsIgnoreVk);
                     renderMappingPremiOptions();
                     renderSourceRuleList();
                     renderDoctorActionList();
@@ -399,14 +408,22 @@
             }).join('');
         }
 
+        function mappingOptionValue(value, jenis) {
+            return jenis === 'nominal' ? formatRupiah(value) : formatNumber(value) + '%';
+        }
+
+        function mappingOptionMeta(item) {
+            const umumJenis = item.jenis_umum || item.jenis_mapping || 'persen';
+            const bpjsJenis = item.jenis_bpjs || item.jenis_mapping || 'persen';
+
+            return 'UMUM ' + mappingOptionValue(item.nilai_umum, umumJenis) +
+                ' / BPJS ' + mappingOptionValue(item.nilai_bpjs, bpjsJenis);
+        }
+
         function actionOptionHtml(selectedValue) {
             return actionOptions.map(function(item) {
-                const meta = item.jenis_mapping === 'persen' ?
-                    formatNumber(item.nilai_umum) + '% / ' + formatNumber(item.nilai_bpjs) + '%' :
-                    formatRupiah(item.nilai_umum) + ' / ' + formatRupiah(item.nilai_bpjs);
-
                 return `<option value="${escapeHtml(item.id)}" ${String(item.id) === String(selectedValue) ? 'selected' : ''}>
-                    ${escapeHtml(item.kode || '-')} - ${escapeHtml(item.jenis || '-')} (${escapeHtml(item.jenis_mapping || '-')} ${meta})
+                    ${escapeHtml(item.kode || '-')} - ${escapeHtml(item.jenis || '-')} (${escapeHtml(mappingOptionMeta(item))})
                 </option>`;
             }).join('');
         }
@@ -508,9 +525,7 @@
             actionOptions.forEach(function(item) {
                 const value = Number(item.id);
                 const checked = doctorActionSelectedIds.includes(value) ? 'checked' : '';
-                const meta = item.jenis_mapping === 'persen' ?
-                    formatNumber(item.nilai_umum) + '% umum / ' + formatNumber(item.nilai_bpjs) + '% BPJS' :
-                    formatRupiah(item.nilai_umum) + ' umum / ' + formatRupiah(item.nilai_bpjs) + ' BPJS';
+                const meta = mappingOptionMeta(item);
 
                 list.append(`
                     <label class="tm-karcis-item">
@@ -521,7 +536,7 @@
                                 ${escapeHtml(item.kode || '-')} - ${escapeHtml(item.jenis || '-')}
                             </span>
                             <span class="tm-karcis-meta d-block">
-                                ${escapeHtml(item.jenis_mapping || '-')} ${meta} /
+                                ${escapeHtml(meta)} /
                                 ${formatNumber(item.jumlah_mapping_tindakan || 0)} mapping tindakan
                             </span>
                         </span>
@@ -548,9 +563,18 @@
             return rows;
         }
 
-        function renderSourceSelect(selector, options, selectedId, placeholder) {
+        function renderSourceSelect(selector, options, selectedId, placeholder, ignoredLabel = '') {
             const select = $(selector);
             select.empty();
+
+            if (ignoredLabel) {
+                select.append(`<option value="">${escapeHtml(ignoredLabel)}</option>`);
+                select.val('');
+                select.prop('disabled', true);
+                return '';
+            }
+
+            select.prop('disabled', false);
 
             if (!options.length) {
                 select.append(`<option value="">${placeholder}</option>`);
@@ -576,20 +600,23 @@
 
         function renderDependency(prefix, dependency, fallbackLabel) {
             dependency = dependency || {};
+            const ignored = Boolean(dependency.ignored);
             const exists = dependency.plotingPremi_id || dependency.exists;
             const locked = Boolean(dependency.is_locked);
             const card = $('#' + prefix + 'Tindakan');
-            const value = exists ? formatRupiah(dependency.total || 0) : 'Belum tersedia';
-            const note = exists ?
+            const value = ignored ? 'Diabaikan' : (exists ? formatRupiah(dependency.total || 0) :
+                'Belum tersedia');
+            const note = ignored ? (dependency.ploting_label || fallbackLabel + ' BPJS diabaikan') : (exists ?
                 (dependency.ploting_label || fallbackLabel) + ' / ' +
                 formatNumber(dependency.locked_count || 0) + ' dari ' +
                 formatNumber(dependency.generated_count || 0) + ' terkunci' :
-                'Generate dan kunci sumber terlebih dahulu.';
+                'Generate dan kunci sumber terlebih dahulu.');
 
             $('#' + prefix + 'Value').text(value);
             $('#' + prefix + 'Note').text(note);
-            card.toggleClass('border-success', exists && locked);
-            card.toggleClass('border-warning', exists && !locked);
+            card.removeClass('border-success border-warning');
+            card.toggleClass('border-success', ignored || (exists && locked));
+            card.toggleClass('border-warning', !ignored && exists && !locked);
         }
 
         function renderReadinessSteps(steps) {
@@ -627,6 +654,18 @@
             });
         }
 
+        function calculationFormulaHtml(data) {
+            const mapping = formatRupiah(data.total_mapping_premi || 0);
+            const ugd = formatRupiah(data.total_ugd || 0);
+            const vk = formatRupiah(data.total_vk || 0);
+            const grand = formatRupiah(data.grand_total || 0);
+            const finalTotal = formatRupiah(data.total_final || 0);
+
+            return 'Grand total sebelum pembagi: <strong>' + grand + '</strong> ' +
+                '<span class="tm-formula-muted">(' + mapping + ' + ' + ugd + ' + ' + vk + ')</span> ' +
+                '&rarr; / ' + formatNumber(data.pembagi || 1) + ' = ' + finalTotal;
+        }
+
         function renderPeriodInfo(data) {
             const filter = data.doctor_filter || {};
             $('#summaryPeriodInfoMedis').html([
@@ -634,6 +673,7 @@
                     (data.bpjs_source_mode_label || 'Periode Generate')),
                 infoPill('mdi-hospital-building', 'UGD/VK', (data.dependency_source_periode || data.periode || '-') +
                     ' / Periode Generate'),
+                infoPill('mdi-tune-variant', 'Kebijakan', data.dependency_policy_label || 'UGD dan VK aktif'),
                 infoPill('mdi-doctor', 'Dokter', doctorFilterLabel(filter)),
                 infoPill('mdi-ticket-confirmation-outline', 'Karcis', formatNumber(data.karcis_config_count || 0) +
                     ' tindakan')
@@ -644,6 +684,7 @@
             const insight = data.distribution_insight || {};
             $('#summaryDistributionInsightMedis').html([
                 infoPill('mdi-account-group-outline', 'Penerima', formatNumber(insight.jumlah_penerima || 0)),
+                infoPill('mdi-calculator', 'Grand Total', formatRupiah(data.grand_total || 0)),
                 infoPill('mdi-chart-bell-curve-cumulative', 'Rata-rata', formatRupiah(insight.average_total || 0)),
                 infoPill('mdi-arrow-up-bold-circle-outline', 'Tertinggi', formatRupiah(insight.highest_total || 0)),
                 infoPill('mdi-plus-circle-outline', 'Bonus', formatNumber(insight.bonus_recipient_count || 0) +
@@ -658,6 +699,7 @@
                 infoPill('mdi-database-search-outline', 'Data', formatNumber(insight.jumlah_data || 0)),
                 infoPill('mdi-doctor', 'Dokter', formatNumber(insight.jumlah_data_dokter || 0)),
                 infoPill('mdi-account-heart-outline', 'Paramedis', formatNumber(insight.jumlah_data_paramedis || 0)),
+                infoPill('mdi-account-switch-outline', 'Dialihkan', formatNumber(insight.jumlah_data_dialihkan_perawat || 0)),
                 infoPill('mdi-source-branch', 'Sumber', formatNumber(insight.jumlah_sumber || 0))
             ].join(''));
         }
@@ -731,6 +773,14 @@
                 return Number(detail.jumlah_data_paramedis || 0) > 0;
             }
 
+            if (sourceFilter === 'drpr') {
+                return Number(detail.jumlah_data_drpr || 0) > 0;
+            }
+
+            if (sourceFilter === 'routed') {
+                return Number(detail.jumlah_data_dialihkan_perawat || 0) > 0;
+            }
+
             if (sourceFilter === 'karcis') {
                 return Number(detail.jumlah_data_karcis_bpjs || 0) > 0;
             }
@@ -764,17 +814,20 @@
         }
 
         function renderSummary(data) {
+            const ignoredDependencies = data.ignored_dependencies || {};
             selectedUgdSourceId = renderSourceSelect(
                 '#sourceUgdTindakanMedis',
                 data.dependency_options?.ugd || [],
                 data.selected_ugd_plotingPremi_id || selectedUgdSourceId,
-                'Tidak ada sumber UGD'
+                'Tidak ada sumber UGD',
+                ignoredDependencies.ugd ? 'UGD BPJS diabaikan' : ''
             );
             selectedVkSourceId = renderSourceSelect(
                 '#sourceVkTindakanMedis',
                 data.dependency_options?.vk || [],
                 data.selected_vk_plotingPremi_id || selectedVkSourceId,
-                'Tidak ada sumber VK'
+                'Tidak ada sumber VK',
+                ignoredDependencies.vk ? 'VK BPJS diabaikan' : ''
             );
 
             renderDependency('dependencyUgd', data.dependency_ugd, 'UGD');
@@ -783,14 +836,14 @@
             renderPeriodInfo(data);
 
             $('#sourceUgdTindakanMedisNote').text(
-                selectedUgdSourceId ?
+                ignoredDependencies.ugd ? 'UGD BPJS diabaikan sesuai konfigurasi.' : (selectedUgdSourceId ?
                 'Sumber UGD terpilih untuk periode ' + (data.dependency_source_periode || data.periode || '-') + '.' :
-                'Pilih hasil UGD sesuai ploting periode ' + (data.dependency_source_periode || data.periode || '-') + '.'
+                'Pilih hasil UGD sesuai ploting periode ' + (data.dependency_source_periode || data.periode || '-') + '.')
             );
             $('#sourceVkTindakanMedisNote').text(
-                selectedVkSourceId ?
+                ignoredDependencies.vk ? 'VK BPJS diabaikan sesuai konfigurasi.' : (selectedVkSourceId ?
                 'Sumber VK terpilih untuk periode ' + (data.dependency_source_periode || data.periode || '-') + '.' :
-                'Pilih hasil VK sesuai ploting periode ' + (data.dependency_source_periode || data.periode || '-') + '.'
+                'Pilih hasil VK sesuai ploting periode ' + (data.dependency_source_periode || data.periode || '-') + '.')
             );
 
             const karcisText = data.karcis_rule_message ?
@@ -802,7 +855,8 @@
 
             $('#summaryTindakanMedisSubtitle').text(
                 data.readiness_message + ' Tindakan: ' + (data.source_periode || '-') +
-                ' / UGD-VK: ' + (data.dependency_source_periode || data.periode || '-') + karcisText
+                ' / UGD-VK: ' + (data.dependency_source_periode || data.periode || '-') +
+                ' / ' + (data.dependency_policy_label || 'UGD dan VK aktif') + karcisText
             );
             $('#summaryTransaksiMedis').text(formatNumber(data.jumlah_transaksi));
             $('#summaryPasienMedis').text(formatNumber(data.jumlah_pasien) + ' pasien / ' +
@@ -815,9 +869,12 @@
             $('#summaryMappingMedis').text(formatRupiah(data.total_mapping_premi));
             $('#summaryJumlahMappingMedis').text(formatNumber(data.jumlah_mapping_premi) + ' mapping terhitung');
             $('#summaryUgdVkMedis').text(formatRupiah((Number(data.total_ugd) || 0) + (Number(data.total_vk) || 0)));
-            $('#summaryUgdVkNote').text('UGD ' + formatRupiah(data.total_ugd) + ' / VK ' + formatRupiah(data.total_vk));
-            $('#summaryFinalMedis').text(formatRupiah(data.total_final));
-            $('#summaryGrandMedis').text('Grand total: ' + formatRupiah(data.grand_total));
+            $('#summaryUgdVkNote').text(
+                'UGD ' + (ignoredDependencies.ugd ? 'diabaikan' : formatRupiah(data.total_ugd)) +
+                ' / VK ' + (ignoredDependencies.vk ? 'diabaikan' : formatRupiah(data.total_vk))
+            );
+            $('#summaryGrandMedis').text(formatRupiah(data.grand_total));
+            $('#summaryFinalMedis').text('Setelah pembagi: ' + formatRupiah(data.total_final));
             $('#summaryPembagiMedis').text('Pembagi: ' + formatNumber(data.pembagi || 1));
             $('#summaryDibagikanMedis').text(formatRupiah(data.total_dibagikan || 0));
             $('#summaryTambahanMedis').text('ICU ' + formatRupiah(data.total_tambahan_icu || 0) +
@@ -826,13 +883,11 @@
                 formatNumber(data.jumlah_penerima || 0) + ' penerima / ' +
                 (data.distribution_mode_label || distributionModeLabel(data.distribution_mode))
             );
-            $('#summaryFormulaMedis').text(
-                '(' + formatRupiah(data.total_mapping_premi) + ' + ' +
-                formatRupiah(data.total_ugd) + ' + ' + formatRupiah(data.total_vk) +
-                ') / ' + formatNumber(data.pembagi || 1) + ' = ' + formatRupiah(data.total_final)
-            );
+            $('#summaryFormulaMedis').html(calculationFormulaHtml(data));
             $('#summaryDistributionNoteMedis').text(
-                (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
+                'Grand total ' + formatRupiah(data.grand_total || 0) +
+                ' / Setelah pembagi ' + formatRupiah(data.total_final || 0) +
+                ' / ' + (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
                 ' / Total dasar ' + formatRupiah(data.total_dasar_dibagikan || 0) +
                 ' / Tambahan ICU+NICU ' +
                 formatRupiah((Number(data.total_tambahan_icu) || 0) + (Number(data.total_tambahan_nicu) || 0))
@@ -875,6 +930,11 @@
                                     +${formatNumber(detail.jumlah_data_karcis_bpjs)} transaksi karcis BPJS
                                 </div>
                             ` : ''}
+                            ${Number(detail.jumlah_data_dialihkan_perawat) > 0 ? `
+                                <div class="tm-route-note">
+                                    ${formatNumber(detail.jumlah_data_dialihkan_perawat)} dokter dialihkan ke perawat
+                                </div>
+                            ` : ''}
                         </td>
                         <td>
                             <div>${escapeHtml(sourceRulesLabel(detail.source_rules))}</div>
@@ -883,6 +943,11 @@
                                 Dokter ${formatNumber(detail.jumlah_data_dokter || 0)} /
                                 Paramedis ${formatNumber(detail.jumlah_data_paramedis || 0)}
                             </div>
+                            ${Number(detail.jumlah_data_drpr || 0) > 0 ? `
+                                <div class="small text-muted">
+                                    Dokter-paramedis ${formatNumber(detail.jumlah_data_drpr || 0)}
+                                </div>
+                            ` : ''}
                         </td>
                         <td class="text-center">${formatNumber(detail.jumlah_data)}</td>
                         <td class="text-end">${baseValueLabel(detail)}</td>
@@ -951,10 +1016,16 @@
                     render: formatRupiah
                 },
                 {
-                    data: 'total_final',
+                    data: 'grand_total',
                     className: 'text-end fw-bold',
                     render: function(data, type, row) {
-                        return formatRupiah(data) +
+                        if (type === 'sort' || type === 'type') {
+                            return Number(data) || 0;
+                        }
+
+                        return '<div class="text-success">' + formatRupiah(data) + '</div>' +
+                            '<div class="small text-muted">Setelah pembagi ' +
+                            formatRupiah(row.total_final || 0) + '</div>' +
                             '<div class="small text-muted">Dibagikan ' +
                             formatRupiah(row.total_dibagikan || 0) + '</div>';
                     }
@@ -997,6 +1068,8 @@
                 distribution_mode: $('#configDistributionModeTindakan').val(),
                 ignore_icu: $('#configIgnoreIcuTindakan').is(':checked') ? 1 : 0,
                 ignore_nicu: $('#configIgnoreNicuTindakan').is(':checked') ? 1 : 0,
+                bpjs_ignore_ugd: $('#configBpjsIgnoreUgdTindakan').is(':checked') ? 1 : 0,
+                bpjs_ignore_vk: $('#configBpjsIgnoreVkTindakan').is(':checked') ? 1 : 0,
                 source_mappings: collectSourceRules(),
                 jnsTindakan_id: karcisSelectedIds,
                 doctor_codes: selectedDoctorCodes(),
@@ -1013,6 +1086,8 @@
                 mappingPremiList = data.mapping_options || mappingPremiList;
                 activePremiId = data.jnsPremi_id ? String(data.jnsPremi_id) : '';
                 distributionMode = data.distribution_mode || distributionMode;
+                bpjsIgnoreUgd = Boolean(data.bpjs_ignore_ugd);
+                bpjsIgnoreVk = Boolean(data.bpjs_ignore_vk);
                 actionOptions = data.action_options || [];
                 sourceOptions = data.source_options || sourceOptions;
                 sourceMappings = data.source_mappings || [];
@@ -1021,6 +1096,8 @@
                 doctorActionSelectedIds = ((data.doctor_filter || {}).selected_action_ids || doctorActionSelectedIds)
                     .map(Number);
                 setSelectedDoctors((data.doctor_filter || {}).selected_doctors || []);
+                $('#configBpjsIgnoreUgdTindakan').prop('checked', bpjsIgnoreUgd);
+                $('#configBpjsIgnoreVkTindakan').prop('checked', bpjsIgnoreVk);
                 renderMappingPremiOptions();
                 renderSourceRuleList();
                 renderDoctorActionList();
@@ -1047,8 +1124,9 @@
 
             Swal.fire({
                 title: 'Generate tindakan medis?',
-                html: 'Total final preview: <strong>' + formatRupiah(summaryData.total_final) +
-                    '</strong><br>Total ke pegawai: <strong>' +
+                html: 'Grand total sebelum pembagi: <strong>' + formatRupiah(summaryData.grand_total) +
+                    '</strong><br>Setelah pembagi: <strong>' +
+                    formatRupiah(summaryData.total_final) + '</strong><br>Total ke pegawai: <strong>' +
                     formatRupiah(summaryData.total_dibagikan || 0) + '</strong>',
                 icon: 'question',
                 showCancelButton: true,
@@ -1110,6 +1188,7 @@
         }
 
         function renderDetail(data) {
+            detailData = data || {};
             detailMappings = data.details || [];
             selectedDetailMappingId = detailMappings.length ? detailKey(detailMappings[0], 0) : '';
 
@@ -1121,20 +1200,20 @@
             $('#detailMappingMedis').text(formatRupiah(data.total_mapping_premi));
             $('#detailUgdMedis').text(formatRupiah(data.total_ugd));
             $('#detailVkMedis').text(formatRupiah(data.total_vk));
+            $('#detailGrandMedis').text(formatRupiah(data.grand_total));
             $('#detailFinalMedis').text(formatRupiah(data.total_final));
             $('#detailDibagikanMedis').text(formatRupiah(data.total_dibagikan || 0));
-            $('#detailFormulaMedis').text(
-                '(' + formatRupiah(data.total_mapping_premi) + ' + ' +
-                formatRupiah(data.total_ugd) + ' + ' + formatRupiah(data.total_vk) +
-                ') / ' + formatNumber(data.pembagi || 1) + ' = ' + formatRupiah(data.total_final)
-            );
+            $('#detailFormulaMedis').html(calculationFormulaHtml(data));
             $('#detailDistributionCountMedis').text(formatNumber(data.jumlah_penerima || 0) + ' penerima');
             $('#detailDistributionNoteMedis').text(
-                (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
+                'Grand total ' + formatRupiah(data.grand_total || 0) +
+                ' / Setelah pembagi ' + formatRupiah(data.total_final || 0) +
+                ' / ' + (data.distribution_mode_label || distributionModeLabel(data.distribution_mode)) +
                 ' / ICU ' + formatRupiah(data.total_tambahan_icu || 0) +
                 ' / NICU ' + formatRupiah(data.total_tambahan_nicu || 0)
             );
-            renderDistributionRows('#detailDistributionRowsMedis', data.distributions || []);
+            renderDetailInsight(data);
+            renderDetailDistributionSection();
 
             renderDetailMappingRows();
             renderDetailMappingFilter();
@@ -1143,17 +1222,86 @@
             $('#detailTindakanMedisContent').removeClass('d-none');
         }
 
+        function renderDetailInsight(data) {
+            const details = data.details || [];
+            const shifted = details.reduce(function(total, detail) {
+                return total + (Number(detail.jumlah_data_dialihkan_perawat) || 0);
+            }, 0);
+
+            $('#detailInsightMedis').html([
+                infoPill('mdi-calendar-month-outline', 'Sumber', (data.source_periode || '-') + ' / ' +
+                    (data.bpjs_source_mode_label || '-')),
+                infoPill('mdi-format-list-checks', 'Jenis Tindakan', formatNumber(data.jumlah_jenis_tindakan || 0)),
+                infoPill('mdi-calculator', 'Grand Total', formatRupiah(data.grand_total || 0)),
+                infoPill('mdi-tune-variant', 'UGD/VK', data.dependency_policy_label || 'UGD dan VK aktif'),
+                infoPill('mdi-account-switch-outline', 'Dialihkan', formatNumber(shifted) + ' rawat'),
+                infoPill('mdi-plus-circle-outline', 'Bonus Medis', 'ICU ' + formatRupiah(data.total_tambahan_icu || 0) +
+                    ' / NICU ' + formatRupiah(data.total_tambahan_nicu || 0))
+            ].join(''));
+        }
+
+        function renderDetailDistributionSection() {
+            const data = detailData || {};
+            const rows = data.distributions || [];
+            const keyword = $('#searchDetailDistributionMedis').val() || '';
+            const bonusFilter = $('#filterDetailDistributionBonusMedis').val() || 'all';
+            const filteredCount = rows.filter(function(item) {
+                const hasBonus = Number(item.total_icu || 0) > 0 || Number(item.total_nicu || 0) > 0;
+                const haystack = [
+                    item.nik,
+                    item.pegawai_name,
+                    item.pegawai_position,
+                    item.icu_bonus_summary,
+                    item.nicu_bonus_summary
+                ].join(' ').toLowerCase();
+
+                if (bonusFilter === 'bonus' && !hasBonus) {
+                    return false;
+                }
+
+                if (bonusFilter === 'no_bonus' && hasBonus) {
+                    return false;
+                }
+
+                return !keyword || haystack.includes(String(keyword).toLowerCase());
+            }).length;
+
+            $('#detailDistributionCountMedis').text(
+                formatNumber(filteredCount) + ' dari ' + formatNumber(rows.length || 0) + ' penerima'
+            );
+            renderDistributionRows('#detailDistributionRowsMedis', rows, {
+                keyword: keyword,
+                bonus: bonusFilter
+            });
+        }
+
         function renderDetailMappingRows() {
             const tbody = $('#detailMappingRowsMedis').empty();
-            $('#detailMappingCountMedis').text(formatNumber(detailMappings.length) + ' mapping');
+            const keyword = String($('#searchDetailMappingMedis').val() || '').toLowerCase();
+            const filtered = detailMappings.filter(function(detail) {
+                const haystack = [
+                    detail.kode_jenis_tindakan,
+                    detail.nama_jenis_tindakan,
+                    sourceRulesLabel(detail.source_rules),
+                    sourceBreakdownLabel(detail),
+                    mappingValueLabel(detail)
+                ].join(' ').toLowerCase();
 
-            if (!detailMappings.length) {
+                return !keyword || haystack.includes(keyword);
+            });
+
+            $('#detailMappingCountMedis').text(
+                formatNumber(filtered.length) + ' dari ' + formatNumber(detailMappings.length) + ' mapping'
+            );
+
+            if (!filtered.length) {
                 tbody.html('<tr><td colspan="7" class="tm-empty">Tidak ada detail mapping.</td></tr>');
                 return;
             }
 
-            detailMappings.forEach(function(detail, index) {
-                const rowKey = detailKey(detail, index);
+            filtered.forEach(function(detail) {
+                const originalIndex = detailMappings.indexOf(detail);
+                const rowKey = detailKey(detail, originalIndex);
                 const active = rowKey === String(selectedDetailMappingId) ?
                     'table-active' : '';
 
@@ -1165,6 +1313,11 @@
                             ${Number(detail.jumlah_data_karcis_bpjs) > 0 ? `
                                 <div class="small text-primary mt-1">
                                     +${formatNumber(detail.jumlah_data_karcis_bpjs)} transaksi karcis BPJS
+                                </div>
+                            ` : ''}
+                            ${Number(detail.jumlah_data_dialihkan_perawat) > 0 ? `
+                                <div class="tm-route-note">
+                                    ${formatNumber(detail.jumlah_data_dialihkan_perawat)} dialihkan ke perawat
                                 </div>
                             ` : ''}
                         </td>
@@ -1227,6 +1380,24 @@
                 grouped[key].total += Number(row.biaya_rawat) || 0;
             });
             const sources = Object.values(grouped);
+            const selectedSource = $('#filterDetailRawatSourceMedis').val() || 'all';
+            const sourceSelect = $('#filterDetailRawatSourceMedis').empty()
+                .append('<option value="all">Semua sumber</option>');
+
+            sources.forEach(function(item) {
+                sourceSelect.append(
+                    $('<option>', {
+                        value: item.label,
+                        text: item.label + ' (' + formatNumber(item.count) + ')'
+                    })
+                );
+            });
+
+            sourceSelect.val(
+                selectedSource !== 'all' && sources.some(item => item.label === selectedSource) ?
+                selectedSource :
+                'all'
+            );
 
             $('#detailSourceMetaMedis').text(
                 formatNumber(rawat.length) + ' rawat untuk ' + (detail.nama_jenis_tindakan || '-')
@@ -1238,7 +1409,7 @@
             } else {
                 sources.forEach(function(item) {
                     sourceRows.append(`
-                        <tr>
+                        <tr class="tm-detail-clickable detail-source-row" data-source="${escapeHtml(item.label)}">
                             <td>${escapeHtml(item.label)}</td>
                             <td class="text-center">${formatNumber(item.count)}</td>
                             <td class="text-end">${formatRupiah(item.total)}</td>
@@ -1248,7 +1419,15 @@
             }
 
             const keyword = String($('#searchDetailRawatMedis').val() || '').toLowerCase();
+            const sourceFilter = $('#filterDetailRawatSourceMedis').val() || 'all';
+            const executorFilter = $('#filterDetailRawatPelaksanaMedis').val() || 'all';
             const filtered = rawat.filter(function(row) {
+                const sourceLabel = row.source_label || row.source_table || '-';
+                const hasDoctor = Boolean(row.kd_dokter || row.nm_dokter);
+                const hasParamedic = Boolean(row.nip || row.nama_petugas);
+                const isDrpr = ['rawat_jl_drpr', 'rawat_inap_drpr'].includes(row.source_table);
+                const isRouted = row.route_reason === 'doctor_filter_non_selected';
+                const isKarcis = row.jenis_pelayanan_sumber === 'bpjs_karcis';
                 const haystack = [
                     row.no_rawat,
                     row.no_rkm_medis,
@@ -1257,14 +1436,47 @@
                     row.nm_tindakan,
                     row.source_label,
                     row.nama_penjamin,
-                    pelaksanaLabel(row)
+                    pelaksanaLabel(row),
+                    row.route_label
                 ].join(' ').toLowerCase();
+
+                if (sourceFilter !== 'all' && sourceLabel !== sourceFilter) {
+                    return false;
+                }
+
+                if (executorFilter === 'doctor' && !hasDoctor) {
+                    return false;
+                }
+
+                if (executorFilter === 'paramedic' && !hasParamedic) {
+                    return false;
+                }
+
+                if (executorFilter === 'drpr' && !isDrpr) {
+                    return false;
+                }
+
+                if (executorFilter === 'routed' && !isRouted) {
+                    return false;
+                }
+
+                if (executorFilter === 'karcis' && !isKarcis) {
+                    return false;
+                }
 
                 return !keyword || haystack.includes(keyword);
             });
 
             $('#detailRawatMetaMedis').text(formatNumber(filtered.length) + ' dari ' +
                 formatNumber(rawat.length) + ' rawat ditampilkan');
+            $('#detailSelectedInsightMedis').html([
+                infoPill('mdi-database-outline', 'Rawat', formatNumber(detail.jumlah_data || rawat.length)),
+                infoPill('mdi-doctor', 'Dokter', formatNumber(detail.jumlah_data_dokter || 0)),
+                infoPill('mdi-account-heart-outline', 'Paramedis', formatNumber(detail.jumlah_data_paramedis || 0)),
+                infoPill('mdi-account-multiple-outline', 'Dokter-Paramedis', formatNumber(detail.jumlah_data_drpr || 0)),
+                infoPill('mdi-account-switch-outline', 'Dialihkan', formatNumber(detail.jumlah_data_dialihkan_perawat || 0)),
+                infoPill('mdi-cash-multiple', 'Hasil', formatRupiah(detail.hasil_mapping || 0))
+            ].join(''));
 
             if (!filtered.length) {
                 rawRows.html('<tr><td colspan="9" class="tm-empty">Data rawat tidak ditemukan.</td></tr>');
@@ -1278,7 +1490,10 @@
                         <td>${escapeHtml(row.tanggal || '-')}<div class="small text-muted">${escapeHtml(row.jam || '-')}</div></td>
                         <td>${escapeHtml(row.no_rawat || '-')}</td>
                         <td>${escapeHtml(row.nm_pasien || '-')}<div class="small text-muted">${escapeHtml(row.no_rkm_medis || '-')}</div></td>
-                        <td>${escapeHtml(row.source_label || row.source_table || '-')}</td>
+                        <td>
+                            ${escapeHtml(row.source_label || row.source_table || '-')}
+                            ${row.route_label ? `<div class="tm-route-note">${escapeHtml(row.route_label)}</div>` : ''}
+                        </td>
                         <td>${escapeHtml(row.kd_tindakan || '-')}<div class="small text-muted">${escapeHtml(row.nm_tindakan || '-')}</div></td>
                         <td>${escapeHtml(row.nama_penjamin || row.kd_pj || '-')}</td>
                         <td>${escapeHtml(pelaksanaLabel(row))}</td>
@@ -1312,6 +1527,12 @@
         });
 
         $('#configBpjsSourceModeTindakan').on('change', updateBpjsSourceModeNote);
+
+        $('#configBpjsIgnoreUgdTindakan, #configBpjsIgnoreVkTindakan').on('change', function() {
+            bpjsIgnoreUgd = $('#configBpjsIgnoreUgdTindakan').is(':checked');
+            bpjsIgnoreVk = $('#configBpjsIgnoreVkTindakan').is(':checked');
+            updateActiveConfig();
+        });
 
         $('#btnAddSourceRule').on('click', function() {
             sourceMappings = collectSourceRules();
@@ -1424,6 +1645,9 @@
                 "{{ route("backOffice.keuangan.hitungPremi.generateTindakanMedis.detail", ["id" => "__ID__"]) }}"
                 .replace('__ID__', id);
 
+            $('#searchDetailDistributionMedis, #searchDetailMappingMedis, #searchDetailRawatMedis').val('');
+            $('#filterDetailDistributionBonusMedis, #filterDetailRawatSourceMedis, #filterDetailRawatPelaksanaMedis')
+                .val('all');
             $('#detailTindakanMedisContent').addClass('d-none');
             $('#detailTindakanMedisLoading').removeClass('d-none');
             detailModal.show();
@@ -1454,6 +1678,19 @@
         $('#filterDetailMappingMedis').on('change', function() {
             selectedDetailMappingId = String($(this).val() || '');
             renderDetailMappingRows();
+            renderDetailRawat();
+        });
+
+        $('#searchDetailDistributionMedis, #filterDetailDistributionBonusMedis').on('input change', function() {
+            renderDetailDistributionSection();
+        });
+
+        $('#searchDetailMappingMedis').on('input', renderDetailMappingRows);
+
+        $('#filterDetailRawatSourceMedis, #filterDetailRawatPelaksanaMedis').on('change', renderDetailRawat);
+
+        $('#detailSourceRowsMedis').on('click', '.detail-source-row', function() {
+            $('#filterDetailRawatSourceMedis').val(String($(this).data('source') || 'all'));
             renderDetailRawat();
         });
 

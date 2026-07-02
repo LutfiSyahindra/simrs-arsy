@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('distribution_mode', 30)->default('split_evenly');
             $table->boolean('ignore_icu')->default(true);
             $table->boolean('ignore_nicu')->default(true);
+            $table->boolean('bpjs_ignore_ugd')->default(false);
+            $table->boolean('bpjs_ignore_vk')->default(false);
             $table->timestamps();
         });
 
@@ -66,6 +68,8 @@ return new class extends Migration
             $table->string('bpjs_source_mode', 20)->default('previous');
             $table->boolean('ignore_icu')->default(true);
             $table->boolean('ignore_nicu')->default(true);
+            $table->boolean('bpjs_ignore_ugd')->default(false);
+            $table->boolean('bpjs_ignore_vk')->default(false);
             $table->unsignedInteger('jumlah_transaksi')->default(0);
             $table->unsignedInteger('jumlah_pasien')->default(0);
             $table->unsignedInteger('jumlah_jenis_tindakan')->default(0);

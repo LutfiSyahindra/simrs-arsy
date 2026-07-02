@@ -43,12 +43,26 @@ class generateTindakanMedisRepository
             'provider' => 'dr',
             'label' => 'Rawat Inap Dokter',
         ],
+        [
+            'table' => 'rawat_jl_drpr',
+            'source' => 'RAJAL',
+            'master' => 'jns_perawatan',
+            'provider' => 'drpr',
+            'label' => 'Rawat Jalan Dokter & Paramedis',
+        ],
+        [
+            'table' => 'rawat_inap_drpr',
+            'source' => 'RANAP',
+            'master' => 'jns_perawatan_inap',
+            'provider' => 'drpr',
+            'label' => 'Rawat Inap Dokter & Paramedis',
+        ],
     ];
 
     private const SOURCE_PATTERNS = [
         'rawat_*_pr' => [
             'label' => 'Rawat jalan & inap paramedis',
-            'tables' => ['rawat_jl_pr', 'rawat_inap_pr'],
+            'tables' => ['rawat_jl_pr', 'rawat_inap_pr', 'rawat_jl_drpr', 'rawat_inap_drpr'],
         ],
         'rawat_jl_pr' => [
             'label' => 'Rawat jalan paramedis',
@@ -60,7 +74,7 @@ class generateTindakanMedisRepository
         ],
         'rawat_*_dr' => [
             'label' => 'Rawat jalan & inap dokter',
-            'tables' => ['rawat_jl_dr', 'rawat_inap_dr'],
+            'tables' => ['rawat_jl_dr', 'rawat_inap_dr', 'rawat_jl_drpr', 'rawat_inap_drpr'],
         ],
         'rawat_jl_dr' => [
             'label' => 'Rawat jalan dokter',
@@ -70,6 +84,32 @@ class generateTindakanMedisRepository
             'label' => 'Rawat inap dokter',
             'tables' => ['rawat_inap_dr'],
         ],
+        'rawat_*_drpr' => [
+            'label' => 'Rawat jalan & inap dokter-paramedis',
+            'tables' => ['rawat_jl_drpr', 'rawat_inap_drpr'],
+        ],
+        'rawat_jl_drpr' => [
+            'label' => 'Rawat jalan dokter-paramedis',
+            'tables' => ['rawat_jl_drpr'],
+        ],
+        'rawat_inap_drpr' => [
+            'label' => 'Rawat inap dokter-paramedis',
+            'tables' => ['rawat_inap_drpr'],
+        ],
+    ];
+
+    private const DOCTOR_SOURCE_TABLES = [
+        'rawat_jl_dr',
+        'rawat_inap_dr',
+        'rawat_jl_drpr',
+        'rawat_inap_drpr',
+    ];
+
+    private const DOCTOR_TO_PARAMEDIS_SOURCE_TABLE = [
+        'rawat_jl_dr' => 'rawat_jl_pr',
+        'rawat_inap_dr' => 'rawat_inap_pr',
+        'rawat_jl_drpr' => 'rawat_jl_pr',
+        'rawat_inap_drpr' => 'rawat_inap_pr',
     ];
 
     public function getResults(
@@ -107,7 +147,7 @@ class generateTindakanMedisRepository
             ->orderBy('jenis')
             ->value('id');
         $now = now();
-        $id = DB::table('generate_tindakan_medis_configs')->insertGetId([
+        $payload = [
             'jnsPremi_id' => $defaultPremiId,
             'bpjs_source_mode' => PremiSourcePeriod::MODE_PREVIOUS,
             'distribution_mode' => 'split_evenly',
@@ -115,7 +155,17 @@ class generateTindakanMedisRepository
             'ignore_nicu' => true,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+
+        if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_ugd')) {
+            $payload['bpjs_ignore_ugd'] = false;
+        }
+
+        if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_vk')) {
+            $payload['bpjs_ignore_vk'] = false;
+        }
+
+        $id = DB::table('generate_tindakan_medis_configs')->insertGetId($payload);
 
         return DB::table('generate_tindakan_medis_configs')->where('id', $id)->first();
     }
@@ -126,6 +176,8 @@ class generateTindakanMedisRepository
         string $distributionMode,
         bool $ignoreIcu,
         bool $ignoreNicu,
+        bool $bpjsIgnoreUgd,
+        bool $bpjsIgnoreVk,
         array $sourceMappings,
         array $karcisTindakanIds = [],
         array $doctorCodes = [],
@@ -137,23 +189,34 @@ class generateTindakanMedisRepository
             $distributionMode,
             $ignoreIcu,
             $ignoreNicu,
+            $bpjsIgnoreUgd,
+            $bpjsIgnoreVk,
             $sourceMappings,
             $karcisTindakanIds,
             $doctorCodes,
             $doctorTindakanIds
         ) {
             $config = $this->getConfig();
+            $updates = [
+                'jnsPremi_id' => $jnsPremiId,
+                'bpjs_source_mode' => $bpjsSourceMode,
+                'distribution_mode' => $distributionMode,
+                'ignore_icu' => $ignoreIcu,
+                'ignore_nicu' => $ignoreNicu,
+                'updated_at' => now(),
+            ];
+
+            if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_ugd')) {
+                $updates['bpjs_ignore_ugd'] = $bpjsIgnoreUgd;
+            }
+
+            if (Schema::hasColumn('generate_tindakan_medis_configs', 'bpjs_ignore_vk')) {
+                $updates['bpjs_ignore_vk'] = $bpjsIgnoreVk;
+            }
 
             DB::table('generate_tindakan_medis_configs')
                 ->where('id', $config->id)
-                ->update([
-                    'jnsPremi_id' => $jnsPremiId,
-                    'bpjs_source_mode' => $bpjsSourceMode,
-                    'distribution_mode' => $distributionMode,
-                    'ignore_icu' => $ignoreIcu,
-                    'ignore_nicu' => $ignoreNicu,
-                    'updated_at' => now(),
-                ]);
+                ->update($updates);
 
             DB::table('generate_tindakan_medis_config_source')
                 ->where('config_id', $config->id)
@@ -454,9 +517,12 @@ class generateTindakanMedisRepository
                 'jt.kode',
                 'jt.jenis',
                 'mp.id as mapping_premi_id',
-                'mp.jenis as jenis_mapping',
+                'mp.jenis_umum',
+                'mp.jenis_bpjs',
                 'mp.nilai_umum',
                 'mp.nilai_bpjs',
+                'mp.nilai_bersama_umum',
+                'mp.nilai_bersama_bpjs',
                 DB::raw('COUNT(DISTINCT mt.id) as jumlah_mapping_tindakan'),
             ])
             ->where('mp.jnsPremi_id', $jnsPremiId)
@@ -465,9 +531,12 @@ class generateTindakanMedisRepository
                 'jt.kode',
                 'jt.jenis',
                 'mp.id',
-                'mp.jenis',
+                'mp.jenis_umum',
+                'mp.jenis_bpjs',
                 'mp.nilai_umum',
-                'mp.nilai_bpjs'
+                'mp.nilai_bpjs',
+                'mp.nilai_bersama_umum',
+                'mp.nilai_bersama_bpjs'
             )
             ->orderBy('jt.jenis')
             ->get();
@@ -508,23 +577,21 @@ class generateTindakanMedisRepository
             ->values();
 
         return collect([
-            'icu' => $this->recipientBonusByType(
-                'generate_icu_recipient',
+            'icu' => $this->medicalBonusByType(
                 'generate_icu',
-                'generate_icu_id',
                 'jenis_icu',
                 $periode,
                 $jenisPelayanan,
-                $niks
+                $niks,
+                'ICU'
             ),
-            'nicu' => $this->recipientBonusByType(
-                'generate_nicu_recipient',
+            'nicu' => $this->medicalBonusByType(
                 'generate_nicu',
-                'generate_nicu_id',
                 'jenis_nicu',
                 $periode,
                 $jenisPelayanan,
-                $niks
+                $niks,
+                'NICU'
             ),
         ]);
     }
@@ -711,7 +778,9 @@ class generateTindakanMedisRepository
                             $umumItems->values(),
                             $jenisPelayanan,
                             $sourceMappings,
-                            (float) $mapping->nilai_umum
+                            (float) $mapping->nilai_umum,
+                            '',
+                            $mapping->jenis_umum
                         )
                     );
                 }
@@ -724,7 +793,8 @@ class generateTindakanMedisRepository
                             'bpjs',
                             $sourceMappings,
                             (float) $mapping->nilai_bpjs,
-                            ' (Karcis BPJS)'
+                            ' (Karcis BPJS)',
+                            $mapping->jenis_bpjs
                         )
                     );
                 }
@@ -836,6 +906,10 @@ class generateTindakanMedisRepository
                 ),
                 'ignore_icu' => (bool) ($config->ignore_icu ?? true),
                 'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
+                'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
+                    && (bool) ($config->bpjs_ignore_ugd ?? false),
+                'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
+                    && (bool) ($config->bpjs_ignore_vk ?? false),
                 'jumlah_transaksi' => $calculation['jumlah_transaksi'],
                 'jumlah_pasien' => $calculation['jumlah_pasien'],
                 'jumlah_jenis_tindakan' => $calculation['jumlah_jenis_tindakan'],
@@ -863,6 +937,10 @@ class generateTindakanMedisRepository
                     'distribution_mode' => $config->distribution_mode ?? 'split_evenly',
                     'ignore_icu' => (bool) ($config->ignore_icu ?? true),
                     'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
+                    'bpjs_ignore_ugd' => $jenisPelayanan === 'bpjs'
+                        && (bool) ($config->bpjs_ignore_ugd ?? false),
+                    'bpjs_ignore_vk' => $jenisPelayanan === 'bpjs'
+                        && (bool) ($config->bpjs_ignore_vk ?? false),
                     'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
                     'karcis_tindakan_ids' => $this->getKarcisTindakanIds()->all(),
                     'doctor_codes' => $this->getSelectedDoctors((int) $config->id)
@@ -1096,56 +1174,63 @@ class generateTindakanMedisRepository
         ];
     }
 
-    private function recipientBonusByType(
-        string $recipientTable,
+    private function medicalBonusByType(
         string $headerTable,
-        string $foreignKey,
         string $typeColumn,
         string $periode,
         string $jenisPelayanan,
-        Collection $niks
+        Collection $niks,
+        string $label
     ): Collection {
         if ($niks->isEmpty()) {
             return collect();
         }
 
-        return DB::table($recipientTable.' as r')
-            ->join($headerTable.' as h', 'h.id', '=', 'r.'.$foreignKey)
+        $rows = DB::table($headerTable.' as h')
             ->select([
-                'r.pegawai_id',
-                'r.role',
-                'r.role_label',
-                'r.total_received',
                 'h.id as source_id',
                 'h.periode',
                 'h.source_periode',
                 'h.'.$typeColumn.' as jenis_pelayanan',
+                'h.total_premi_medis_pool',
+                'h.premi_medis_per_orang',
             ])
             ->where('h.periode', $periode)
             ->where('h.'.$typeColumn, $jenisPelayanan)
             ->where('h.is_locked', true)
-            ->whereIn('r.pegawai_id', $niks->all())
-            ->get()
-            ->groupBy('pegawai_id')
-            ->map(function (Collection $rows) {
-                return [
-                    'total' => round((float) $rows->sum('total_received'), 2),
-                    'source_count' => $rows->pluck('source_id')->unique()->count(),
-                    'roles' => $rows->pluck('role_label')->filter()->unique()->values()->all(),
-                    'sources' => $rows
-                        ->map(fn ($row) => [
-                            'id' => (int) $row->source_id,
-                            'periode' => $row->periode,
-                            'source_periode' => $row->source_periode,
-                            'jenis_pelayanan' => $row->jenis_pelayanan,
-                            'role' => $row->role,
-                            'role_label' => $row->role_label,
-                            'total_received' => round((float) $row->total_received, 2),
-                        ])
-                        ->values()
-                        ->all(),
-                ];
-            });
+            ->where('h.premi_medis_per_orang', '>', 0)
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return collect();
+        }
+
+        $totalPerPerson = round((float) $rows->sum('premi_medis_per_orang'), 2);
+
+        if ($totalPerPerson <= 0) {
+            return collect();
+        }
+
+        $info = [
+            'total' => $totalPerPerson,
+            'source_count' => $rows->pluck('source_id')->unique()->count(),
+            'roles' => ["Premi Medis/Orang {$label}"],
+            'sources' => $rows
+                ->map(fn ($row) => [
+                    'id' => (int) $row->source_id,
+                    'periode' => $row->periode,
+                    'source_periode' => $row->source_periode,
+                    'jenis_pelayanan' => $row->jenis_pelayanan,
+                    'role' => 'premi_medis_per_orang',
+                    'role_label' => "Premi Medis/Orang {$label}",
+                    'pool_total' => round((float) $row->total_premi_medis_pool, 2),
+                    'total_received' => round((float) $row->premi_medis_per_orang, 2),
+                ])
+                ->values()
+                ->all(),
+        ];
+
+        return $niks->mapWithKeys(fn ($nik) => [(string) $nik => $info]);
     }
 
     private function getCalculationMappings(
@@ -1157,6 +1242,9 @@ class generateTindakanMedisRepository
         $valueColumn = $jenisPelayanan === 'bpjs'
             ? 'mp.nilai_bpjs'
             : 'mp.nilai_umum';
+        $jenisColumn = $jenisPelayanan === 'bpjs'
+            ? 'mp.jenis_bpjs'
+            : 'mp.jenis_umum';
 
         return DB::table('mapping_tindakan as mt')
             ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
@@ -1170,10 +1258,14 @@ class generateTindakanMedisRepository
                 'mt.jnsTindakan_id',
                 'mp.id as mapping_premi_id',
                 'mp.jnsPremi_id',
-                'mp.jenis as jenis_mapping',
+                'mp.jenis_umum',
+                'mp.jenis_bpjs',
                 'mp.nilai_umum',
                 'mp.nilai_bpjs',
+                'mp.nilai_bersama_umum',
+                'mp.nilai_bersama_bpjs',
                 'jp.pembagi',
+                DB::raw("{$jenisColumn} as jenis_mapping"),
                 DB::raw("{$valueColumn} as nilai_mapping"),
                 'jp.kode as kode_premi',
                 'jp.jenis as nama_premi',
@@ -1242,10 +1334,31 @@ class generateTindakanMedisRepository
                 continue;
             }
 
+            $hasFilteredDoctorAction = $this->rowHasFilteredDoctorAction(
+                $row,
+                $actionMappings,
+                $sourceType,
+                $doctorCodes,
+                $doctorActionIds,
+                $allowedTablesByAction
+            );
+            $doctorMatchesFilter = $doctorCodes->contains((string) $row->kd_dokter);
+
             foreach ($actionMappings as $mapping) {
+                $routeInfo = $this->doctorRouteInfoForMappedRow(
+                    $row,
+                    (int) $mapping->jnsTindakan_id,
+                    $sourceType,
+                    $doctorCodes,
+                    $doctorActionIds,
+                    $hasFilteredDoctorAction,
+                    $doctorMatchesFilter
+                );
+                $sourceTableForRule = $routeInfo['effective_source_table'] ?? $row->source_table;
+
                 if (! $this->sourceAllowedForAction(
                     (int) $mapping->jnsTindakan_id,
-                    $row->source_table,
+                    $sourceTableForRule,
                     $allowedTablesByAction
                 )) {
                     continue;
@@ -1264,6 +1377,7 @@ class generateTindakanMedisRepository
                 $candidateRows->push([
                     'row' => $row,
                     'mapping' => $mapping,
+                    'route_info' => $routeInfo,
                 ]);
             }
         }
@@ -1285,6 +1399,7 @@ class generateTindakanMedisRepository
         foreach ($candidateRows as $candidate) {
             $row = $candidate['row'];
             $mapping = $candidate['mapping'];
+            $routeInfo = $candidate['route_info'] ?? [];
             $rowIcuRange = $ignoreIcu
                 ? $this->matchingRoomRange($row, $icuRanges->get($row->no_rawat, collect()))
                 : null;
@@ -1298,7 +1413,8 @@ class generateTindakanMedisRepository
                     $mapping,
                     $rowIcuRange,
                     $rowNicuRange,
-                    $sourceType
+                    $sourceType,
+                    $routeInfo
                 ));
 
                 continue;
@@ -1309,7 +1425,8 @@ class generateTindakanMedisRepository
                 $mapping,
                 null,
                 null,
-                $sourceType
+                $sourceType,
+                $routeInfo
             ));
         }
 
@@ -1351,8 +1468,8 @@ class generateTindakanMedisRepository
         Carbon $end,
         Collection $codes
     ) {
-        $hasDoctor = $definition['provider'] === 'dr';
-        $hasPetugas = $definition['provider'] === 'pr';
+        $hasDoctor = in_array($definition['provider'], ['dr', 'drpr'], true);
+        $hasPetugas = in_array($definition['provider'], ['pr', 'drpr'], true);
         $query = DB::connection('mysql_khanza')
             ->table($definition['table'].' as r')
             ->join('reg_periksa as rp', 'rp.no_rawat', '=', 'r.no_rawat')
@@ -1446,7 +1563,8 @@ class generateTindakanMedisRepository
         string $jenisPelayanan,
         Collection $sourceMappings,
         ?float $nilaiMappingOverride = null,
-        string $suffix = ''
+        string $suffix = '',
+        ?string $jenisMappingOverride = null
     ): array {
         $nilaiMapping = $nilaiMappingOverride ?? (float) (
             $jenisPelayanan === 'bpjs'
@@ -1455,10 +1573,11 @@ class generateTindakanMedisRepository
         );
         $totalBiaya = round((float) $items->sum('biaya_rawat'), 2);
         $jumlahData = $items->count();
-        $dasarHitung = $mapping->jenis_mapping === 'persen'
+        $jenisMapping = $jenisMappingOverride ?? $mapping->jenis_mapping;
+        $dasarHitung = $jenisMapping === 'persen'
             ? $totalBiaya
             : $jumlahData;
-        $hasil = $mapping->jenis_mapping === 'persen'
+        $hasil = $jenisMapping === 'persen'
             ? round($totalBiaya * ($nilaiMapping / 100), 2)
             : round($jumlahData * $nilaiMapping, 2);
 
@@ -1470,7 +1589,7 @@ class generateTindakanMedisRepository
             'nama_premi' => trim($mapping->nama_premi.$suffix),
             'kode_jenis_tindakan' => $mapping->kode_jenis_tindakan,
             'nama_jenis_tindakan' => trim($mapping->nama_jenis_tindakan.$suffix),
-            'jenis_mapping' => $mapping->jenis_mapping,
+            'jenis_mapping' => $jenisMapping,
             'nilai_mapping' => $nilaiMapping,
             'source_rules' => $this->sourceRulesForAction((int) $mapping->jnsTindakan_id, $sourceMappings),
             'jumlah_data' => $jumlahData,
@@ -1488,7 +1607,8 @@ class generateTindakanMedisRepository
         object $mapping,
         ?object $icuRange = null,
         ?object $nicuRange = null,
-        string $sourceType = ''
+        string $sourceType = '',
+        array $routeInfo = []
     ): array {
         return [
             'mapping_tindakan_id' => (int) $mapping->mapping_tindakan_id,
@@ -1497,6 +1617,11 @@ class generateTindakanMedisRepository
             'source_table' => $row->source_table,
             'source_label' => $row->source_label,
             'sumber_tindakan' => $row->sumber_tindakan,
+            'route_as' => $routeInfo['route_as'] ?? null,
+            'route_reason' => $routeInfo['route_reason'] ?? null,
+            'route_label' => $routeInfo['route_label'] ?? null,
+            'original_source_table' => $routeInfo['original_source_table'] ?? $row->source_table,
+            'effective_source_table' => $routeInfo['effective_source_table'] ?? $row->source_table,
             'no_rawat' => $row->no_rawat,
             'no_rkm_medis' => $row->no_rkm_medis,
             'nm_pasien' => $row->nm_pasien,
@@ -1626,7 +1751,7 @@ class generateTindakanMedisRepository
             return true;
         }
 
-        if (! in_array($row->source_table, ['rawat_jl_dr', 'rawat_inap_dr'], true)) {
+        if (! in_array($row->source_table, self::DOCTOR_SOURCE_TABLES, true)) {
             return true;
         }
 
@@ -1635,6 +1760,71 @@ class generateTindakanMedisRepository
         }
 
         return $doctorCodes->contains((string) $row->kd_dokter);
+    }
+
+    private function rowHasFilteredDoctorAction(
+        object $row,
+        Collection $actionMappings,
+        string $sourceType,
+        Collection $doctorCodes,
+        Collection $doctorActionIds,
+        Collection $allowedTablesByAction
+    ): bool {
+        if (
+            $doctorCodes->isEmpty()
+            || $doctorActionIds->isEmpty()
+            || $sourceType === 'bpjs_karcis'
+            || ! in_array($row->source_table, self::DOCTOR_SOURCE_TABLES, true)
+        ) {
+            return false;
+        }
+
+        return $actionMappings->contains(function ($mapping) use ($row, $doctorActionIds, $allowedTablesByAction) {
+            $jnsTindakanId = (int) $mapping->jnsTindakan_id;
+
+            return $doctorActionIds->contains($jnsTindakanId)
+                && $this->sourceAllowedForAction(
+                    $jnsTindakanId,
+                    $row->source_table,
+                    $allowedTablesByAction
+                );
+        });
+    }
+
+    private function doctorRouteInfoForMappedRow(
+        object $row,
+        int $jnsTindakanId,
+        string $sourceType,
+        Collection $doctorCodes,
+        Collection $doctorActionIds,
+        bool $hasFilteredDoctorAction,
+        bool $doctorMatchesFilter
+    ): array {
+        if (
+            $doctorCodes->isEmpty()
+            || $doctorActionIds->isEmpty()
+            || $sourceType === 'bpjs_karcis'
+            || ! $hasFilteredDoctorAction
+            || $doctorMatchesFilter
+            || $doctorActionIds->contains($jnsTindakanId)
+            || ! in_array($row->source_table, self::DOCTOR_SOURCE_TABLES, true)
+        ) {
+            return [];
+        }
+
+        $effectiveSourceTable = self::DOCTOR_TO_PARAMEDIS_SOURCE_TABLE[$row->source_table] ?? null;
+
+        if (! $effectiveSourceTable) {
+            return [];
+        }
+
+        return [
+            'route_as' => 'paramedis',
+            'route_reason' => 'doctor_filter_non_selected',
+            'route_label' => 'Dialihkan ke tindakan perawat',
+            'original_source_table' => $row->source_table,
+            'effective_source_table' => $effectiveSourceTable,
+        ];
     }
 
     private function sourceRulesForAction(int $jnsTindakanId, Collection $sourceMappings): array

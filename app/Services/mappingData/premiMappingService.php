@@ -132,9 +132,13 @@ class premiMappingService
                         'jnsPremi_id' => $premiId,
                         'jnsTindakan_id' => (int) $mapping['jnsTindakan_id'],
                         'nilai' => (int) $mapping['nilai_umum'],
-                        'jenis' => $mapping['jenis'],
+                        'jenis' => $mapping['jenis_umum'],
+                        'jenis_umum' => $mapping['jenis_umum'],
+                        'jenis_bpjs' => $mapping['jenis_bpjs'],
                         'nilai_umum' => (int) $mapping['nilai_umum'],
                         'nilai_bpjs' => (int) $mapping['nilai_bpjs'],
+                        'nilai_bersama_umum' => (int) $mapping['nilai_bersama_umum'],
+                        'nilai_bersama_bpjs' => (int) $mapping['nilai_bersama_bpjs'],
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -168,16 +172,23 @@ class premiMappingService
     public function update(
         $id,
         int $tindakanId,
-        string $jenis,
+        string $jenisUmum,
+        string $jenisBpjs,
         int $nilaiUmum,
-        int $nilaiBpjs
+        int $nilaiBpjs,
+        int $nilaiBersamaUmum,
+        int $nilaiBersamaBpjs
     ) {
         return $this->premiMappingRepository->update($id, [
             'jnsTindakan_id' => $tindakanId,
-            'jenis' => $jenis,
+            'jenis' => $jenisUmum,
+            'jenis_umum' => $jenisUmum,
+            'jenis_bpjs' => $jenisBpjs,
             'nilai' => $nilaiUmum,
             'nilai_umum' => $nilaiUmum,
             'nilai_bpjs' => $nilaiBpjs,
+            'nilai_bersama_umum' => $nilaiBersamaUmum,
+            'nilai_bersama_bpjs' => $nilaiBersamaBpjs,
         ]);
     }
 
@@ -194,10 +205,14 @@ class premiMappingService
             'jnsTindakan_id' => (int) $item->jnsTindakan_id,
             'kode_tindakan' => $item->jnsTindakan->kode ?? '-',
             'jenis_tindakan' => $item->jnsTindakan->jenis ?? '-',
-            'jenis' => $item->jenis,
+            'jenis' => $item->jenis_umum ?? $item->jenis,
+            'jenis_umum' => $item->jenis_umum ?? $item->jenis,
+            'jenis_bpjs' => $item->jenis_bpjs ?? $item->jenis,
             'nilai' => (int) $item->nilai_umum,
             'nilai_umum' => (int) $item->nilai_umum,
             'nilai_bpjs' => (int) $item->nilai_bpjs,
+            'nilai_bersama_umum' => (int) $item->nilai_bersama_umum,
+            'nilai_bersama_bpjs' => (int) $item->nilai_bersama_bpjs,
         ];
     }
 }

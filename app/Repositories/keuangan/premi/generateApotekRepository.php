@@ -925,6 +925,9 @@ class generateApotekRepository
         $valueColumn = $jenisApotek === 'bpjs'
             ? 'mp.nilai_bpjs'
             : 'mp.nilai_umum';
+        $jenisColumn = $jenisApotek === 'bpjs'
+            ? 'mp.jenis_bpjs'
+            : 'mp.jenis_umum';
 
         return DB::table('mapping_tindakan as mt')
             ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
@@ -938,10 +941,14 @@ class generateApotekRepository
                 'mt.nm_tindakan',
                 'mp.id as mapping_premi_id',
                 'mp.jnsPremi_id',
-                'mp.jenis as jenis_mapping',
+                'mp.jenis_umum',
+                'mp.jenis_bpjs',
                 'mp.nilai_umum',
                 'mp.nilai_bpjs',
+                'mp.nilai_bersama_umum',
+                'mp.nilai_bersama_bpjs',
                 'jp.pembagi',
+                DB::raw("{$jenisColumn} as jenis_mapping"),
                 DB::raw("{$valueColumn} as nilai_mapping"),
                 'jp.kode as kode_premi',
                 'jp.jenis as nama_premi',

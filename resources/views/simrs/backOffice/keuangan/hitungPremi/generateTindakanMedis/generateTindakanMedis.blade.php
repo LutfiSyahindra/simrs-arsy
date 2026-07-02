@@ -463,6 +463,11 @@
             border-color: #bbf7d0;
         }
 
+        .tm-summary-card.total .tm-summary-label,
+        .tm-detail-metric.grand span {
+            color: #047857;
+        }
+
         .tm-summary-label {
             color: var(--tm-muted);
             font-size: 11px;
@@ -485,6 +490,11 @@
             line-height: 1.35;
         }
 
+        .tm-summary-before.strong {
+            color: #0f766e;
+            font-weight: 900;
+        }
+
         .tm-formula {
             align-items: center;
             background: #102a43;
@@ -496,6 +506,15 @@
             gap: 8px;
             margin-bottom: 12px;
             padding: 12px;
+        }
+
+        .tm-formula strong {
+            color: #ffffff;
+            font-weight: 900;
+        }
+
+        .tm-formula-muted {
+            color: #bfdbfe;
         }
 
         .tm-preview-head {
@@ -717,7 +736,7 @@
         .tm-detail-metrics {
             display: grid;
             gap: 10px;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
+            grid-template-columns: repeat(8, minmax(0, 1fr));
             margin-bottom: 12px;
         }
 
@@ -726,6 +745,11 @@
             border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 11px;
+        }
+
+        .tm-detail-metric.grand {
+            background: #ecfdf5;
+            border-color: #bbf7d0;
         }
 
         .tm-detail-metric span {
@@ -740,6 +764,12 @@
         .tm-detail-metric strong {
             color: #0f172a;
             font-size: 16px;
+        }
+
+        .tm-detail-metric.grand strong {
+            color: #047857;
+            font-size: 18px;
+            font-weight: 900;
         }
 
         .tm-detail-section {
@@ -766,9 +796,28 @@
         }
 
         .tm-transaction-toolbar {
+            align-items: center;
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             min-width: 420px;
+        }
+
+        .tm-transaction-toolbar .form-control,
+        .tm-transaction-toolbar .form-select {
+            font-size: 12px;
+            min-height: 34px;
+        }
+
+        .tm-detail-clickable {
+            cursor: pointer;
+        }
+
+        .tm-route-note {
+            color: #0f766e;
+            font-size: 11px;
+            font-weight: 800;
+            margin-top: 2px;
         }
 
         @media (max-width: 1199.98px) {
@@ -812,7 +861,9 @@
             }
 
             .tm-preview-actions .form-control,
-            .tm-preview-actions .form-select {
+            .tm-preview-actions .form-select,
+            .tm-transaction-toolbar .form-control,
+            .tm-transaction-toolbar .form-select {
                 width: 100%;
             }
 
@@ -988,9 +1039,9 @@
                         <div class="tm-summary-note" id="summaryUgdVkNote">UGD Rp 0 / VK Rp 0</div>
                     </div>
                     <div class="tm-summary-card total">
-                        <div class="tm-summary-label">Total Final</div>
-                        <div class="tm-summary-value" id="summaryFinalMedis">Rp 0</div>
-                        <div class="tm-summary-before" id="summaryGrandMedis">Grand total: Rp 0</div>
+                        <div class="tm-summary-label">Grand Total</div>
+                        <div class="tm-summary-value" id="summaryGrandMedis">Rp 0</div>
+                        <div class="tm-summary-before strong" id="summaryFinalMedis">Setelah pembagi: Rp 0</div>
                         <div class="tm-summary-note" id="summaryPembagiMedis">Pembagi: 1</div>
                     </div>
                     <div class="tm-summary-card primary">
@@ -1003,7 +1054,10 @@
 
                 <div class="tm-formula">
                     <i class="mdi mdi-function-variant"></i>
-                    <span id="summaryFormulaMedis">(Rp 0 + Rp 0 + Rp 0) / 1 = Rp 0</span>
+                    <span id="summaryFormulaMedis">
+                        Grand total sebelum pembagi: <strong>Rp 0</strong>
+                        <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
+                    </span>
                 </div>
 
                 <div class="tm-preview mb-3">
@@ -1011,7 +1065,7 @@
                         <div>
                             <div class="tm-preview-title">Preview Distribusi Pegawai</div>
                             <div class="tm-preview-note" id="summaryDistributionNoteMedis">
-                                Hasil final dibagikan ke pegawai mapping premi.
+                                Grand total ditampilkan sebelum pembagi; nilai setelah pembagi dibagikan ke pegawai.
                             </div>
                         </div>
                         <div class="tm-preview-actions">
@@ -1061,6 +1115,8 @@
                                 <option value="all">Semua sumber</option>
                                 <option value="doctor">Rawat dokter</option>
                                 <option value="paramedic">Rawat paramedis</option>
+                                <option value="drpr">Dokter & paramedis</option>
+                                <option value="routed">Dialihkan ke perawat</option>
                                 <option value="karcis">Karcis BPJS</option>
                             </select>
                             <span class="tm-badge umum" id="summaryPreviewCountMedis">0 tindakan</span>
@@ -1111,7 +1167,7 @@
                                 <th class="text-end">Mapping</th>
                                 <th class="text-end">UGD</th>
                                 <th class="text-end">VK</th>
-                                <th class="text-end">Total Final</th>
+                                <th class="text-end">Grand Total</th>
                                 <th>Status</th>
                                 <th>Generate Oleh</th>
                                 <th class="text-center">Aksi</th>
@@ -1183,12 +1239,25 @@
                             </label>
                         </div>
 
+                        <div class="tm-config-grid mb-3">
+                            <label class="tm-config-box mb-0">
+                                <input type="checkbox" class="form-check-input me-2" id="configBpjsIgnoreUgdTindakan">
+                                <span class="fw-semibold">BPJS abaikan UGD</span>
+                                <small class="text-muted d-block mt-1">Total UGD BPJS dibuat 0 dan tidak wajib dipilih.</small>
+                            </label>
+                            <label class="tm-config-box mb-0">
+                                <input type="checkbox" class="form-check-input me-2" id="configBpjsIgnoreVkTindakan">
+                                <span class="fw-semibold">BPJS abaikan VK</span>
+                                <small class="text-muted d-block mt-1">Total VK BPJS dibuat 0 dan tidak wajib dipilih.</small>
+                            </label>
+                        </div>
+
                         <div class="tm-config-box mb-3">
                             <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
                                 <div>
                                     <div class="fw-semibold">Filter Dokter Rawat Dokter</div>
                                     <small class="text-muted">
-                                        Kosong berarti rawat_jl_dr dan rawat_inap_dr mengambil semua dokter.
+                                        Dokter terpilih masuk tindakan dokter; dokter lain dapat masuk tindakan perawat.
                                     </small>
                                 </div>
                                 <span class="badge bg-light text-dark" id="configDoctorCountTindakan">

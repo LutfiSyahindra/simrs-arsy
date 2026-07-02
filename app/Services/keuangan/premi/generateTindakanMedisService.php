@@ -67,6 +67,8 @@ class generateTindakanMedisService
         string $distributionMode,
         bool $ignoreIcu,
         bool $ignoreNicu,
+        bool $bpjsIgnoreUgd,
+        bool $bpjsIgnoreVk,
         array $sourceMappings,
         array $karcisTindakanIds = [],
         array $doctorCodes = [],
@@ -91,6 +93,8 @@ class generateTindakanMedisService
                 $this->distributionMode($distributionMode),
                 $ignoreIcu,
                 $ignoreNicu,
+                $bpjsIgnoreUgd,
+                $bpjsIgnoreVk,
                 $sourceMappings,
                 $karcisTindakanIds,
                 $doctorCodes,
@@ -169,39 +173,48 @@ class generateTindakanMedisService
         $doctorFilter = $this->doctorFilterPayload((int) $config->id);
         $dependencyOptions = $this->repository->getDependencyOptions($dependencySourcePeriode, $jenis);
         $existing = $this->repository->findByPeriodAndType($periode, $jenis, $jnsPremiId);
+        $ignoredDependencies = $this->ignoredDependencies($jenis, $existing?->is_locked ? $existing : $config);
 
         if ($existing?->is_locked) {
             $ugdPlotingId = $existing->ugd_plotingPremi_id;
             $vkPlotingId = $existing->vk_plotingPremi_id;
         } else {
-            $ugdPlotingId = $this->resolveDependencyId(
-                $ugdPlotingId,
-                $existing?->ugd_plotingPremi_id,
-                $dependencyOptions['ugd']
-            );
-            $vkPlotingId = $this->resolveDependencyId(
-                $vkPlotingId,
-                $existing?->vk_plotingPremi_id,
-                $dependencyOptions['vk']
-            );
+            $ugdPlotingId = $ignoredDependencies['ugd']
+                ? null
+                : $this->resolveDependencyId(
+                    $ugdPlotingId,
+                    $existing?->ugd_plotingPremi_id,
+                    $dependencyOptions['ugd']
+                );
+            $vkPlotingId = $ignoredDependencies['vk']
+                ? null
+                : $this->resolveDependencyId(
+                    $vkPlotingId,
+                    $existing?->vk_plotingPremi_id,
+                    $dependencyOptions['vk']
+                );
         }
 
         $dependencies = $this->repository->getDependencies(
             $dependencySourcePeriode,
             $jenis,
-            $ugdPlotingId,
-            $vkPlotingId
+            $ignoredDependencies['ugd'] ? null : $ugdPlotingId,
+            $ignoredDependencies['vk'] ? null : $vkPlotingId
         );
         if ($existing?->is_locked) {
             $dependencies = [
-                'ugd' => $this->existingDependencySnapshot($existing, 'ugd'),
-                'vk' => $this->existingDependencySnapshot($existing, 'vk'),
+                'ugd' => $ignoredDependencies['ugd']
+                    ? null
+                    : $this->existingDependencySnapshot($existing, 'ugd'),
+                'vk' => $ignoredDependencies['vk']
+                    ? null
+                    : $this->existingDependencySnapshot($existing, 'vk'),
             ];
         }
 
         $dependenciesReady = $existing?->is_locked
             ? true
-            : $this->dependenciesAreLocked($dependencies);
+            : $this->dependenciesAreLocked($dependencies, $ignoredDependencies);
         $calculation = null;
 
         if ($dependenciesReady && ! $existing?->is_locked) {
@@ -226,16 +239,20 @@ class generateTindakanMedisService
             ?? $existing?->total_mapping_premi
             ?? 0
         );
-        $totalUgd = (float) (
-            data_get($dependencies, 'ugd.total')
-            ?? $existing?->total_ugd
-            ?? 0
-        );
-        $totalVk = (float) (
-            data_get($dependencies, 'vk.total')
-            ?? $existing?->total_vk
-            ?? 0
-        );
+        $totalUgd = $ignoredDependencies['ugd']
+            ? 0
+            : (float) (
+                data_get($dependencies, 'ugd.total')
+                ?? $existing?->total_ugd
+                ?? 0
+            );
+        $totalVk = $ignoredDependencies['vk']
+            ? 0
+            : (float) (
+                data_get($dependencies, 'vk.total')
+                ?? $existing?->total_vk
+                ?? 0
+            );
         $grandTotal = round($totalMapping + $totalUgd + $totalVk, 2);
         $totalFinal = $calculation
             ? round($grandTotal / $pembagi, 2)
@@ -264,7 +281,7 @@ class generateTindakanMedisService
         $hasRecipients = $distributions->isNotEmpty();
         $readinessMessage = $dependenciesReady && ! $hasRecipients
             ? 'Mapping premi belum memiliki pegawai penerima.'
-            : $this->readinessMessage($dependencies, $dependencyOptions);
+            : $this->readinessMessage($dependencies, $dependencyOptions, $ignoredDependencies);
         $previewDetails = $calculation
             ? $this->previewDetails($calculation['details'])
             : $this->previewDetails($existing?->details ?? []);
@@ -293,16 +310,24 @@ class generateTindakanMedisService
             'dependency_ugd' => $this->dependencyPayload(
                 $dependencies['ugd'],
                 $existing,
-                'ugd'
+                'ugd',
+                $ignoredDependencies['ugd']
             ),
             'dependency_vk' => $this->dependencyPayload(
                 $dependencies['vk'],
                 $existing,
-                'vk'
+                'vk',
+                $ignoredDependencies['vk']
             ),
             'dependency_options' => $dependencyOptions,
-            'selected_ugd_plotingPremi_id' => data_get($dependencies, 'ugd.plotingPremi_id'),
-            'selected_vk_plotingPremi_id' => data_get($dependencies, 'vk.plotingPremi_id'),
+            'selected_ugd_plotingPremi_id' => $ignoredDependencies['ugd']
+                ? null
+                : data_get($dependencies, 'ugd.plotingPremi_id'),
+            'selected_vk_plotingPremi_id' => $ignoredDependencies['vk']
+                ? null
+                : data_get($dependencies, 'vk.plotingPremi_id'),
+            'ignored_dependencies' => $ignoredDependencies,
+            'dependency_policy_label' => $this->dependencyPolicyLabel($ignoredDependencies),
             'ready' => $dependenciesReady && $hasRecipients,
             'readiness_message' => $readinessMessage,
             'readiness_steps' => $this->readinessSteps(
@@ -313,7 +338,8 @@ class generateTindakanMedisService
                 $existing,
                 $sourcePeriode,
                 $dependencySourcePeriode,
-                $doctorFilter
+                $doctorFilter,
+                $ignoredDependencies
             ),
             'is_generated' => (bool) $existing,
             'is_locked' => $existing?->is_locked ?? false,
@@ -321,6 +347,8 @@ class generateTindakanMedisService
             'locked_by_name' => $existing?->lockedBy?->name,
             'ignore_icu' => (bool) ($config->ignore_icu ?? true),
             'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
+            'bpjs_ignore_ugd' => $ignoredDependencies['ugd'],
+            'bpjs_ignore_vk' => $ignoredDependencies['vk'],
             'karcis_config_count' => $this->repository->getKarcisTindakanIds()->count(),
             'karcis_source_period' => PremiSourcePeriod::resolve(
                 $periode,
@@ -378,8 +406,8 @@ class generateTindakanMedisService
         string $periode,
         string $jenis,
         ?int $jnsPremiId,
-        int $ugdPlotingId,
-        int $vkPlotingId
+        ?int $ugdPlotingId,
+        ?int $vkPlotingId
     ): array {
         return DB::transaction(function () use (
             $periode,
@@ -391,6 +419,7 @@ class generateTindakanMedisService
             $config = $this->repository->getConfig();
             $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
             $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
+            $ignoredDependencies = $this->ignoredDependencies($jenis, $config);
             $existing = $this->repository
                 ->findByPeriodAndTypeForUpdate($periode, $jenis, $jnsPremiId);
 
@@ -409,14 +438,16 @@ class generateTindakanMedisService
             $dependencies = $this->repository->getDependencies(
                 $dependencySourcePeriode,
                 $jenis,
-                $ugdPlotingId,
-                $vkPlotingId,
+                $ignoredDependencies['ugd'] ? null : $ugdPlotingId,
+                $ignoredDependencies['vk'] ? null : $vkPlotingId,
                 true
             );
             $missing = collect([
                 'UGD' => $dependencies['ugd'],
                 'VK' => $dependencies['vk'],
-            ])->filter(fn ($value) => ! $value)->keys();
+            ])->reject(fn ($value, string $key) => $ignoredDependencies[strtolower($key)] ?? false)
+                ->filter(fn ($value) => ! $value)
+                ->keys();
 
             if ($missing->isNotEmpty()) {
                 throw ValidationException::withMessages([
@@ -427,7 +458,9 @@ class generateTindakanMedisService
             $unlocked = collect([
                 'UGD' => $dependencies['ugd'],
                 'VK' => $dependencies['vk'],
-            ])->filter(fn ($value) => ! data_get($value, 'is_locked'))->keys();
+            ])->reject(fn ($value, string $key) => $ignoredDependencies[strtolower($key)] ?? false)
+                ->filter(fn ($value) => ! data_get($value, 'is_locked'))
+                ->keys();
 
             if ($unlocked->isNotEmpty()) {
                 throw ValidationException::withMessages([
@@ -525,29 +558,40 @@ class generateTindakanMedisService
             'locked_at' => optional($result->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $result->lockedBy?->name,
             'generate_by_name' => $result->generateBy?->name,
-            'details' => $result->details->map(fn ($detail) => [
-                'id' => $detail->id,
-                'mapping_premi_id' => $detail->mapping_premi_id,
-                'jnsPremi_id' => $detail->jnsPremi_id,
-                'jnsTindakan_id' => $detail->jnsTindakan_id,
-                'kode_premi' => $detail->kode_premi,
-                'nama_premi' => $detail->nama_premi,
-                'kode_jenis_tindakan' => $detail->kode_jenis_tindakan,
-                'nama_jenis_tindakan' => $detail->nama_jenis_tindakan,
-                'jenis_mapping' => $detail->jenis_mapping,
-                'nilai_mapping' => $detail->nilai_mapping,
-                'source_rules' => $detail->source_rules,
-                'jumlah_data' => $detail->jumlah_data,
-                'jumlah_data_icu' => $detail->jumlah_data_icu,
-                'jumlah_data_nicu' => $detail->jumlah_data_nicu,
-                'jumlah_data_karcis_bpjs' => collect($detail->data_rawat)
-                    ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
-                    ->count(),
-                'total_biaya_rawat' => $detail->total_biaya_rawat,
-                'dasar_hitung' => $detail->dasar_hitung,
-                'hasil_mapping' => $detail->hasil_mapping,
-                'data_rawat' => $detail->data_rawat,
-            ])->values(),
+            'config_snapshot' => $result->config_snapshot,
+            'details' => $result->details->map(function ($detail) {
+                $rawat = collect($detail->data_rawat);
+                $breakdowns = $this->rawatBreakdowns($rawat);
+
+                return [
+                    'id' => $detail->id,
+                    'mapping_premi_id' => $detail->mapping_premi_id,
+                    'jnsPremi_id' => $detail->jnsPremi_id,
+                    'jnsTindakan_id' => $detail->jnsTindakan_id,
+                    'kode_premi' => $detail->kode_premi,
+                    'nama_premi' => $detail->nama_premi,
+                    'kode_jenis_tindakan' => $detail->kode_jenis_tindakan,
+                    'nama_jenis_tindakan' => $detail->nama_jenis_tindakan,
+                    'jenis_mapping' => $detail->jenis_mapping,
+                    'nilai_mapping' => $detail->nilai_mapping,
+                    'source_rules' => $detail->source_rules,
+                    'jumlah_data' => $detail->jumlah_data,
+                    'jumlah_data_icu' => $detail->jumlah_data_icu,
+                    'jumlah_data_nicu' => $detail->jumlah_data_nicu,
+                    'jumlah_data_dokter' => $breakdowns['jumlah_data_dokter'],
+                    'jumlah_data_paramedis' => $breakdowns['jumlah_data_paramedis'],
+                    'jumlah_data_drpr' => $breakdowns['jumlah_data_drpr'],
+                    'jumlah_data_karcis_bpjs' => $breakdowns['jumlah_data_karcis_bpjs'],
+                    'jumlah_data_dialihkan_perawat' => $breakdowns['jumlah_data_dialihkan_perawat'],
+                    'total_biaya_rawat' => $detail->total_biaya_rawat,
+                    'dasar_hitung' => $detail->dasar_hitung,
+                    'hasil_mapping' => $detail->hasil_mapping,
+                    'source_breakdown' => $breakdowns['source_breakdown'],
+                    'doctor_breakdown' => $breakdowns['doctor_breakdown'],
+                    'paramedic_breakdown' => $breakdowns['paramedic_breakdown'],
+                    'data_rawat' => $detail->data_rawat,
+                ];
+            })->values(),
             'distributions' => $this->distributionPayload($result->distributions)->values(),
         ];
     }
@@ -660,6 +704,12 @@ class generateTindakanMedisService
             ),
             'ignore_icu' => $result->ignore_icu,
             'ignore_nicu' => $result->ignore_nicu,
+            'bpjs_ignore_ugd' => (bool) ($result->bpjs_ignore_ugd ?? false),
+            'bpjs_ignore_vk' => (bool) ($result->bpjs_ignore_vk ?? false),
+            'ignored_dependencies' => $this->ignoredDependencies($result->jenis_pelayanan, $result),
+            'dependency_policy_label' => $this->dependencyPolicyLabel(
+                $this->ignoredDependencies($result->jenis_pelayanan, $result)
+            ),
             'ugd_plotingPremi_id' => $result->ugd_plotingPremi_id,
             'ugd_ploting_label' => $this->plotingLabel(
                 $result->ugd_kode_ploting,
@@ -700,6 +750,8 @@ class generateTindakanMedisService
             ),
             'ignore_icu' => (bool) $config->ignore_icu,
             'ignore_nicu' => (bool) $config->ignore_nicu,
+            'bpjs_ignore_ugd' => (bool) ($config->bpjs_ignore_ugd ?? false),
+            'bpjs_ignore_vk' => (bool) ($config->bpjs_ignore_vk ?? false),
             'premi' => $premi ? [
                 'id' => (int) $premi->id,
                 'kode' => $premi->kode,
@@ -866,7 +918,7 @@ class generateTindakanMedisService
         $roles = collect(data_get($info, 'roles', []))->filter()->implode(', ');
         $sourceCount = (int) data_get($info, 'source_count', 0);
 
-        return trim("Ada penerimaan {$label} dari {$sourceCount} sumber terkunci"
+        return trim("Premi medis per orang {$label} dari {$sourceCount} sumber terkunci"
             .($roles ? " ({$roles})" : '').'.');
     }
 
@@ -879,9 +931,13 @@ class generateTindakanMedisService
                 'kode' => $item->kode,
                 'jenis' => $item->jenis,
                 'mapping_premi_id' => (int) $item->mapping_premi_id,
-                'jenis_mapping' => $item->jenis_mapping,
+                'jenis_mapping' => $item->jenis_umum,
+                'jenis_umum' => $item->jenis_umum,
+                'jenis_bpjs' => $item->jenis_bpjs,
                 'nilai_umum' => (float) $item->nilai_umum,
                 'nilai_bpjs' => (float) $item->nilai_bpjs,
+                'nilai_bersama_umum' => (float) $item->nilai_bersama_umum,
+                'nilai_bersama_bpjs' => (float) $item->nilai_bersama_bpjs,
                 'jumlah_mapping_tindakan' => (int) $item->jumlah_mapping_tindakan,
                 'text' => trim($item->kode.' - '.$item->jenis),
             ])
@@ -897,7 +953,7 @@ class generateTindakanMedisService
         $summary = 'Filter dokter nonaktif.';
 
         if ($count > 0 && $actionCount > 0) {
-            $summary = "Rawat dokter hanya mengambil {$count} dokter terpilih pada {$actionCount} tindakan terpilih.";
+            $summary = "{$count} dokter terpilih masuk tindakan dokter pada {$actionCount} tindakan; dokter lain diarahkan ke tindakan perawat bila mapping sumbernya tersedia.";
         } elseif ($count > 0) {
             $summary = 'Dokter sudah dipilih, tetapi belum ada tindakan yang difilter dokter.';
         }
@@ -1067,16 +1123,46 @@ class generateTindakanMedisService
         return null;
     }
 
-    private function dependenciesAreLocked(array $dependencies): bool
+    private function ignoredDependencies(string $jenis, ?object $source): array
     {
-        return (bool) (
-            data_get($dependencies, 'ugd.is_locked')
-            && data_get($dependencies, 'vk.is_locked')
-        );
+        return [
+            'ugd' => $jenis === 'bpjs' && (bool) data_get($source, 'bpjs_ignore_ugd', false),
+            'vk' => $jenis === 'bpjs' && (bool) data_get($source, 'bpjs_ignore_vk', false),
+        ];
     }
 
-    private function readinessMessage(array $dependencies, array $dependencyOptions): string
+    private function dependencyPolicyLabel(array $ignoredDependencies): string
     {
+        $ignored = collect([
+            'UGD' => $ignoredDependencies['ugd'] ?? false,
+            'VK' => $ignoredDependencies['vk'] ?? false,
+        ])->filter()->keys();
+
+        return $ignored->isEmpty()
+            ? 'UGD dan VK aktif'
+            : $ignored->implode(' dan ').' diabaikan untuk BPJS';
+    }
+
+    private function dependenciesAreLocked(array $dependencies, array $ignoredDependencies = []): bool
+    {
+        return collect(['ugd', 'vk'])
+            ->every(fn (string $key) => ($ignoredDependencies[$key] ?? false)
+                || (bool) data_get($dependencies, "{$key}.is_locked"));
+    }
+
+    private function readinessMessage(
+        array $dependencies,
+        array $dependencyOptions,
+        array $ignoredDependencies = []
+    ): string {
+        $activeLabels = collect(['UGD', 'VK'])
+            ->reject(fn (string $label) => $ignoredDependencies[strtolower($label)] ?? false)
+            ->values();
+
+        if ($activeLabels->isEmpty()) {
+            return 'UGD dan VK BPJS diabaikan sesuai konfigurasi.';
+        }
+
         $notSelected = collect([
             'UGD' => [
                 'dependency' => $dependencies['ugd'],
@@ -1086,9 +1172,9 @@ class generateTindakanMedisService
                 'dependency' => $dependencies['vk'],
                 'options' => $dependencyOptions['vk'],
             ],
-        ])->filter(
-            fn ($item) => ! $item['dependency'] && $item['options']->isNotEmpty()
-        )->keys();
+        ])->reject(fn ($item, string $key) => $ignoredDependencies[strtolower($key)] ?? false)
+            ->filter(fn ($item) => ! $item['dependency'] && $item['options']->isNotEmpty())
+            ->keys();
 
         if ($notSelected->isNotEmpty()) {
             return 'Pilih sumber data '.$notSelected->implode(' dan ').' terlebih dahulu.';
@@ -1097,7 +1183,9 @@ class generateTindakanMedisService
         $missing = collect([
             'UGD' => $dependencies['ugd'],
             'VK' => $dependencies['vk'],
-        ])->filter(fn ($value) => ! $value)->keys();
+        ])->reject(fn ($value, string $key) => $ignoredDependencies[strtolower($key)] ?? false)
+            ->filter(fn ($value) => ! $value)
+            ->keys();
 
         if ($missing->isNotEmpty()) {
             return 'Generate terlebih dahulu: '.$missing->implode(' dan ').'.';
@@ -1106,13 +1194,15 @@ class generateTindakanMedisService
         $unlocked = collect([
             'UGD' => $dependencies['ugd'],
             'VK' => $dependencies['vk'],
-        ])->filter(fn ($value) => ! data_get($value, 'is_locked'))->keys();
+        ])->reject(fn ($value, string $key) => $ignoredDependencies[strtolower($key)] ?? false)
+            ->filter(fn ($value) => ! data_get($value, 'is_locked'))
+            ->keys();
 
         if ($unlocked->isNotEmpty()) {
             return 'Kunci terlebih dahulu: '.$unlocked->implode(' dan ').'.';
         }
 
-        return 'Data UGD dan VK sudah tersedia, terpilih, dan terkunci.';
+        return 'Data '.$activeLabels->implode(' dan ').' sudah tersedia, terpilih, dan terkunci.';
     }
 
     private function readinessSteps(
@@ -1123,7 +1213,8 @@ class generateTindakanMedisService
         ?generateTindakanMedisModel $existing,
         string $sourcePeriode,
         string $dependencySourcePeriode,
-        array $doctorFilter
+        array $doctorFilter,
+        array $ignoredDependencies = []
     ): array {
         $jumlahMapping = (int) (
             $calculation['jumlah_mapping_premi']
@@ -1135,7 +1226,10 @@ class generateTindakanMedisService
             ?? $existing?->jumlah_transaksi
             ?? 0
         );
-        $dependenciesReady = $this->dependenciesAreLocked($dependencies);
+        $dependenciesReady = $this->dependenciesAreLocked($dependencies, $ignoredDependencies);
+        $dependencyWaitLabel = collect(['UGD', 'VK'])
+            ->reject(fn (string $label) => $ignoredDependencies[strtolower($label)] ?? false)
+            ->implode(' dan ') ?: 'konfigurasi aktif';
 
         $steps = [
             [
@@ -1149,10 +1243,10 @@ class generateTindakanMedisService
                     : 'Belum terhitung',
                 'note' => $jumlahMapping > 0
                     ? "{$jumlahTransaksi} transaksi dari periode sumber {$sourcePeriode}. ".$doctorFilter['summary']
-                    : "Preview tindakan menunggu UGD dan VK terpilih serta terkunci. Periode tindakan {$sourcePeriode}.",
+                    : "Preview tindakan menunggu {$dependencyWaitLabel} terpilih serta terkunci. Periode tindakan {$sourcePeriode}.",
             ],
-            $this->dependencyStep('ugd', 'UGD', $dependencies['ugd'], $dependencyOptions['ugd'], $dependencySourcePeriode),
-            $this->dependencyStep('vk', 'VK', $dependencies['vk'], $dependencyOptions['vk'], $dependencySourcePeriode),
+            $this->dependencyStep('ugd', 'UGD', $dependencies['ugd'], $dependencyOptions['ugd'], $dependencySourcePeriode, $ignoredDependencies['ugd'] ?? false),
+            $this->dependencyStep('vk', 'VK', $dependencies['vk'], $dependencyOptions['vk'], $dependencySourcePeriode, $ignoredDependencies['vk'] ?? false),
             [
                 'key' => 'pegawai',
                 'label' => 'Penerima',
@@ -1172,8 +1266,19 @@ class generateTindakanMedisService
         string $label,
         ?array $dependency,
         Collection $options,
-        string $sourcePeriode
+        string $sourcePeriode,
+        bool $ignored = false
     ): array {
+        if ($ignored) {
+            return [
+                'key' => $key,
+                'label' => $label,
+                'status' => 'success',
+                'value' => 'Diabaikan',
+                'note' => "{$label} BPJS tidak masuk hitungan dan tidak wajib dipilih.",
+            ];
+        }
+
         if ($dependency) {
             $locked = (bool) data_get($dependency, 'is_locked');
             $generatedCount = data_get($dependency, 'generated_count');
@@ -1215,8 +1320,24 @@ class generateTindakanMedisService
         ];
     }
 
-    private function dependencyPayload(?array $dependency, ?generateTindakanMedisModel $existing, string $key): array
+    private function dependencyPayload(
+        ?array $dependency,
+        ?generateTindakanMedisModel $existing,
+        string $key,
+        bool $ignored = false
+    ): array
     {
+        if ($ignored) {
+            return [
+                'exists' => false,
+                'ignored' => true,
+                'is_locked' => true,
+                'total' => 0,
+                'jumlah_data' => 0,
+                'ploting_label' => strtoupper($key).' BPJS diabaikan',
+            ];
+        }
+
         if ($dependency) {
             return collect($dependency)
                 ->except('items')
@@ -1270,37 +1391,79 @@ class generateTindakanMedisService
         ];
     }
 
+    private function rawatBreakdowns(Collection $rawat): array
+    {
+        $sourceBreakdown = $rawat
+            ->groupBy(fn ($row) => data_get($row, 'source_label') ?: data_get($row, 'source_table') ?: '-')
+            ->map(fn (Collection $items, string $label) => [
+                'label' => $label,
+                'count' => $items->count(),
+                'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
+            ])
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+        $doctorBreakdown = $rawat
+            ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
+            ->groupBy(fn ($row) => data_get($row, 'kd_dokter'))
+            ->map(function (Collection $items, string $code) {
+                $first = $items->first();
+
+                return [
+                    'kd_dokter' => $code,
+                    'nm_dokter' => data_get($first, 'nm_dokter'),
+                    'count' => $items->count(),
+                    'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
+                ];
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+        $paramedicBreakdown = $rawat
+            ->filter(fn ($row) => filled(data_get($row, 'nip')))
+            ->groupBy(fn ($row) => data_get($row, 'nip'))
+            ->map(function (Collection $items, string $nip) {
+                $first = $items->first();
+
+                return [
+                    'nip' => $nip,
+                    'nama_petugas' => data_get($first, 'nama_petugas'),
+                    'count' => $items->count(),
+                    'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
+                ];
+            })
+            ->sortByDesc('count')
+            ->values()
+            ->all();
+
+        return [
+            'jumlah_data_dokter' => $rawat
+                ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
+                ->count(),
+            'jumlah_data_paramedis' => $rawat
+                ->filter(fn ($row) => filled(data_get($row, 'nip')))
+                ->count(),
+            'jumlah_data_drpr' => $rawat
+                ->filter(fn ($row) => in_array(data_get($row, 'source_table'), ['rawat_jl_drpr', 'rawat_inap_drpr'], true))
+                ->count(),
+            'jumlah_data_karcis_bpjs' => $rawat
+                ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
+                ->count(),
+            'jumlah_data_dialihkan_perawat' => $rawat
+                ->where('route_reason', 'doctor_filter_non_selected')
+                ->count(),
+            'source_breakdown' => $sourceBreakdown,
+            'doctor_breakdown' => $doctorBreakdown,
+            'paramedic_breakdown' => $paramedicBreakdown,
+        ];
+    }
+
     private function previewDetails($details): array
     {
         return collect($details)
             ->map(function ($detail) {
                 $rawat = collect(data_get($detail, 'data_rawat', []));
-                $sourceBreakdown = $rawat
-                    ->groupBy(fn ($row) => data_get($row, 'source_label') ?: data_get($row, 'source_table') ?: '-')
-                    ->map(fn (Collection $items, string $label) => [
-                        'label' => $label,
-                        'count' => $items->count(),
-                        'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
-                    ])
-                    ->sortByDesc('count')
-                    ->values()
-                    ->all();
-                $doctorBreakdown = $rawat
-                    ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
-                    ->groupBy(fn ($row) => data_get($row, 'kd_dokter'))
-                    ->map(function (Collection $items, string $code) {
-                        $first = $items->first();
-
-                        return [
-                            'kd_dokter' => $code,
-                            'nm_dokter' => data_get($first, 'nm_dokter'),
-                            'count' => $items->count(),
-                            'total_biaya_rawat' => round((float) $items->sum('biaya_rawat'), 2),
-                        ];
-                    })
-                    ->sortByDesc('count')
-                    ->values()
-                    ->all();
+                $breakdowns = $this->rawatBreakdowns($rawat);
 
                 return [
                     'mapping_premi_id' => data_get($detail, 'mapping_premi_id'),
@@ -1311,20 +1474,17 @@ class generateTindakanMedisService
                     'nilai_mapping' => data_get($detail, 'nilai_mapping'),
                     'source_rules' => data_get($detail, 'source_rules', []),
                     'jumlah_data' => data_get($detail, 'jumlah_data'),
-                    'jumlah_data_dokter' => $rawat
-                        ->filter(fn ($row) => filled(data_get($row, 'kd_dokter')))
-                        ->count(),
-                    'jumlah_data_paramedis' => $rawat
-                        ->filter(fn ($row) => filled(data_get($row, 'nip')))
-                        ->count(),
-                    'jumlah_data_karcis_bpjs' => $rawat
-                        ->where('jenis_pelayanan_sumber', 'bpjs_karcis')
-                        ->count(),
+                    'jumlah_data_dokter' => $breakdowns['jumlah_data_dokter'],
+                    'jumlah_data_paramedis' => $breakdowns['jumlah_data_paramedis'],
+                    'jumlah_data_drpr' => $breakdowns['jumlah_data_drpr'],
+                    'jumlah_data_karcis_bpjs' => $breakdowns['jumlah_data_karcis_bpjs'],
+                    'jumlah_data_dialihkan_perawat' => $breakdowns['jumlah_data_dialihkan_perawat'],
                     'total_biaya_rawat' => data_get($detail, 'total_biaya_rawat'),
                     'dasar_hitung' => data_get($detail, 'dasar_hitung'),
                     'hasil_mapping' => data_get($detail, 'hasil_mapping'),
-                    'source_breakdown' => $sourceBreakdown,
-                    'doctor_breakdown' => $doctorBreakdown,
+                    'source_breakdown' => $breakdowns['source_breakdown'],
+                    'doctor_breakdown' => $breakdowns['doctor_breakdown'],
+                    'paramedic_breakdown' => $breakdowns['paramedic_breakdown'],
                 ];
             })
             ->values()
@@ -1380,6 +1540,8 @@ class generateTindakanMedisService
             'jumlah_data' => (int) $rows->sum('jumlah_data'),
             'jumlah_data_dokter' => (int) $rows->sum('jumlah_data_dokter'),
             'jumlah_data_paramedis' => (int) $rows->sum('jumlah_data_paramedis'),
+            'jumlah_data_drpr' => (int) $rows->sum('jumlah_data_drpr'),
+            'jumlah_data_dialihkan_perawat' => (int) $rows->sum('jumlah_data_dialihkan_perawat'),
             'jumlah_sumber' => $sourceCount,
             'top_details' => $topDetails,
         ];

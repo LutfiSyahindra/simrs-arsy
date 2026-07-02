@@ -170,7 +170,9 @@ class generatePelayananNonMedisRepository
                             $mapping,
                             $umumItems->values(),
                             (float) $mapping->nilai_umum,
-                            (int) $mapping->mapping_premi_id
+                            (int) $mapping->mapping_premi_id,
+                            '',
+                            $mapping->jenis_umum
                         )
                     );
                 }
@@ -182,7 +184,8 @@ class generatePelayananNonMedisRepository
                             $karcisBpjsItems->values(),
                             (float) $mapping->nilai_bpjs,
                             null,
-                            ' (Karcis BPJS)'
+                            ' (Karcis BPJS)',
+                            $mapping->jenis_bpjs
                         )
                     );
                 }
@@ -217,14 +220,16 @@ class generatePelayananNonMedisRepository
         Collection $items,
         float $nilaiMapping,
         ?int $mappingPremiId,
-        string $suffix = ''
+        string $suffix = '',
+        ?string $jenisMappingOverride = null
     ): array {
         $totalBiaya = round((float) $items->sum('biaya_rawat'), 2);
         $jumlahData = $items->count();
-        $dasarHitung = $mapping->jenis_mapping === 'persen'
+        $jenisMapping = $jenisMappingOverride ?? $mapping->jenis_mapping;
+        $dasarHitung = $jenisMapping === 'persen'
             ? $totalBiaya
             : $jumlahData;
-        $hasil = $mapping->jenis_mapping === 'persen'
+        $hasil = $jenisMapping === 'persen'
             ? round($totalBiaya * ($nilaiMapping / 100), 2)
             : round($jumlahData * $nilaiMapping, 2);
 
@@ -236,7 +241,7 @@ class generatePelayananNonMedisRepository
             'nama_premi' => trim($mapping->nama_premi.$suffix),
             'kode_jenis_tindakan' => $mapping->kode_jenis_tindakan,
             'nama_jenis_tindakan' => trim($mapping->nama_jenis_tindakan.$suffix),
-            'jenis_mapping' => $mapping->jenis_mapping,
+            'jenis_mapping' => $jenisMapping,
             'nilai_mapping' => $nilaiMapping,
             'jumlah_data' => $jumlahData,
             'total_biaya_rawat' => $totalBiaya,
@@ -416,6 +421,9 @@ class generatePelayananNonMedisRepository
         $valueColumn = $jenisPelayanan === 'bpjs'
             ? 'mp.nilai_bpjs'
             : 'mp.nilai_umum';
+        $jenisColumn = $jenisPelayanan === 'bpjs'
+            ? 'mp.jenis_bpjs'
+            : 'mp.jenis_umum';
 
         return DB::table('mapping_tindakan as mt')
             ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
@@ -428,10 +436,14 @@ class generatePelayananNonMedisRepository
                 'mt.jnsTindakan_id',
                 'mp.id as mapping_premi_id',
                 'mp.jnsPremi_id',
-                'mp.jenis as jenis_mapping',
+                'mp.jenis_umum',
+                'mp.jenis_bpjs',
                 'mp.nilai_umum',
                 'mp.nilai_bpjs',
+                'mp.nilai_bersama_umum',
+                'mp.nilai_bersama_bpjs',
                 'jp.pembagi',
+                DB::raw("{$jenisColumn} as jenis_mapping"),
                 DB::raw("{$valueColumn} as nilai_mapping"),
                 'jp.kode as kode_premi',
                 'jp.jenis as nama_premi',

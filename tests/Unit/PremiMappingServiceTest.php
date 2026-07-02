@@ -63,9 +63,13 @@ class PremiMappingServiceTest extends TestCase
             ->with(5, [
                 'jnsTindakan_id' => 2,
                 'jenis' => 'nominal',
+                'jenis_umum' => 'nominal',
+                'jenis_bpjs' => 'persen',
                 'nilai' => 2500,
                 'nilai_umum' => 2500,
                 'nilai_bpjs' => 1750,
+                'nilai_bersama_umum' => 500,
+                'nilai_bersama_bpjs' => 10,
             ])
             ->andReturnTrue();
 
@@ -73,8 +77,11 @@ class PremiMappingServiceTest extends TestCase
             5,
             2,
             'nominal',
+            'persen',
             2500,
-            1750
+            1750,
+            500,
+            10
         );
 
         $this->assertTrue($result);

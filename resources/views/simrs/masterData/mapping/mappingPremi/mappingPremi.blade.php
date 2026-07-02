@@ -435,9 +435,9 @@
 
         .premi-value-grid {
             display: grid;
-            flex: 0 0 270px;
+            flex: 0 0 520px;
             gap: 7px;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
         .premi-value-item {

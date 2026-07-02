@@ -149,30 +149,36 @@
             return 'Rp ' + new Intl.NumberFormat('id-ID').format(Number(value) || 0);
         }
 
-        function formatMappingValue(item, field) {
-            return item.jenis === 'nominal'
+        function formatMappingValue(item, field, jenisField) {
+            const jenis = item[jenisField] || item.jenis || 'persen';
+
+            return jenis === 'nominal'
                 ? formatRupiah(item[field])
                 : `${Number(item[field]) || 0}%`;
         }
 
-        function applyValueMode(scope) {
-            const jenis = scope.find('.mapping-jenis, .inline-jenis').val() || 'persen';
-            const input = scope.find('.mapping-nilai, .inline-nilai');
-            const addon = scope.find('.mapping-value-addon, .inline-value-addon');
-            const help = scope.find('.inline-value-help');
+        function applyValueMode(scope, payer = null) {
+            const payers = payer ? [payer] : ['umum', 'bpjs'];
 
-            input.attr('min', 0);
+            payers.forEach(function(item) {
+                const jenis = scope.find(`.mapping-jenis-${item}, .inline-jenis-${item}`).val() || 'persen';
+                const input = scope.find(`.mapping-nilai-${item}, .mapping-bersama-${item}, .inline-nilai-${item}, .inline-bersama-${item}`);
+                const addon = scope.find(`.mapping-value-addon-${item}, .inline-value-addon-${item}`);
+                const help = scope.find(`.inline-value-help-${item}`);
 
-            if (jenis === 'nominal') {
-                input.attr('max', 2147483647).attr('placeholder', '0');
-                addon.text('Rp');
-                help.text('Masukkan nominal premi UMUM dan BPJS dalam Rupiah.');
-                return;
-            }
+                input.attr('min', 0);
 
-            input.attr('max', 100).attr('placeholder', '0');
-            addon.text('%');
-            help.text('Persentase UMUM dan BPJS yang diizinkan adalah 0 sampai 100.');
+                if (jenis === 'nominal') {
+                    input.attr('max', 2147483647).attr('placeholder', '0');
+                    addon.text('Rp');
+                    help.text('Masukkan nominal dalam Rupiah.');
+                    return;
+                }
+
+                input.attr('max', 100).attr('placeholder', '0');
+                addon.text('%');
+                help.text('Persentase yang diizinkan adalah 0 sampai 100.');
+            });
         }
 
         function resetValidation() {
@@ -186,7 +192,7 @@
                 <div class="card border premi-form-row">
                     <div class="card-body py-3">
                         <div class="row g-3 align-items-end">
-                            <div class="col-lg-4">
+                            <div class="col-lg-3">
                                 <label class="form-label">Jenis Tindakan</label>
                                 <select name="mappings[${index}][jnsTindakan_id]"
                                     class="form-select mapping-tindakan-select">
@@ -194,27 +200,51 @@
                                 </select>
                             </div>
                             <div class="col-lg-2">
-                                <label class="form-label">Jenis Nilai</label>
-                                <select name="mappings[${index}][jenis]" class="form-select mapping-jenis">
-                                    ${jenisOptions(data.jenis || 'persen')}
+                                <label class="form-label">Jenis UMUM</label>
+                                <select name="mappings[${index}][jenis_umum]" class="form-select mapping-jenis-umum">
+                                    ${jenisOptions(data.jenis_umum || data.jenis || 'persen')}
                                 </select>
                             </div>
                             <div class="col-lg-2">
                                 <label class="form-label">Nilai UMUM</label>
                                 <div class="input-group">
-                                    <span class="input-group-text mapping-value-addon">%</span>
+                                    <span class="input-group-text mapping-value-addon-umum">%</span>
                                     <input type="number" name="mappings[${index}][nilai_umum]"
                                         class="form-control mapping-nilai mapping-nilai-umum" min="0" step="1"
                                         value="${escapeHtml(data.nilai_umum ?? '')}" placeholder="0">
                                 </div>
                             </div>
-                            <div class="col-lg-3">
+                            <div class="col-lg-2">
+                                <label class="form-label">Bersama UMUM</label>
+                                <div class="input-group">
+                                    <span class="input-group-text mapping-value-addon-umum">%</span>
+                                    <input type="number" name="mappings[${index}][nilai_bersama_umum]"
+                                        class="form-control mapping-bersama mapping-bersama-umum" min="0" step="1"
+                                        value="${escapeHtml(data.nilai_bersama_umum ?? 0)}" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="col-lg-2">
+                                <label class="form-label">Jenis BPJS</label>
+                                <select name="mappings[${index}][jenis_bpjs]" class="form-select mapping-jenis-bpjs">
+                                    ${jenisOptions(data.jenis_bpjs || data.jenis || 'persen')}
+                                </select>
+                            </div>
+                            <div class="col-lg-2">
                                 <label class="form-label">Nilai BPJS</label>
                                 <div class="input-group">
-                                    <span class="input-group-text mapping-value-addon">%</span>
+                                    <span class="input-group-text mapping-value-addon-bpjs">%</span>
                                     <input type="number" name="mappings[${index}][nilai_bpjs]"
                                         class="form-control mapping-nilai mapping-nilai-bpjs" min="0" step="1"
                                         value="${escapeHtml(data.nilai_bpjs ?? '')}" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="col-lg-2">
+                                <label class="form-label">Bersama BPJS</label>
+                                <div class="input-group">
+                                    <span class="input-group-text mapping-value-addon-bpjs">%</span>
+                                    <input type="number" name="mappings[${index}][nilai_bersama_bpjs]"
+                                        class="form-control mapping-bersama mapping-bersama-bpjs" min="0" step="1"
+                                        value="${escapeHtml(data.nilai_bersama_bpjs ?? 0)}" placeholder="0">
                                 </div>
                             </div>
                             <div class="col-lg-1 text-end">
@@ -534,29 +564,48 @@
                             <div class="premi-mapping-card" data-id="${item.id}"
                                 data-tindakan-id="${item.jnsTindakan_id}"
                                 data-jenis="${escapeHtml(item.jenis)}"
+                                data-jenis-umum="${escapeHtml(item.jenis_umum || item.jenis)}"
+                                data-jenis-bpjs="${escapeHtml(item.jenis_bpjs || item.jenis)}"
                                 data-nilai-umum="${item.nilai_umum}"
-                                data-nilai-bpjs="${item.nilai_bpjs}">
+                                data-nilai-bpjs="${item.nilai_bpjs}"
+                                data-nilai-bersama-umum="${item.nilai_bersama_umum || 0}"
+                                data-nilai-bersama-bpjs="${item.nilai_bersama_bpjs || 0}">
                                 <div class="premi-card-icon">
                                     <i class="mdi mdi-medical-bag"></i>
                                 </div>
                                 <div class="premi-card-meta">
                                     <div class="small text-muted">${escapeHtml(item.kode_tindakan)}</div>
                                     <div class="premi-card-title">${escapeHtml(item.jenis_tindakan)}</div>
-                                    <span class="premi-kind-badge ${escapeHtml(item.jenis)}">
-                                        ${escapeHtml(item.jenis)}
+                                    <span class="premi-kind-badge ${escapeHtml(item.jenis_umum || item.jenis)}">
+                                        UMUM ${escapeHtml(item.jenis_umum || item.jenis)}
+                                    </span>
+                                    <span class="premi-kind-badge ${escapeHtml(item.jenis_bpjs || item.jenis)}">
+                                        BPJS ${escapeHtml(item.jenis_bpjs || item.jenis)}
                                     </span>
                                 </div>
                                 <div class="premi-value-grid">
                                     <div class="premi-value-item umum">
                                         <span class="premi-value-label">UMUM</span>
                                         <span class="premi-value-number">
-                                            ${formatMappingValue(item, 'nilai_umum')}
+                                            ${formatMappingValue(item, 'nilai_umum', 'jenis_umum')}
+                                        </span>
+                                    </div>
+                                    <div class="premi-value-item umum">
+                                        <span class="premi-value-label">Bersama UMUM</span>
+                                        <span class="premi-value-number">
+                                            ${formatMappingValue(item, 'nilai_bersama_umum', 'jenis_umum')}
                                         </span>
                                     </div>
                                     <div class="premi-value-item bpjs">
                                         <span class="premi-value-label">BPJS</span>
                                         <span class="premi-value-number">
-                                            ${formatMappingValue(item, 'nilai_bpjs')}
+                                            ${formatMappingValue(item, 'nilai_bpjs', 'jenis_bpjs')}
+                                        </span>
+                                    </div>
+                                    <div class="premi-value-item bpjs">
+                                        <span class="premi-value-label">Bersama BPJS</span>
+                                        <span class="premi-value-number">
+                                            ${formatMappingValue(item, 'nilai_bersama_bpjs', 'jenis_bpjs')}
                                         </span>
                                     </div>
                                 </div>
@@ -592,16 +641,16 @@
 
         function updatePanelTotals(panel, items) {
             const totalPersenUmum = (items || [])
-                .filter(item => item.jenis === 'persen')
+                .filter(item => (item.jenis_umum || item.jenis) === 'persen')
                 .reduce((sum, item) => sum + (Number(item.nilai_umum) || 0), 0);
             const totalPersenBpjs = (items || [])
-                .filter(item => item.jenis === 'persen')
+                .filter(item => (item.jenis_bpjs || item.jenis) === 'persen')
                 .reduce((sum, item) => sum + (Number(item.nilai_bpjs) || 0), 0);
             const totalNominalUmum = (items || [])
-                .filter(item => item.jenis === 'nominal')
+                .filter(item => (item.jenis_umum || item.jenis) === 'nominal')
                 .reduce((sum, item) => sum + (Number(item.nilai_umum) || 0), 0);
             const totalNominalBpjs = (items || [])
-                .filter(item => item.jenis === 'nominal')
+                .filter(item => (item.jenis_bpjs || item.jenis) === 'nominal')
                 .reduce((sum, item) => sum + (Number(item.nilai_bpjs) || 0), 0);
             const count = (items || []).length;
             const summaries = [];
@@ -893,22 +942,22 @@
 
                             <div class="col-lg-2">
                                 <div class="premi-inline-field">
-                                    <label class="form-label">Jenis Nilai</label>
+                                    <label class="form-label">Jenis UMUM</label>
                                     <div class="premi-inline-control">
-                                        <select class="form-select inline-jenis">
-                                            ${jenisOptions(data.jenis || 'persen')}
+                                        <select class="form-select inline-jenis-umum">
+                                            ${jenisOptions(data.jenis_umum || data.jenis || 'persen')}
                                         </select>
                                     </div>
                                     <span class="premi-inline-help">Persen atau nominal.</span>
                                 </div>
                             </div>
 
-                            <div class="col-lg-3">
+                            <div class="col-lg-2">
                                 <div class="premi-inline-field">
                                     <label class="form-label">Nilai UMUM</label>
                                     <div class="premi-inline-control">
                                         <div class="input-group">
-                                            <span class="input-group-text fw-bold inline-value-addon">%</span>
+                                            <span class="input-group-text fw-bold inline-value-addon-umum">%</span>
                                             <input type="number"
                                                 class="form-control inline-nilai inline-nilai-umum" min="0"
                                                 step="1" value="${escapeHtml(data.nilai_umum ?? '')}" placeholder="0">
@@ -917,12 +966,38 @@
                                 </div>
                             </div>
 
-                            <div class="col-lg-3">
+                            <div class="col-lg-2">
+                                <div class="premi-inline-field">
+                                    <label class="form-label">Bersama UMUM</label>
+                                    <div class="premi-inline-control">
+                                        <div class="input-group">
+                                            <span class="input-group-text fw-bold inline-value-addon-umum">%</span>
+                                            <input type="number"
+                                                class="form-control inline-bersama inline-bersama-umum" min="0"
+                                                step="1" value="${escapeHtml(data.nilai_bersama_umum ?? 0)}" placeholder="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2">
+                                <div class="premi-inline-field">
+                                    <label class="form-label">Jenis BPJS</label>
+                                    <div class="premi-inline-control">
+                                        <select class="form-select inline-jenis-bpjs">
+                                            ${jenisOptions(data.jenis_bpjs || data.jenis || 'persen')}
+                                        </select>
+                                    </div>
+                                    <span class="premi-inline-help">Persen atau nominal.</span>
+                                </div>
+                            </div>
+
+                            <div class="col-lg-2">
                                 <div class="premi-inline-field">
                                     <label class="form-label">Nilai BPJS</label>
                                     <div class="premi-inline-control">
                                         <div class="input-group">
-                                            <span class="input-group-text fw-bold inline-value-addon">%</span>
+                                            <span class="input-group-text fw-bold inline-value-addon-bpjs">%</span>
                                             <input type="number"
                                                 class="form-control inline-nilai inline-nilai-bpjs" min="0"
                                                 step="1" value="${escapeHtml(data.nilai_bpjs ?? '')}" placeholder="0">
@@ -930,9 +1005,26 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="col-lg-2">
+                                <div class="premi-inline-field">
+                                    <label class="form-label">Bersama BPJS</label>
+                                    <div class="premi-inline-control">
+                                        <div class="input-group">
+                                            <span class="input-group-text fw-bold inline-value-addon-bpjs">%</span>
+                                            <input type="number"
+                                                class="form-control inline-bersama inline-bersama-bpjs" min="0"
+                                                step="1" value="${escapeHtml(data.nilai_bersama_bpjs ?? 0)}" placeholder="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <span class="premi-inline-help inline-value-help">
-                            Persentase UMUM dan BPJS yang diizinkan adalah 0 sampai 100.
+                        <span class="premi-inline-help inline-value-help-umum">
+                            Persentase UMUM yang diizinkan adalah 0 sampai 100.
+                        </span>
+                        <span class="premi-inline-help inline-value-help-bpjs">
+                            Persentase BPJS yang diizinkan adalah 0 sampai 100.
                         </span>
                     </div>
 
@@ -1061,11 +1153,11 @@
             $(this).closest('.premi-form-row').remove();
         });
 
-        container.on('change', '.mapping-jenis', function() {
+        container.on('change', '.mapping-jenis-umum, .mapping-jenis-bpjs', function() {
             applyValueMode($(this).closest('.premi-form-row'));
         });
 
-        $(document).on('change', '.inline-jenis', function() {
+        $(document).on('change', '.inline-jenis-umum, .inline-jenis-bpjs', function() {
             applyValueMode($(this).closest('.premi-inline-editor'));
         });
 
@@ -1102,19 +1194,30 @@
             let valueError = '';
             container.find('.premi-form-row').each(function() {
                 const row = $(this);
-                const jenis = row.find('.mapping-jenis').val();
+                const jenisUmum = row.find('.mapping-jenis-umum').val();
+                const jenisBpjs = row.find('.mapping-jenis-bpjs').val();
                 const nilaiUmum = row.find('.mapping-nilai-umum').val();
                 const nilaiBpjs = row.find('.mapping-nilai-bpjs').val();
+                const bersamaUmum = row.find('.mapping-bersama-umum').val();
+                const bersamaBpjs = row.find('.mapping-bersama-bpjs').val();
 
-                if (!jenis || nilaiUmum === '' || nilaiBpjs === '' ||
-                    Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0) {
-                    valueError = 'Jenis nilai, nilai UMUM, dan nilai BPJS wajib diisi.';
+                if (!jenisUmum || !jenisBpjs || nilaiUmum === '' || nilaiBpjs === '' ||
+                    bersamaUmum === '' || bersamaBpjs === '' ||
+                    Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0 ||
+                    Number(bersamaUmum) < 0 || Number(bersamaBpjs) < 0) {
+                    valueError = 'Jenis nilai, nilai UMUM/BPJS, dan nilai Bersama wajib diisi.';
                     return false;
                 }
 
-                if (jenis === 'persen' &&
-                    (Number(nilaiUmum) > 100 || Number(nilaiBpjs) > 100)) {
-                    valueError = 'Nilai persen UMUM dan BPJS maksimal 100%.';
+                if (jenisUmum === 'persen' &&
+                    (Number(nilaiUmum) > 100 || Number(bersamaUmum) > 100)) {
+                    valueError = 'Nilai persen UMUM dan Bersama UMUM maksimal 100%.';
+                    return false;
+                }
+
+                if (jenisBpjs === 'persen' &&
+                    (Number(nilaiBpjs) > 100 || Number(bersamaBpjs) > 100)) {
+                    valueError = 'Nilai persen BPJS dan Bersama BPJS maksimal 100%.';
                     return false;
                 }
             });
@@ -1339,8 +1442,12 @@
                 id: card.attr('data-id'),
                 jnsTindakan_id: card.attr('data-tindakan-id'),
                 jenis: card.attr('data-jenis'),
+                jenis_umum: card.attr('data-jenis-umum'),
+                jenis_bpjs: card.attr('data-jenis-bpjs'),
                 nilai_umum: card.attr('data-nilai-umum'),
-                nilai_bpjs: card.attr('data-nilai-bpjs')
+                nilai_bpjs: card.attr('data-nilai-bpjs'),
+                nilai_bersama_umum: card.attr('data-nilai-bersama-umum'),
+                nilai_bersama_bpjs: card.attr('data-nilai-bersama-bpjs')
             };
 
             loadTindakanGuide().done(function() {
@@ -1361,39 +1468,56 @@
             const mode = editor.data('mode');
             const id = editor.data('id');
             const tindakanId = editor.find('.inline-tindakan').val();
-            const jenis = editor.find('.inline-jenis').val();
+            const jenisUmum = editor.find('.inline-jenis-umum').val();
+            const jenisBpjs = editor.find('.inline-jenis-bpjs').val();
             const nilaiUmum = editor.find('.inline-nilai-umum').val();
             const nilaiBpjs = editor.find('.inline-nilai-bpjs').val();
+            const bersamaUmum = editor.find('.inline-bersama-umum').val();
+            const bersamaBpjs = editor.find('.inline-bersama-bpjs').val();
 
-            if (!tindakanId || !jenis || nilaiUmum === '' || nilaiBpjs === '' ||
-                Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0) {
+            if (!tindakanId || !jenisUmum || !jenisBpjs || nilaiUmum === '' || nilaiBpjs === '' ||
+                bersamaUmum === '' || bersamaBpjs === '' ||
+                Number(nilaiUmum) < 0 || Number(nilaiBpjs) < 0 ||
+                Number(bersamaUmum) < 0 || Number(bersamaBpjs) < 0) {
                 Swal.fire(
                     'Data belum lengkap',
-                    'Pilih tindakan, jenis nilai, serta isi nilai UMUM dan BPJS.',
+                    'Pilih tindakan, jenis nilai, serta isi nilai UMUM/BPJS dan Bersama.',
                     'warning'
                 );
                 return;
             }
 
-            if (jenis === 'persen' &&
-                (Number(nilaiUmum) > 100 || Number(nilaiBpjs) > 100)) {
-                Swal.fire('Nilai tidak valid', 'Nilai persen UMUM dan BPJS maksimal 100%.', 'warning');
+            if (jenisUmum === 'persen' &&
+                (Number(nilaiUmum) > 100 || Number(bersamaUmum) > 100)) {
+                Swal.fire('Nilai tidak valid', 'Nilai persen UMUM dan Bersama UMUM maksimal 100%.', 'warning');
+                return;
+            }
+
+            if (jenisBpjs === 'persen' &&
+                (Number(nilaiBpjs) > 100 || Number(bersamaBpjs) > 100)) {
+                Swal.fire('Nilai tidak valid', 'Nilai persen BPJS dan Bersama BPJS maksimal 100%.', 'warning');
                 return;
             }
 
             const data = mode === 'edit' ? {
                 jnsTindakan_id: tindakanId,
-                jenis: jenis,
+                jenis_umum: jenisUmum,
+                jenis_bpjs: jenisBpjs,
                 nilai_umum: nilaiUmum,
-                nilai_bpjs: nilaiBpjs
+                nilai_bpjs: nilaiBpjs,
+                nilai_bersama_umum: bersamaUmum,
+                nilai_bersama_bpjs: bersamaBpjs
             } : {
                 jnsPremi_id: panel.data('premi-id'),
                 pembagi: panel.find('.premi-pembagi-input').val() || panel.data('pembagi') || 1,
                 mappings: [{
                     jnsTindakan_id: tindakanId,
-                    jenis: jenis,
+                    jenis_umum: jenisUmum,
+                    jenis_bpjs: jenisBpjs,
                     nilai_umum: nilaiUmum,
-                    nilai_bpjs: nilaiBpjs
+                    nilai_bpjs: nilaiBpjs,
+                    nilai_bersama_umum: bersamaUmum,
+                    nilai_bersama_bpjs: bersamaBpjs
                 }]
             };
 

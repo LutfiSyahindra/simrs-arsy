@@ -122,8 +122,12 @@ class premiMappingRepository
             'jnsTindakan_id',
             'nilai',
             'jenis',
+            'jenis_umum',
+            'jenis_bpjs',
             'nilai_umum',
-            'nilai_bpjs'
+            'nilai_bpjs',
+            'nilai_bersama_umum',
+            'nilai_bersama_bpjs'
         )
             ->with('jnsTindakan:id,kode,jenis')
             ->where('jnsPremi_id', $premiId)

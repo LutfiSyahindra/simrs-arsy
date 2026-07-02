@@ -16,14 +16,20 @@ class mappingPremiModel extends Model
         'jnsTindakan_id',
         'nilai',
         'jenis',
+        'jenis_umum',
+        'jenis_bpjs',
         'nilai_umum',
         'nilai_bpjs',
+        'nilai_bersama_umum',
+        'nilai_bersama_bpjs',
     ];
 
     protected $casts = [
         'nilai' => 'integer',
         'nilai_umum' => 'integer',
         'nilai_bpjs' => 'integer',
+        'nilai_bersama_umum' => 'integer',
+        'nilai_bersama_bpjs' => 'integer',
     ];
 
     public function jnsTindakan()

@@ -42,8 +42,12 @@
                             <span>VK</span>
                             <strong id="detailVkMedis">Rp 0</strong>
                         </div>
+                        <div class="tm-detail-metric grand">
+                            <span>Grand Total</span>
+                            <strong id="detailGrandMedis">Rp 0</strong>
+                        </div>
                         <div class="tm-detail-metric">
-                            <span>Total Final</span>
+                            <span>Setelah Pembagi</span>
                             <strong id="detailFinalMedis">Rp 0</strong>
                         </div>
                         <div class="tm-detail-metric">
@@ -54,8 +58,13 @@
 
                     <div class="tm-formula mb-3">
                         <i class="mdi mdi-function-variant"></i>
-                        <span id="detailFormulaMedis">(Rp 0 + Rp 0 + Rp 0) / 1 = Rp 0</span>
+                        <span id="detailFormulaMedis">
+                            Grand total sebelum pembagi: <strong>Rp 0</strong>
+                            <span class="tm-formula-muted">(Rp 0 + Rp 0 + Rp 0)</span> &rarr; / 1 = Rp 0
+                        </span>
                     </div>
+
+                    <div class="tm-insight-strip" id="detailInsightMedis"></div>
 
                     <div class="tm-detail-section">
                         <div class="tm-detail-section-head">
@@ -65,7 +74,18 @@
                                     Total diterima sudah termasuk tambahan ICU/NICU jika ada.
                                 </small>
                             </div>
-                            <span class="badge bg-light text-dark" id="detailDistributionCountMedis">0 penerima</span>
+                            <div class="tm-transaction-toolbar">
+                                <input type="search" id="searchDetailDistributionMedis" class="form-control"
+                                    placeholder="Cari pegawai">
+                                <select id="filterDetailDistributionBonusMedis" class="form-select">
+                                    <option value="all">Semua penerima</option>
+                                    <option value="bonus">Ada ICU/NICU</option>
+                                    <option value="no_bonus">Tanpa ICU/NICU</option>
+                                </select>
+                                <span class="badge bg-light text-dark" id="detailDistributionCountMedis">
+                                    0 penerima
+                                </span>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover tm-detail-table mb-0">
@@ -89,7 +109,11 @@
                                 <div class="tm-detail-section-title">Rekap Mapping Premi</div>
                                 <small class="text-muted">Pilih baris mapping untuk melihat rawat pembentuknya.</small>
                             </div>
-                            <span class="badge bg-light text-dark" id="detailMappingCountMedis">0 mapping</span>
+                            <div class="tm-transaction-toolbar">
+                                <input type="search" id="searchDetailMappingMedis" class="form-control"
+                                    placeholder="Cari mapping">
+                                <span class="badge bg-light text-dark" id="detailMappingCountMedis">0 mapping</span>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover tm-detail-table mb-0">
@@ -133,6 +157,8 @@
                         </div>
                     </div>
 
+                    <div class="tm-insight-strip" id="detailSelectedInsightMedis"></div>
+
                     <div class="tm-detail-section mb-0">
                         <div class="tm-detail-section-head">
                             <div>
@@ -144,6 +170,17 @@
                             <div class="tm-transaction-toolbar">
                                 <select id="filterDetailMappingMedis" class="form-select">
                                     <option value="">Pilih mapping</option>
+                                </select>
+                                <select id="filterDetailRawatSourceMedis" class="form-select">
+                                    <option value="all">Semua sumber</option>
+                                </select>
+                                <select id="filterDetailRawatPelaksanaMedis" class="form-select">
+                                    <option value="all">Semua pelaksana</option>
+                                    <option value="doctor">Dokter</option>
+                                    <option value="paramedic">Paramedis</option>
+                                    <option value="drpr">Dokter & Paramedis</option>
+                                    <option value="routed">Dialihkan ke perawat</option>
+                                    <option value="karcis">Karcis BPJS</option>
                                 </select>
                                 <input type="search" id="searchDetailRawatMedis" class="form-control"
                                     placeholder="Cari no. rawat / tindakan">
