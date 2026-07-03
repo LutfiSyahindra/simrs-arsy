@@ -46,8 +46,9 @@
                                 Rp 0
                             </div>
                             <small class="text-muted d-block text-center mt-1">
-                                Total = jumlah tindakan x nominal hitung.
+                                UMUM memakai jumlah x nominal. BPJS mengikuti konfigurasi persen, pembagi, dan mode pembagian.
                             </small>
+                            <div class="vk-bpjs-preview d-none mt-2" id="previewBpjsGenerateVk"></div>
                         </div>
                     </div>
                 </div>
@@ -60,5 +61,73 @@
                 </div>
             </form>
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfigVk" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content border-0 rounded-3" id="formConfigVk">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold">Konfigurasi VK BPJS</h5>
+                    <small class="text-muted">
+                        Persen diambil dari total VK awal, dibagi pembagi, lalu dibagikan sesuai mode.
+                    </small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="jenisConfigVk" value="bpjs">
+                <div class="alert alert-primary py-2">
+                    Rumus: <strong>Total VK awal x Persen BPJS / Pembagi</strong>.
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Persen BPJS</label>
+                        <div class="input-group">
+                            <input type="number" step="0.0001" min="0" max="100" class="form-control"
+                                id="configVkBpjsPercent">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">Contoh 4 berarti mengambil 4% dari total VK awal.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Pembagi</label>
+                        <input type="number" step="1" min="1" max="999999" class="form-control"
+                            id="configVkBpjsPembagi">
+                        <small class="text-muted">Hasil persen BPJS akan dibagi angka ini.</small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Mode Pembagian</label>
+                        <select class="form-select" id="configVkDistributionMode">
+                            <option value="rata">Bagi rata ke semua pegawai</option>
+                            <option value="per_pegawai">Setiap pegawai mendapat hasil perhitungan</option>
+                        </select>
+                        <small class="text-muted">
+                            Bagi rata membagi hasil rumus ke penerima. Mode per pegawai memberi nominal hasil rumus
+                            penuh kepada setiap pegawai.
+                        </small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Pegawai Penerima</label>
+                        <select class="form-select" id="configVkRecipients" multiple></select>
+                        <small class="text-muted">
+                            Saat generate BPJS, hasil akhir mengikuti mode pembagian di atas.
+                        </small>
+                        <div class="invalid-feedback d-block" id="configVkRecipientsError"></div>
+                    </div>
+                    <div class="col-12">
+                        <div class="vk-bpjs-preview" id="configVkPreview"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" id="btnSubmitConfigVk" class="btn btn-primary btn-sm">
+                    <i class="mdi mdi-content-save-check-outline me-1"></i>
+                    Simpan Konfigurasi
+                </button>
+            </div>
+        </form>
     </div>
 </div>

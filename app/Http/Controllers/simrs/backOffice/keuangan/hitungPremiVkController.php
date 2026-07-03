@@ -116,6 +116,48 @@ class hitungPremiVkController extends Controller
         ]);
     }
 
+    public function config(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_vk' => ['required', 'in:umum,bpjs'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->getConfig($validated['jenis_vk']),
+        ]);
+    }
+
+    public function updateConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_vk' => ['required', 'in:umum,bpjs'],
+            'bpjs_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'bpjs_pembagi' => ['required', 'integer', 'min:1', 'max:999999'],
+            'distribution_mode' => ['required', 'in:rata,per_pegawai'],
+            'recipients' => ['nullable', 'array'],
+            'recipients.*' => ['string', 'max:30'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi VK berhasil disimpan.',
+            'data' => $this->service->updateConfig($validated['jenis_vk'], $validated),
+        ]);
+    }
+
+    public function pegawaiOptions(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->pegawaiOptions($validated['q'] ?? null),
+        ]);
+    }
+
     public function copyPreview(Request $request)
     {
         $validated = $request->validate([

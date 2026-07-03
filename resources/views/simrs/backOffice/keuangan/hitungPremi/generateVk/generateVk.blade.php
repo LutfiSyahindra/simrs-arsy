@@ -231,6 +231,7 @@
         .vk-refresh-btn,
         .vk-copy-btn,
         .vk-lock-all-btn,
+        .vk-config-btn,
         .vk-generate-btn {
             align-items: center;
             border-radius: 9px;
@@ -243,7 +244,8 @@
 
         .vk-refresh-btn,
         .vk-copy-btn,
-        .vk-lock-all-btn {
+        .vk-lock-all-btn,
+        .vk-config-btn {
             background: #fff;
             border: 1px solid var(--vk-line);
             color: #475569;
@@ -267,6 +269,16 @@
         .vk-lock-all-btn:hover {
             background: #fffbeb;
             color: #78350f;
+        }
+
+        .vk-config-btn {
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .vk-config-btn:hover {
+            background: #eff6ff;
+            color: #1e40af;
         }
 
         .vk-generate-btn {
@@ -531,6 +543,27 @@
             text-align: center;
         }
 
+        .vk-bpjs-preview {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            color: #1e3a8a;
+            display: grid;
+            gap: 6px;
+            padding: 11px;
+        }
+
+        .vk-bpjs-preview-row {
+            align-items: center;
+            display: flex;
+            font-size: 12px;
+            justify-content: space-between;
+        }
+
+        .vk-bpjs-preview-row strong {
+            font-size: 13px;
+        }
+
         .vk-action-option {
             line-height: 1.35;
         }
@@ -610,7 +643,7 @@
                     <h4 class="vk-title">Generate Premi VK</h4>
                     <p class="vk-description">
                         Input jumlah tindakan VK dari tindakan Khanza, pilih jenis BPJS atau UMUM,
-                        tentukan ploting premi, lalu sistem menghitung total premi dari nominal hitung.
+                        tentukan ploting premi, lalu sistem menghitung total premi dari nominal hitung dan konfigurasi BPJS.
                     </p>
                 </div>
             </div>
@@ -673,6 +706,10 @@
                     <button type="button" class="vk-lock-all-btn" id="btnLockAllVk">
                         <i class="mdi mdi-lock-check-outline"></i>
                         Kunci Semua
+                    </button>
+                    <button type="button" class="vk-config-btn" id="btnConfigVk">
+                        <i class="mdi mdi-tune-variant"></i>
+                        Konfigurasi
                     </button>
                     <button type="button" class="vk-generate-btn" id="btnOpenGenerateVk">
                         <i class="mdi mdi-plus-circle-outline"></i>

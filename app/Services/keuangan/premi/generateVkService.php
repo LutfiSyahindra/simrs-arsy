@@ -12,6 +12,9 @@ use Illuminate\Validation\ValidationException;
 
 class generateVkService
 {
+    private const BPJS_ROLE = 'petugas_vk';
+    private const BPJS_ROLE_LABEL = 'Petugas VK';
+
     public function __construct(
         protected generateVkRepository $repository,
         protected tindakanMappingService $tindakanMappingService
@@ -34,6 +37,24 @@ class generateVkService
         ];
     }
 
+    public function getConfig(string $jenisVk): array
+    {
+        return $this->configPayload($this->repository->getConfig($jenisVk));
+    }
+
+    public function updateConfig(string $jenisVk, array $data): array
+    {
+        $recipients = $this->hydrateRecipients($data['recipients'] ?? []);
+
+        return $this->configPayload(
+            $this->repository->saveConfig($jenisVk, [
+                'bpjs_percent' => (float) ($data['bpjs_percent'] ?? 4),
+                'bpjs_pembagi' => max(1, (int) ($data['bpjs_pembagi'] ?? 4)),
+                'distribution_mode' => $this->distributionMode($data['distribution_mode'] ?? 'rata'),
+            ], $recipients)
+        );
+    }
+
     public function getTindakanOptions(?string $keyword = null)
     {
         return $this->tindakanMappingService
@@ -50,6 +71,20 @@ class generateVkService
                 'kode' => $item->kode,
                 'ploting' => $item->ploting,
                 'text' => trim($item->kode.' - '.$item->ploting),
+            ])
+            ->values();
+    }
+
+    public function pegawaiOptions(?string $keyword = null)
+    {
+        return $this->repository
+            ->searchPegawai($keyword)
+            ->map(fn ($item) => [
+                'id' => $item->nik,
+                'nik' => $item->nik,
+                'nama' => $item->nama,
+                'jbtn' => $item->jbtn,
+                'text' => trim($item->nik.' - '.$item->nama.' ('.($item->jbtn ?: '-').')'),
             ])
             ->values();
     }
@@ -179,6 +214,8 @@ class generateVkService
             ]);
         }
 
+        $calculation = $this->calculate($jenisVk, $jumlahTindakan, $nominal, true, $errorPrefix);
+
         return $this->resultPayload(
             $this->repository->saveResult(
                 $periode,
@@ -186,8 +223,9 @@ class generateVkService
                 $tindakan,
                 $ploting,
                 $jumlahTindakan,
-                $nominal
-            )->fresh(['lockedBy:id,name', 'generateBy:id,name'])
+                $nominal,
+                $calculation
+            )->fresh(['details', 'lockedBy:id,name', 'generateBy:id,name'])
         );
     }
 
@@ -308,12 +346,178 @@ class generateVkService
             'jumlah_tindakan' => $row->jumlah_tindakan,
             'nominal_hitung' => $row->nominal_hitung,
             'total_vk' => $row->total_vk,
+            'total_vk_awal' => $row->total_vk_awal ?: $row->total_vk,
+            'bpjs_pool' => $row->bpjs_pool ?? 0,
+            'total_dibagikan' => $row->total_dibagikan ?? 0,
+            'details_count' => $row->details_count ?? $row->details?->count() ?? 0,
+            'config_snapshot' => $row->config_snapshot,
+            'details' => $row->relationLoaded('details')
+                ? $row->details->map(fn ($detail) => [
+                    'role' => $detail->role,
+                    'role_label' => $detail->role_label,
+                    'pegawai_id' => $detail->pegawai_id,
+                    'pegawai_name' => $detail->pegawai_name,
+                    'pegawai_position' => $detail->pegawai_position,
+                    'allocation_percent' => $detail->allocation_percent,
+                    'pool_total' => $detail->pool_total,
+                    'total_received' => $detail->total_received,
+                ])->values()
+                : [],
             'is_locked' => $row->is_locked,
             'locked_at' => optional($row->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $row->lockedBy?->name,
             'generate_by_name' => $row->generateBy?->name,
             'generated_at' => optional($row->updated_at)->format('d-m-Y H:i'),
         ];
+    }
+
+    private function calculate(
+        string $jenisVk,
+        int $jumlahTindakan,
+        int $nominal,
+        bool $strict,
+        string $errorPrefix = ''
+    ): array {
+        $baseTotal = $jumlahTindakan * $nominal;
+        $config = $this->configPayload($this->repository->getConfig($jenisVk));
+        $bpjsPool = 0;
+        $totalVk = $baseTotal;
+        $recipients = [];
+
+        if ($jenisVk === 'bpjs') {
+            $bpjsPool = (int) round($baseTotal * $config['bpjs_percent'] / 100);
+            $hasilPerhitungan = (int) round($bpjsPool / max(1, $config['bpjs_pembagi']));
+            $recipients = $this->splitBpjsPool(
+                $hasilPerhitungan,
+                $config['recipients'],
+                $config['distribution_mode'],
+                $strict,
+                $errorPrefix
+            );
+            $totalVk = collect($recipients)->sum('total_received');
+        }
+
+        return [
+            'total_vk_awal' => $baseTotal,
+            'bpjs_pool' => $bpjsPool,
+            'total_vk' => $totalVk,
+            'recipients' => $recipients,
+            'total_dibagikan' => collect($recipients)->sum('total_received'),
+            'config_snapshot' => [
+                ...$config,
+                'bpjs_hasil_perhitungan' => $jenisVk === 'bpjs' ? ($hasilPerhitungan ?? 0) : $baseTotal,
+                'formula_label' => $jenisVk === 'bpjs'
+                    ? 'Total VK awal x persen BPJS / pembagi'
+                    : 'Jumlah tindakan x nominal hitung',
+            ],
+        ];
+    }
+
+    private function splitBpjsPool(
+        int $pool,
+        array $recipients,
+        string $distributionMode,
+        bool $strict,
+        string $errorPrefix
+    ): array {
+        if ($strict && $pool > 0 && empty($recipients)) {
+            throw ValidationException::withMessages([
+                $errorPrefix.'recipients' => 'Pegawai penerima VK BPJS wajib dipilih pada konfigurasi sebelum generate.',
+            ]);
+        }
+
+        if (empty($recipients)) {
+            return [];
+        }
+
+        if ($distributionMode === 'per_pegawai') {
+            return collect($recipients)->values()->map(function ($item) use ($pool) {
+                return [
+                    'role' => self::BPJS_ROLE,
+                    'role_label' => self::BPJS_ROLE_LABEL,
+                    'pegawai_id' => $item['pegawai_id'],
+                    'pegawai_name' => $item['pegawai_name'],
+                    'pegawai_position' => $item['pegawai_position'] ?? null,
+                    'allocation_percent' => $pool > 0 ? 100 : null,
+                    'pool_total' => $pool,
+                    'total_received' => $pool,
+                ];
+            })->all();
+        }
+
+        $recipientCount = count($recipients);
+        $base = intdiv($pool, $recipientCount);
+        $remainder = $pool % $recipientCount;
+        $allocationPercent = $pool > 0 ? round(100 / $recipientCount, 2) : null;
+
+        return collect($recipients)->values()->map(function ($item, $index) use ($pool, $base, $remainder, $allocationPercent) {
+            return [
+                'role' => self::BPJS_ROLE,
+                'role_label' => self::BPJS_ROLE_LABEL,
+                'pegawai_id' => $item['pegawai_id'],
+                'pegawai_name' => $item['pegawai_name'],
+                'pegawai_position' => $item['pegawai_position'] ?? null,
+                'allocation_percent' => $allocationPercent,
+                'pool_total' => $pool,
+                'total_received' => $base + ($index < $remainder ? 1 : 0),
+            ];
+        })->all();
+    }
+
+    private function hydrateRecipients(array $input): array
+    {
+        return collect($input)
+            ->filter()
+            ->map(fn ($id) => trim((string) $id))
+            ->unique()
+            ->values()
+            ->map(function ($id) {
+                $row = $this->repository->findPegawai($id);
+
+                if (! $row) {
+                    throw ValidationException::withMessages([
+                        'recipients' => 'Pegawai penerima VK BPJS tidak valid.',
+                    ]);
+                }
+
+                return [
+                    'pegawai_id' => $row->nik,
+                    'pegawai_name' => $row->nama,
+                    'pegawai_position' => $row->jbtn,
+                ];
+            })
+            ->all();
+    }
+
+    private function configPayload($config): array
+    {
+        return [
+            'id' => $config->id,
+            'jenis_vk' => $config->jenis_vk,
+            'jenis_vk_label' => $this->typeLabel($config->jenis_vk),
+            'bpjs_percent' => (float) ($config->bpjs_percent ?? 4),
+            'bpjs_pembagi' => max(1, (int) ($config->bpjs_pembagi ?? 4)),
+            'distribution_mode' => $this->distributionMode($config->distribution_mode ?? 'rata'),
+            'distribution_mode_label' => $this->distributionModeLabel($config->distribution_mode ?? 'rata'),
+            'recipients' => $config->pegawai->map(fn ($pegawai) => [
+                'pegawai_id' => $pegawai->pegawai_id,
+                'pegawai_name' => $pegawai->pegawai_name,
+                'pegawai_position' => $pegawai->pegawai_position,
+                'text' => trim($pegawai->pegawai_id.' - '.$pegawai->pegawai_name),
+            ])->values()->all(),
+        ];
+    }
+
+    private function distributionMode(string $mode): string
+    {
+        return in_array($mode, ['rata', 'per_pegawai'], true) ? $mode : 'rata';
+    }
+
+    private function distributionModeLabel(string $mode): string
+    {
+        return $this->distributionMode($mode) === 'per_pegawai'
+            ? 'Setiap pegawai mendapat hasil perhitungan'
+            : 'Bagi rata ke semua pegawai';
     }
 
     private function lockPayload($result): array

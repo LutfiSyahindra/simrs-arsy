@@ -5,6 +5,7 @@ namespace App\Models\dbSimrs;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class generateVkModel extends Model
 {
@@ -27,6 +28,10 @@ class generateVkModel extends Model
         'jumlah_tindakan',
         'nominal_hitung',
         'total_vk',
+        'total_vk_awal',
+        'bpjs_pool',
+        'total_dibagikan',
+        'config_snapshot',
         'is_locked',
         'locked_at',
         'locked_by',
@@ -38,9 +43,18 @@ class generateVkModel extends Model
         'jumlah_tindakan' => 'integer',
         'nominal_hitung' => 'integer',
         'total_vk' => 'integer',
+        'total_vk_awal' => 'integer',
+        'bpjs_pool' => 'integer',
+        'total_dibagikan' => 'integer',
+        'config_snapshot' => 'array',
         'is_locked' => 'boolean',
         'locked_at' => 'datetime',
     ];
+
+    public function details(): HasMany
+    {
+        return $this->hasMany(generateVkDetailModel::class, 'generate_vk_id');
+    }
 
     public function plotingPremi(): BelongsTo
     {

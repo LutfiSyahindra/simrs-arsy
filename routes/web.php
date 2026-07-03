@@ -236,6 +236,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateVk/summary', [hitungPremiVkController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateVk.summary');
         Route::get('/hitung-premi/generateVk/tindakan-options', [hitungPremiVkController::class, 'tindakanOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.tindakanOptions');
         Route::get('/hitung-premi/generateVk/ploting-options', [hitungPremiVkController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.plotingOptions');
+        Route::get('/hitung-premi/generateVk/config', [hitungPremiVkController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateVk.config');
+        Route::put('/hitung-premi/generateVk/config', [hitungPremiVkController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateVk.updateConfig');
+        Route::get('/hitung-premi/generateVk/pegawai-options', [hitungPremiVkController::class, 'pegawaiOptions'])->name('backOffice.keuangan.hitungPremi.generateVk.pegawaiOptions');
         Route::get('/hitung-premi/generateVk/copy-preview', [hitungPremiVkController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateVk.copyPreview');
         Route::post('/hitung-premi/generateVk', [hitungPremiVkController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateVk.store');
         Route::post('/hitung-premi/generateVk/lock-all', [hitungPremiVkController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateVk.lockAll');

@@ -2,6 +2,8 @@
 
 namespace App\Repositories\keuangan\premi;
 
+use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\generateVkConfigModel;
 use App\Models\dbSimrs\generateVkModel;
 use App\Models\dbSimrs\plotingPremiModel;
 use Illuminate\Support\Collection;
@@ -14,6 +16,7 @@ class generateVkRepository
     {
         return generateVkModel::query()
             ->with(['lockedBy:id,name', 'generateBy:id,name'])
+            ->withCount('details')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when($jenisVk, fn ($query) => $query->where('jenis_vk', $jenisVk))
             ->orderByDesc('periode')
@@ -38,6 +41,9 @@ class generateVkRepository
             'total_vk' => $rows->sum('total_vk'),
             'generated_count' => $rows->count(),
             'locked_count' => $rows->where('is_locked', true)->count(),
+            'total_vk_awal' => $rows->sum('total_vk_awal') ?: $rows->sum('total_vk'),
+            'bpjs_pool' => $rows->sum('bpjs_pool'),
+            'total_dibagikan' => $rows->sum('total_dibagikan'),
             'ploting_summaries' => $this->plotingSummaries($rows),
         ];
     }
@@ -57,6 +63,7 @@ class generateVkRepository
                     'generated_count' => $items->count(),
                     'jumlah_tindakan' => $items->sum('jumlah_tindakan'),
                     'total_vk' => $items->sum('total_vk'),
+                    'total_dibagikan' => $items->sum('total_dibagikan'),
                     'locked_count' => $items->where('is_locked', true)->count(),
                 ];
             })
@@ -71,6 +78,74 @@ class generateVkRepository
             ->select('id', 'kode', 'ploting')
             ->orderBy('ploting')
             ->get();
+    }
+
+    public function getConfig(string $jenisVk): generateVkConfigModel
+    {
+        $this->ensureDefaultConfigs();
+
+        return generateVkConfigModel::query()
+            ->with('pegawai')
+            ->where('jenis_vk', $jenisVk)
+            ->firstOrFail();
+    }
+
+    public function saveConfig(string $jenisVk, array $payload, array $recipients): generateVkConfigModel
+    {
+        $this->ensureDefaultConfigs();
+
+        return DB::transaction(function () use ($jenisVk, $payload, $recipients) {
+            $config = generateVkConfigModel::query()
+                ->where('jenis_vk', $jenisVk)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $config->update($payload);
+            $config->pegawai()->delete();
+
+            $now = now();
+            $rows = collect($recipients)->map(fn ($item) => [
+                'config_id' => $config->id,
+                'pegawai_id' => $item['pegawai_id'],
+                'pegawai_name' => $item['pegawai_name'],
+                'pegawai_position' => $item['pegawai_position'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all();
+
+            if ($rows) {
+                DB::table('generate_vk_config_pegawai')->insert($rows);
+            }
+
+            return $config->fresh('pegawai');
+        });
+    }
+
+    public function searchPegawai(?string $keyword = null): Collection
+    {
+        return gapokModel::query()
+            ->select('nik', 'nama', 'jbtn', 'stts_kerja')
+            ->where('stts_aktif', 'AKTIF')
+            ->when($keyword, function ($query) use ($keyword) {
+                $query->where(function ($search) use ($keyword) {
+                    $search
+                        ->where('nik', 'like', "%{$keyword}%")
+                        ->orWhere('nama', 'like', "%{$keyword}%")
+                        ->orWhere('jbtn', 'like', "%{$keyword}%");
+                });
+            })
+            ->orderBy('nama')
+            ->limit(50)
+            ->get();
+    }
+
+    public function findPegawai(string $nik): ?object
+    {
+        return gapokModel::query()
+            ->select('nik', 'nama', 'jbtn', 'stts_kerja')
+            ->where('nik', $nik)
+            ->where('stts_aktif', 'AKTIF')
+            ->first();
     }
 
     public function findPloting(int $id): ?plotingPremiModel
@@ -101,9 +176,10 @@ class generateVkRepository
         array $tindakan,
         plotingPremiModel $ploting,
         int $jumlahTindakan,
-        int $nominal
+        int $nominal,
+        array $calculation
     ): generateVkModel {
-        return generateVkModel::query()->updateOrCreate(
+        $result = generateVkModel::query()->updateOrCreate(
             [
                 'periode' => $periode,
                 'jenis_vk' => $jenisVk,
@@ -122,10 +198,37 @@ class generateVkRepository
                 'nama_ploting' => $ploting->ploting,
                 'jumlah_tindakan' => $jumlahTindakan,
                 'nominal_hitung' => $nominal,
-                'total_vk' => $jumlahTindakan * $nominal,
+                'total_vk' => $calculation['total_vk'],
+                'total_vk_awal' => $calculation['total_vk_awal'],
+                'bpjs_pool' => $calculation['bpjs_pool'],
+                'total_dibagikan' => $calculation['total_dibagikan'],
+                'config_snapshot' => $calculation['config_snapshot'],
                 'generate_by' => Auth::id(),
             ]
         );
+
+        $result->details()->delete();
+
+        $now = now();
+        $details = collect($calculation['recipients'])->map(fn ($item) => [
+            'generate_vk_id' => $result->id,
+            'role' => $item['role'],
+            'role_label' => $item['role_label'],
+            'pegawai_id' => $item['pegawai_id'],
+            'pegawai_name' => $item['pegawai_name'],
+            'pegawai_position' => $item['pegawai_position'],
+            'allocation_percent' => $item['allocation_percent'],
+            'pool_total' => $item['pool_total'],
+            'total_received' => $item['total_received'],
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all();
+
+        if ($details) {
+            DB::table('generate_vk_detail')->insert($details);
+        }
+
+        return $result;
     }
 
     public function findForUpdate(int $id): ?generateVkModel
@@ -183,5 +286,19 @@ class generateVkRepository
     public function deleteResult(generateVkModel $result): void
     {
         $result->delete();
+    }
+
+    private function ensureDefaultConfigs(): void
+    {
+        foreach (['umum', 'bpjs'] as $jenis) {
+            generateVkConfigModel::query()->firstOrCreate(
+                ['jenis_vk' => $jenis],
+                [
+                    'bpjs_percent' => $jenis === 'bpjs' ? 4 : 100,
+                    'bpjs_pembagi' => 4,
+                    'distribution_mode' => 'rata',
+                ]
+            );
+        }
     }
 }

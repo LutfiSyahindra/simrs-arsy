@@ -24,6 +24,24 @@
                 }
             };
         })();
+        const configModal = (function() {
+            const modalElement = document.getElementById('modalConfigVk');
+
+            if (window.bootstrap && bootstrap.Modal && modalElement) {
+                return bootstrap.Modal.getOrCreateInstance ?
+                    bootstrap.Modal.getOrCreateInstance(modalElement) :
+                    new bootstrap.Modal(modalElement);
+            }
+
+            return {
+                show: function() {
+                    $('#modalConfigVk').modal('show');
+                },
+                hide: function() {
+                    $('#modalConfigVk').modal('hide');
+                }
+            };
+        })();
 
         const typeConfig = {
             umum: 'Umum',
@@ -36,6 +54,15 @@
         let plotingOptionsLoaded = false;
         let plotingOptionsRequest = null;
         let plotingOptions = [];
+        let vkConfig = {
+            jenis_vk: 'bpjs',
+            bpjs_percent: 4,
+            bpjs_pembagi: 4,
+            distribution_mode: 'rata',
+            recipients: []
+        };
+        let configRequest = null;
+        let configSelectReady = false;
 
         function formatNumber(value) {
             return new Intl.NumberFormat('id-ID').format(Number(value) || 0);
@@ -116,23 +143,106 @@
         }
 
         function rowTotal(row) {
+            const jenis = $('#jenisGenerateVk').val() || activeType;
+            const jumlah = Number(numeric(row.find('.jumlah-tindakan-generate-vk').val())) || 0;
+            const nominal = Number(numeric(row.find('.nominal-generate-vk').val())) || 0;
+            const rawTotal = jumlah * nominal;
+
+            return jenis === 'bpjs' ? bpjsCalculation(rawTotal).totalDistributed : rawTotal;
+        }
+
+        function rawRowTotal(row) {
             const jumlah = Number(numeric(row.find('.jumlah-tindakan-generate-vk').val())) || 0;
             const nominal = Number(numeric(row.find('.nominal-generate-vk').val())) || 0;
 
             return jumlah * nominal;
         }
 
+        function bpjsCalculation(rawTotal) {
+            const percent = Number($('#configVkBpjsPercent').val() || vkConfig.bpjs_percent || 4);
+            const pembagi = Math.max(1, Number($('#configVkBpjsPembagi').val() || vkConfig.bpjs_pembagi || 4));
+            const distributionMode = $('#configVkDistributionMode').val() || vkConfig.distribution_mode || 'rata';
+            const recipients = (vkConfig.recipients || []).length;
+            const pool = Math.round((Number(rawTotal) || 0) * percent / 100);
+            const finalTotal = Math.round(pool / pembagi);
+
+            return {
+                rawTotal: Number(rawTotal) || 0,
+                percent: percent,
+                pembagi: pembagi,
+                distributionMode: distributionMode,
+                recipients: recipients,
+                pool: pool,
+                finalTotal: finalTotal,
+                totalDistributed: distributionMode === 'per_pegawai' ? finalTotal * recipients : finalTotal,
+                perRecipient: distributionMode === 'per_pegawai' ?
+                    finalTotal :
+                    (recipients ? Math.floor(finalTotal / recipients) : 0)
+            };
+        }
+
+        function bpjsPreviewRowsHtml(rows) {
+            return rows.map(function(row) {
+                return '<div class="vk-bpjs-preview-row">' +
+                    '<span>' + escapeHtml(row.label) + '</span>' +
+                    '<strong>' + escapeHtml(row.value) + '</strong>' +
+                    '</div>';
+            }).join('');
+        }
+
         function updatePreviewTotal() {
             let total = 0;
+            let rawTotal = 0;
 
             $('#generateVkRows .vk-input-row').each(function() {
                 const row = $(this);
                 const subtotal = rowTotal(row);
+                rawTotal += rawRowTotal(row);
                 total += subtotal;
                 row.find('.vk-row-total').text(formatRupiah(subtotal));
             });
 
             $('#previewTotalGenerateVk').text(formatRupiah(total));
+            renderGenerateBpjsPreview(rawTotal, total);
+        }
+
+        function renderGenerateBpjsPreview(rawTotal, finalTotal) {
+            const jenis = $('#jenisGenerateVk').val() || activeType;
+
+            if (jenis !== 'bpjs') {
+                $('#previewBpjsGenerateVk').addClass('d-none').empty();
+                return;
+            }
+
+            const calc = bpjsCalculation(rawTotal);
+
+            $('#previewBpjsGenerateVk')
+                .removeClass('d-none')
+                .html(bpjsPreviewRowsHtml([{
+                        label: 'Total VK awal',
+                        value: formatRupiah(calc.rawTotal)
+                    },
+                    {
+                        label: 'Persen BPJS',
+                        value: formatNumber(calc.percent) + '% = ' + formatRupiah(calc.pool)
+                    },
+                    {
+                        label: 'Setelah pembagi ' + formatNumber(calc.pembagi),
+                        value: formatRupiah(calc.finalTotal)
+                    },
+                    {
+                        label: 'Mode pembagian',
+                        value: calc.distributionMode === 'per_pegawai' ? 'Per pegawai hasil penuh' : 'Bagi rata'
+                    },
+                    {
+                        label: 'Pegawai penerima',
+                        value: formatNumber(calc.recipients) + ' orang'
+                    },
+                    {
+                        label: 'Total dibagikan',
+                        value: formatRupiah(calc.totalDistributed)
+                    }
+                ]));
         }
 
         function resetFormErrors() {
@@ -185,6 +295,117 @@
             });
 
             return plotingOptionsRequest;
+        }
+
+        function initConfigSelect2() {
+            if (configSelectReady || !$.fn.select2) {
+                return;
+            }
+
+            $('#configVkRecipients').select2({
+                dropdownParent: $('#modalConfigVk'),
+                width: '100%',
+                placeholder: 'Pilih pegawai penerima VK BPJS',
+                ajax: {
+                    url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.pegawaiOptions") }}",
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({
+                        q: params.term || ''
+                    }),
+                    processResults: response => ({
+                        results: response.data || []
+                    })
+                }
+            });
+
+            configSelectReady = true;
+        }
+
+        function setConfigRecipients(items) {
+            const select = $('#configVkRecipients');
+            select.empty();
+
+            (items || []).forEach(function(item) {
+                const id = item.pegawai_id || item.id;
+                const text = item.text || (id + ' - ' + item.pegawai_name);
+                const option = new Option(text, id, true, true);
+                select.append(option);
+            });
+
+            select.trigger('change');
+        }
+
+        function loadVkConfig(jenis) {
+            if (configRequest) {
+                configRequest.abort();
+            }
+
+            configRequest = $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.config") }}",
+                data: {
+                    jenis_vk: jenis || 'bpjs'
+                },
+                success: function(response) {
+                    vkConfig = response.data || vkConfig;
+                    $('#configVkBpjsPercent').val(vkConfig.bpjs_percent ?? 4);
+                    $('#configVkBpjsPembagi').val(vkConfig.bpjs_pembagi ?? 4);
+                    $('#configVkDistributionMode').val(vkConfig.distribution_mode || 'rata');
+                    setConfigRecipients(vkConfig.recipients || []);
+                    renderConfigPreview();
+                    updatePreviewTotal();
+                },
+                complete: function() {
+                    configRequest = null;
+                }
+            });
+
+            return configRequest;
+        }
+
+        function renderConfigPreview() {
+            const calc = bpjsCalculation(1000000);
+            const recipients = ($('#configVkRecipients').val() || []).length;
+            const perPegawai = calc.distributionMode === 'per_pegawai' ?
+                calc.finalTotal :
+                (recipients ? Math.floor(calc.finalTotal / recipients) : 0);
+            const totalDistributed = calc.distributionMode === 'per_pegawai' ?
+                calc.finalTotal * recipients :
+                calc.finalTotal;
+
+            $('#configVkPreview').html(bpjsPreviewRowsHtml([{
+                    label: 'Contoh total awal',
+                    value: formatRupiah(calc.rawTotal)
+                },
+                {
+                    label: 'Pool BPJS',
+                    value: formatRupiah(calc.pool)
+                },
+                {
+                    label: 'Hasil setelah pembagi',
+                    value: formatRupiah(calc.finalTotal)
+                },
+                {
+                    label: 'Mode pembagian',
+                    value: calc.distributionMode === 'per_pegawai' ? 'Per pegawai hasil penuh' : 'Bagi rata'
+                },
+                {
+                    label: 'Estimasi per pegawai',
+                    value: recipients ? formatRupiah(perPegawai) + ' / orang' : 'Belum ada pegawai'
+                },
+                {
+                    label: 'Estimasi total dibagikan',
+                    value: formatRupiah(totalDistributed)
+                }
+            ]));
+        }
+
+        function openConfigModal() {
+            initConfigSelect2();
+            $('#configVkRecipientsError').text('');
+            $('#jenisConfigVk').val('bpjs');
+            configModal.show();
+            loadVkConfig('bpjs');
         }
 
         function addGenerateRow(rowData) {
@@ -371,8 +592,17 @@
                 {
                     data: 'total_vk',
                     className: 'text-end',
-                    render: function(data) {
-                        return '<strong class="text-primary">' + formatRupiah(data) + '</strong>';
+                    render: function(data, type, row) {
+                        const config = row.config_snapshot || {};
+                        const bpjsInfo = row.jenis_vk === 'bpjs' ?
+                            '<small class="d-block text-muted">Awal ' + formatRupiah(row.total_vk_awal || data) +
+                            ' / hasil ' + formatRupiah(config.bpjs_hasil_perhitungan || data) + '</small>' +
+                            '<small class="d-block text-muted">' +
+                            escapeHtml(config.distribution_mode_label || 'Bagi rata ke semua pegawai') +
+                            ' / ' + formatNumber(row.details_count || 0) + ' penerima</small>' :
+                            '';
+
+                        return '<strong class="text-primary">' + formatRupiah(data) + '</strong>' + bpjsInfo;
                     }
                 },
                 {
@@ -465,7 +695,10 @@
             updatePreviewTotal();
             generateModal.show();
 
-            loadPlotingOptions().then(function() {
+            $.when(
+                loadPlotingOptions(),
+                jenis === 'bpjs' ? loadVkConfig('bpjs') : $.Deferred().resolve().promise()
+            ).then(function() {
                 addGenerateRow(row || null);
             });
         }
@@ -502,7 +735,10 @@
             updatePreviewTotal();
             generateModal.show();
 
-            loadPlotingOptions().then(function() {
+            $.when(
+                loadPlotingOptions(),
+                preview.jenis_vk === 'bpjs' ? loadVkConfig('bpjs') : $.Deferred().resolve().promise()
+            ).then(function() {
                 items.forEach(function(item) {
                     addGenerateRow(item);
                 });
@@ -692,6 +928,30 @@
 
         $('#btnLockAllVk').on('click', lockAllResults);
 
+        $('#btnConfigVk').on('click', openConfigModal);
+
+        $('#configVkBpjsPercent, #configVkBpjsPembagi, #configVkDistributionMode').on('input change', function() {
+            vkConfig.distribution_mode = $('#configVkDistributionMode').val() || 'rata';
+            renderConfigPreview();
+            updatePreviewTotal();
+        });
+
+        $('#configVkRecipients').on('change', function() {
+            $('#configVkRecipientsError').text('');
+            vkConfig.recipients = ($('#configVkRecipients').val() || []).map(function(id) {
+                const selected = $('#configVkRecipients option').filter(function() {
+                    return String($(this).val()) === String(id);
+                });
+
+                return {
+                    pegawai_id: id,
+                    pegawai_name: selected.text()
+                };
+            });
+            renderConfigPreview();
+            updatePreviewTotal();
+        });
+
         $('#btnAddGenerateVkRow').on('click', function() {
             addGenerateRow(null);
         });
@@ -767,6 +1027,53 @@
                     if (!applyServerErrors(response.errors || {})) {
                         Swal.fire('Gagal', errorMessage(xhr), 'error');
                     }
+                },
+                complete: function() {
+                    button.prop('disabled', false).html(originalHtml);
+                }
+            });
+        });
+
+        $('#formConfigVk').on('submit', function(event) {
+            event.preventDefault();
+
+            const button = $('#btnSubmitConfigVk');
+            const originalHtml = button.html();
+
+            $('#configVkRecipientsError').text('');
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.updateConfig") }}",
+                method: 'PUT',
+                data: {
+                    jenis_vk: 'bpjs',
+                    bpjs_percent: $('#configVkBpjsPercent').val(),
+                    bpjs_pembagi: $('#configVkBpjsPembagi').val(),
+                    distribution_mode: $('#configVkDistributionMode').val(),
+                    recipients: $('#configVkRecipients').val() || []
+                },
+                beforeSend: function() {
+                    button.prop('disabled', true).html(
+                        '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
+                    );
+                },
+                success: function(response) {
+                    vkConfig = response.data || vkConfig;
+                    configModal.hide();
+                    Swal.fire('Berhasil', response.message, 'success');
+                    updatePreviewTotal();
+                },
+                error: function(xhr) {
+                    const response = xhr.responseJSON || {};
+
+                    if (response.errors && response.errors.recipients) {
+                        $('#configVkRecipientsError').html(flattenErrors({
+                            recipients: response.errors.recipients
+                        }).join('<br>'));
+                        return;
+                    }
+
+                    Swal.fire('Gagal', errorMessage(xhr), 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).html(originalHtml);
@@ -886,6 +1193,7 @@
         });
 
         loadPlotingOptions();
+        loadVkConfig('bpjs');
         refreshAll();
     });
 </script>
