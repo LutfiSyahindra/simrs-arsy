@@ -42,6 +42,24 @@
                 }
             };
         })();
+        const detailModal = (function() {
+            const modalElement = document.getElementById('modalDetailVk');
+
+            if (window.bootstrap && bootstrap.Modal && modalElement) {
+                return bootstrap.Modal.getOrCreateInstance ?
+                    bootstrap.Modal.getOrCreateInstance(modalElement) :
+                    new bootstrap.Modal(modalElement);
+            }
+
+            return {
+                show: function() {
+                    $('#modalDetailVk').modal('show');
+                },
+                hide: function() {
+                    $('#modalDetailVk').modal('hide');
+                }
+            };
+        })();
 
         const typeConfig = {
             umum: 'Umum',
@@ -63,6 +81,7 @@
         };
         let configRequest = null;
         let configSelectReady = false;
+        let currentDetailRow = null;
 
         function formatNumber(value) {
             return new Intl.NumberFormat('id-ID').format(Number(value) || 0);
@@ -188,6 +207,394 @@
                     '<strong>' + escapeHtml(row.value) + '</strong>' +
                     '</div>';
             }).join('');
+        }
+
+        function percentText(value) {
+            const numericValue = Number(value);
+
+            if (!Number.isFinite(numericValue)) {
+                return '-';
+            }
+
+            return formatNumber(numericValue) + '%';
+        }
+
+        function initials(value) {
+            const parts = String(value || 'VK')
+                .trim()
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2);
+
+            return (parts.map(part => part.charAt(0)).join('') || 'VK').toUpperCase();
+        }
+
+        function detailInfoRows(rows) {
+            return '<div class="vk-detail-stat-grid">' + rows.map(function(row) {
+                return '' +
+                    '<div class="vk-detail-stat">' +
+                    '   <span>' + escapeHtml(row.label) + '</span>' +
+                    '   <strong>' + escapeHtml(row.value) + '</strong>' +
+                    '</div>';
+            }).join('') + '</div>';
+        }
+
+        function detailBadgesHtml(rows) {
+            return rows.map(function(row) {
+                return '' +
+                    '<span class="vk-detail-badge">' +
+                    '   <i class="mdi ' + escapeHtml(row.icon) + '"></i>' +
+                    escapeHtml(row.value) +
+                    '</span>';
+            }).join('');
+        }
+
+        function detailPercent(part, total) {
+            const totalNumber = Number(total) || 0;
+
+            if (totalNumber <= 0) {
+                return 0;
+            }
+
+            return Math.max(0, Math.min(100, Math.round((Number(part) || 0) / totalNumber * 100)));
+        }
+
+        function renderDetailBadges(row) {
+            const config = row.config_snapshot || {};
+
+            $('#detailVkBadges').html(detailBadgesHtml([{
+                    icon: 'mdi-calendar-month-outline',
+                    value: row.periode || '-'
+                },
+                {
+                    icon: 'mdi-source-branch',
+                    value: row.sumber_label || 'Manual'
+                },
+                {
+                    icon: 'mdi-vector-arrange-below',
+                    value: row.ploting_label || '-'
+                },
+                {
+                    icon: 'mdi-account-group-outline',
+                    value: formatNumber((row.details || []).length) + ' penerima'
+                },
+                {
+                    icon: 'mdi-call-split',
+                    value: config.distribution_mode_label || '-'
+                }
+            ]));
+        }
+
+        function renderDetailComposition(row) {
+            const config = row.config_snapshot || {};
+            const rawTotal = Number(row.total_vk_awal || row.total_vk || 0);
+            const pool = Number(row.bpjs_pool || 0);
+            const hasil = Number(config.bpjs_hasil_perhitungan || row.total_vk || 0);
+            const distributed = Number(row.total_dibagikan || row.total_vk || 0);
+            const rows = [{
+                    label: 'Pool BPJS dari total awal',
+                    value: formatRupiah(pool),
+                    percent: detailPercent(pool, rawTotal)
+                },
+                {
+                    label: 'Hasil setelah pembagi',
+                    value: formatRupiah(hasil),
+                    percent: detailPercent(hasil, rawTotal)
+                },
+                {
+                    label: 'Total masuk pegawai',
+                    value: formatRupiah(distributed),
+                    percent: detailPercent(distributed, rawTotal)
+                }
+            ];
+
+            $('#detailVkComposition').html(rows.map(function(item) {
+                return '' +
+                    '<div class="vk-composition-row">' +
+                    '   <div class="vk-composition-head">' +
+                    '       <span>' + escapeHtml(item.label) + '</span>' +
+                    '       <strong>' + escapeHtml(item.value) + '</strong>' +
+                    '   </div>' +
+                    '   <div class="vk-composition-track">' +
+                    '       <div class="vk-composition-bar" style="width: ' + item.percent + '%"></div>' +
+                    '   </div>' +
+                    '</div>';
+            }).join(''));
+        }
+
+        function detailFormulaSteps(row) {
+            const config = row.config_snapshot || {};
+            const rawTotal = Number(row.total_vk_awal || (Number(row.jumlah_tindakan || 0) * Number(row.nominal_hitung || 0)) || 0);
+            const percent = Number(config.bpjs_percent ?? 0);
+            const pembagi = Math.max(1, Number(config.bpjs_pembagi ?? 1));
+            const pool = Number(row.bpjs_pool || Math.round(rawTotal * percent / 100) || 0);
+            const hasil = Number(config.bpjs_hasil_perhitungan || Math.round(pool / pembagi) || 0);
+            const recipients = row.details || [];
+            const totalPegawai = Number(row.total_dibagikan || row.total_vk || 0);
+            const modeLabel = config.distribution_mode_label || 'Bagi rata ke semua pegawai';
+
+            return [{
+                    label: 'Total VK awal',
+                    note: formatNumber(row.jumlah_tindakan || 0) + ' tindakan x ' + formatRupiah(row.nominal_hitung || 0),
+                    value: formatRupiah(rawTotal)
+                },
+                {
+                    label: 'Pool BPJS',
+                    note: percentText(percent) + ' dari total VK awal',
+                    value: formatRupiah(pool)
+                },
+                {
+                    label: 'Hasil perhitungan',
+                    note: 'Pool BPJS dibagi ' + formatNumber(pembagi),
+                    value: formatRupiah(hasil)
+                },
+                {
+                    label: 'Pemberian pegawai',
+                    note: modeLabel + ' untuk ' + formatNumber(recipients.length) + ' pegawai',
+                    value: formatRupiah(totalPegawai)
+                }
+            ];
+        }
+
+        function formulaStepsHtml(steps) {
+            return steps.map(function(step, index) {
+                return '' +
+                    '<div class="vk-formula-step">' +
+                    '   <div class="vk-formula-step-number">' + (index + 1) + '</div>' +
+                    '   <div>' +
+                    '       <div class="vk-formula-step-label">' + escapeHtml(step.label) + '</div>' +
+                    '       <div class="vk-formula-step-note">' + escapeHtml(step.note) + '</div>' +
+                    '   </div>' +
+                    '   <div class="vk-formula-step-value">' + escapeHtml(step.value) + '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function renderDetailInfo(row) {
+            const config = row.config_snapshot || {};
+
+            $('#detailVkInfo').html(detailInfoRows([{
+                    label: 'Periode',
+                    value: row.periode || '-'
+                },
+                {
+                    label: 'Ploting',
+                    value: row.ploting_label || '-'
+                },
+                {
+                    label: 'Jumlah tindakan',
+                    value: formatNumber(row.jumlah_tindakan || 0)
+                },
+                {
+                    label: 'Nominal hitung',
+                    value: formatRupiah(row.nominal_hitung || 0)
+                },
+                {
+                    label: 'Mode pembagian',
+                    value: config.distribution_mode_label || '-'
+                },
+                {
+                    label: 'Generate',
+                    value: [row.generate_by_name, row.generated_at].filter(Boolean).join(' / ') || '-'
+                }
+            ]));
+        }
+
+        function renderDetailSnapshot(row) {
+            const config = row.config_snapshot || {};
+
+            $('#detailVkConfigSnapshot').html(detailInfoRows([{
+                    label: 'Formula',
+                    value: config.formula_label || 'Total VK awal x persen BPJS / pembagi'
+                },
+                {
+                    label: 'Persen BPJS',
+                    value: percentText(config.bpjs_percent)
+                },
+                {
+                    label: 'Pembagi',
+                    value: formatNumber(config.bpjs_pembagi || 1)
+                },
+                {
+                    label: 'Mode',
+                    value: config.distribution_mode_label || '-'
+                },
+                {
+                    label: 'Total penerima',
+                    value: formatNumber((row.details || []).length) + ' pegawai'
+                },
+                {
+                    label: 'Total dibagikan',
+                    value: formatRupiah(row.total_dibagikan || row.total_vk || 0)
+                }
+            ]));
+        }
+
+        function renderDetailRecipientMetrics(row) {
+            const details = row.details || [];
+            const total = details.reduce(function(sum, item) {
+                return sum + Number(item.total_received || 0);
+            }, 0);
+            const amounts = details.map(item => Number(item.total_received || 0));
+            const maxAmount = amounts.length ? Math.max.apply(null, amounts) : 0;
+            const minAmount = amounts.length ? Math.min.apply(null, amounts) : 0;
+            const average = details.length ? Math.round(total / details.length) : 0;
+
+            $('#detailVkRecipientMetrics').html(detailInfoRows([{
+                    label: 'Total penerima',
+                    value: formatNumber(details.length) + ' pegawai'
+                },
+                {
+                    label: 'Rata-rata',
+                    value: formatRupiah(average)
+                },
+                {
+                    label: 'Nominal terbesar',
+                    value: formatRupiah(maxAmount)
+                },
+                {
+                    label: 'Nominal terkecil',
+                    value: formatRupiah(minAmount)
+                },
+                {
+                    label: 'Total dibagikan',
+                    value: formatRupiah(total)
+                },
+                {
+                    label: 'Mode',
+                    value: (row.config_snapshot || {}).distribution_mode_label || '-'
+                }
+            ]));
+        }
+
+        function renderDetailRecipients(row, keyword) {
+            const details = row.details || [];
+            const query = String(keyword || '').toLowerCase();
+            const filtered = details.filter(function(item) {
+                return !query ||
+                    String(item.pegawai_name || '').toLowerCase().includes(query) ||
+                    String(item.pegawai_id || '').toLowerCase().includes(query) ||
+                    String(item.pegawai_position || '').toLowerCase().includes(query);
+            });
+            const total = details.reduce(function(sum, item) {
+                return sum + Number(item.total_received || 0);
+            }, 0);
+
+            $('#detailVkRecipientSummary').text(
+                formatNumber(details.length) + ' pegawai penerima / total ' + formatRupiah(total)
+            );
+
+            if (!filtered.length) {
+                $('#detailVkRecipients').html(
+                    '<div class="vk-detail-empty">' +
+                    (details.length ? 'Tidak ada pegawai yang cocok dengan pencarian.' :
+                        'Belum ada pegawai penerima pada hasil BPJS ini.') +
+                    '</div>'
+                );
+                return;
+            }
+
+            $('#detailVkRecipients').html(filtered.map(function(item) {
+                const meta = [
+                    item.pegawai_id || '-',
+                    item.pegawai_position || '-',
+                    item.role_label || 'Petugas VK'
+                ].filter(Boolean).join(' / ');
+                const share = item.allocation_percent == null ?
+                    'Nominal hasil per pegawai' :
+                    percentText(item.allocation_percent) + ' dari pool pegawai';
+                const ratio = total > 0 ? Math.round((Number(item.total_received || 0) / total) * 100) : 0;
+
+                return '' +
+                    '<div class="vk-recipient-item">' +
+                    '   <div class="vk-recipient-avatar">' + escapeHtml(initials(item.pegawai_name)) + '</div>' +
+                    '   <div class="min-w-0">' +
+                    '       <div class="vk-recipient-name">' + escapeHtml(item.pegawai_name || '-') + '</div>' +
+                    '       <div class="vk-recipient-meta">' + escapeHtml(meta) + '</div>' +
+                    '   </div>' +
+                    '   <div class="vk-recipient-amount">' +
+                    formatRupiah(item.total_received || 0) +
+                    '       <span class="vk-recipient-share">' + escapeHtml(share) + ' / ' + ratio + '% total</span>' +
+                    '   </div>' +
+                    '</div>';
+            }).join(''));
+        }
+
+        function activateDetailTab(view) {
+            $('.vk-detail-tab').removeClass('active');
+            $('.vk-detail-tab[data-view="' + view + '"]').addClass('active');
+            $('.vk-detail-view').removeClass('active');
+            $('.vk-detail-view[data-view="' + view + '"]').addClass('active');
+        }
+
+        function openDetailModal(row) {
+            if (!row || row.jenis_vk !== 'bpjs') {
+                Swal.fire('Info', 'Detail perhitungan khusus tersedia untuk VK BPJS.', 'info');
+                return;
+            }
+
+            currentDetailRow = row;
+            const config = row.config_snapshot || {};
+            const steps = detailFormulaSteps(row);
+            const statusHtml = row.is_locked ?
+                '<i class="mdi mdi-lock"></i>Terkunci' :
+                '<i class="mdi mdi-lock-open-variant-outline"></i>Terbuka';
+
+            $('#detailVkTitle').text(row.nm_tindakan || 'VK BPJS');
+            $('#detailVkMeta').text([
+                row.periode,
+                row.ploting_label,
+                row.pj_label && row.pj_label !== '-' ? row.pj_label : null
+            ].filter(Boolean).join(' / '));
+            $('#detailVkStatus').html(statusHtml);
+            $('#detailVkAwal').text(formatRupiah(row.total_vk_awal || row.total_vk || 0));
+            $('#detailVkPool').text(formatRupiah(row.bpjs_pool || 0));
+            $('#detailVkHasil').text(formatRupiah(config.bpjs_hasil_perhitungan || row.total_vk || 0));
+            $('#detailVkDibagikan, #detailVkTotalSelected').text(formatRupiah(row.total_dibagikan || row.total_vk || 0));
+            $('#detailVkFormulaFlow, #detailVkFormulaOnly').html(formulaStepsHtml(steps));
+            $('#detailVkRecipientSearch').val('');
+
+            renderDetailBadges(row);
+            renderDetailComposition(row);
+            renderDetailInfo(row);
+            renderDetailSnapshot(row);
+            renderDetailRecipientMetrics(row);
+            renderDetailRecipients(row, '');
+            activateDetailTab('overview');
+            detailModal.show();
+        }
+
+        function detailSummaryText(row) {
+            const config = row.config_snapshot || {};
+            const lines = [
+                'Detail VK BPJS: ' + (row.nm_tindakan || '-'),
+                'Periode: ' + (row.periode || '-'),
+                'Ploting: ' + (row.ploting_label || '-'),
+                'Total VK awal: ' + formatRupiah(row.total_vk_awal || 0),
+                'Pool BPJS: ' + formatRupiah(row.bpjs_pool || 0),
+                'Hasil rumus: ' + formatRupiah(config.bpjs_hasil_perhitungan || 0),
+                'Mode: ' + (config.distribution_mode_label || '-'),
+                'Total pemberian pegawai: ' + formatRupiah(row.total_dibagikan || row.total_vk || 0),
+                'Pegawai: ' + (row.details || []).map(function(item) {
+                    return (item.pegawai_name || '-') + ' = ' + formatRupiah(item.total_received || 0);
+                }).join(', ')
+            ];
+
+            return lines.join('\n');
+        }
+
+        function copyText(text) {
+            const textarea = $('<textarea>')
+                .val(text)
+                .css({
+                    position: 'fixed',
+                    opacity: 0
+                })
+                .appendTo('body');
+
+            textarea[0].select();
+            document.execCommand('copy');
+            textarea.remove();
         }
 
         function updatePreviewTotal() {
@@ -503,6 +910,8 @@
                     $('#summaryTindakanVk').text(formatNumber(data.jumlah_tindakan));
                     $('#summaryJumlahVk').text(formatNumber(data.total_jumlah_tindakan));
                     $('#summaryDataVk').text(formatNumber(data.generated_count));
+                    $('#summaryHasilHitungVk').text(formatRupiah(data.total_hasil_hitung || 0));
+                    $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
                     $('#summaryTotalVk').text(formatRupiah(data.total_vk));
                     renderPlotingSummary(data.ploting_summaries);
                     $('#summaryVkSubtitle').text(
@@ -512,6 +921,8 @@
                 },
                 error: function() {
                     $('#summaryTindakanVk, #summaryJumlahVk, #summaryDataVk').text('0');
+                    $('#summaryHasilHitungVk').text('Rp 0');
+                    $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
                     $('#summaryTotalVk').text('Rp 0');
                     renderPlotingSummary([]);
                     $('#summaryVkSubtitle').text('Ringkasan gagal dimuat.');
@@ -656,6 +1067,7 @@
             $('.vk-type-tab').removeClass('active');
             $('.vk-type-tab[data-type="' + type + '"]').addClass('active');
             $('#resultVkTitle').text('Hasil Generate VK ' + typeConfig[activeType]);
+            $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
         }
 
         function openGenerateModal(row) {
@@ -1171,6 +1583,36 @@
                 }
             });
         }
+
+        $('.vk-detail-tab').on('click', function() {
+            activateDetailTab($(this).data('view'));
+        });
+
+        $('#detailVkRecipientSearch').on('input', function() {
+            if (currentDetailRow) {
+                renderDetailRecipients(currentDetailRow, this.value);
+            }
+        });
+
+        $('#btnCopyDetailVk').on('click', function() {
+            if (!currentDetailRow) {
+                return;
+            }
+
+            copyText(detailSummaryText(currentDetailRow));
+            Swal.fire({
+                icon: 'success',
+                title: 'Ringkasan disalin',
+                timer: 1200,
+                showConfirmButton: false
+            });
+        });
+
+        $('#tableGenerateVk').on('click', '.btn-detail-vk', function() {
+            const row = table.row($(this).closest('tr')).data();
+
+            openDetailModal(row);
+        });
 
         $('#tableGenerateVk').on('click', '.btn-lock-vk', function() {
             changeLock($(this).data('id'), 'lock');

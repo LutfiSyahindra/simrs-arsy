@@ -291,7 +291,7 @@
         .vk-summary-grid {
             display: grid;
             gap: 11px;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             padding: 15px 17px;
         }
 
@@ -445,6 +445,673 @@
             width: 31px;
         }
 
+        .vk-detail-modal .modal-dialog {
+            max-width: 1120px;
+            width: calc(100% - 1rem);
+        }
+
+        .vk-detail-modal .modal-content {
+            max-height: calc(100vh - 1rem);
+            max-height: calc(100dvh - 1rem);
+        }
+
+        .vk-detail-modal .modal-dialog-scrollable .modal-content {
+            overflow: hidden;
+        }
+
+        .vk-detail-shell {
+            background: #f8fafc;
+            color: #172033;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 1rem);
+            max-height: calc(100dvh - 1rem);
+            min-height: 0;
+        }
+
+        .vk-detail-hero {
+            background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 55%, #be123c 100%);
+            color: #fff;
+            flex: 0 0 auto;
+            padding: 22px;
+        }
+
+        .vk-detail-hero-top {
+            align-items: flex-start;
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+            min-width: 0;
+        }
+
+        .vk-detail-hero-top > .d-flex:first-child {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .vk-detail-hero-top > .d-flex:last-child {
+            flex: 0 0 auto;
+        }
+
+        .vk-detail-icon {
+            align-items: center;
+            background: rgba(255, 255, 255, .16);
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 12px;
+            display: inline-flex;
+            font-size: 28px;
+            flex: 0 0 auto;
+            height: 52px;
+            justify-content: center;
+            width: 52px;
+        }
+
+        .vk-detail-title {
+            font-size: 20px;
+            font-weight: 900;
+            margin: 2px 0 5px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-detail-meta {
+            color: rgba(255, 255, 255, .75);
+            font-size: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-detail-status {
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .22);
+            border-radius: 999px;
+            color: #fff;
+            display: inline-flex;
+            font-size: 11px;
+            font-weight: 800;
+            gap: 6px;
+            padding: 8px 11px;
+            white-space: nowrap;
+        }
+
+        .vk-detail-kpis {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            margin-top: 18px;
+        }
+
+        .vk-detail-kpi {
+            background: rgba(255, 255, 255, .13);
+            border: 1px solid rgba(255, 255, 255, .2);
+            border-radius: 11px;
+            min-width: 0;
+            padding: 12px;
+        }
+
+        .vk-detail-kpi span {
+            color: rgba(255, 255, 255, .72);
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .vk-detail-kpi strong {
+            color: #fff;
+            display: block;
+            font-size: 18px;
+            font-weight: 900;
+            margin-top: 4px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-detail-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .vk-detail-tabs {
+            background: #fff;
+            border: 1px solid var(--vk-line);
+            border-radius: 12px;
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            padding: 7px;
+        }
+
+        .vk-detail-tab {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            border-radius: 9px;
+            color: #64748b;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 7px;
+            justify-content: center;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        .vk-detail-tab i {
+            flex: 0 0 auto;
+        }
+
+        .vk-detail-tab.active {
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        .vk-detail-view {
+            display: none;
+            margin-top: 14px;
+        }
+
+        .vk-detail-view.active {
+            display: block;
+        }
+
+        .vk-detail-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+        }
+
+        .vk-detail-panel {
+            background: #fff;
+            border: 1px solid var(--vk-line);
+            border-radius: 12px;
+            min-width: 0;
+            padding: 14px;
+        }
+
+        .vk-detail-panel-title {
+            align-items: center;
+            color: #0f172a;
+            display: flex;
+            font-size: 13px;
+            font-weight: 900;
+            gap: 7px;
+            margin-bottom: 10px;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-formula-flow {
+            display: grid;
+            gap: 8px;
+        }
+
+        .vk-formula-step {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 34px minmax(0, 1fr) auto;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        .vk-formula-step-number {
+            align-items: center;
+            background: #dbeafe;
+            border-radius: 9px;
+            color: #1d4ed8;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 900;
+            height: 34px;
+            justify-content: center;
+            width: 34px;
+        }
+
+        .vk-formula-step-label {
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .vk-formula-step-note {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 2px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-formula-step-value {
+            color: #be123c;
+            font-size: 14px;
+            font-weight: 900;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .vk-detail-total-line {
+            align-items: center;
+            background: #fff1f2;
+            border: 1px solid #fecdd3;
+            border-radius: 11px;
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin-top: 10px;
+            min-width: 0;
+            padding: 12px;
+        }
+
+        .vk-detail-total-line span {
+            color: #9f1239;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .vk-detail-total-line strong {
+            color: #be123c;
+            font-size: 20px;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+            text-align: right;
+        }
+
+        .vk-recipient-toolbar {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .vk-recipient-search {
+            max-width: 320px;
+            width: 100%;
+        }
+
+        .vk-recipient-list {
+            display: grid;
+            gap: 8px;
+            max-height: 430px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .vk-recipient-item {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 11px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 42px minmax(0, 1fr) auto;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        .vk-recipient-avatar {
+            align-items: center;
+            background: #dbeafe;
+            border-radius: 11px;
+            color: #1d4ed8;
+            display: inline-flex;
+            font-size: 15px;
+            font-weight: 900;
+            height: 42px;
+            justify-content: center;
+            width: 42px;
+        }
+
+        .vk-recipient-name {
+            color: #0f172a;
+            font-size: 13px;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-recipient-meta {
+            color: #64748b;
+            font-size: 11px;
+            margin-top: 1px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-recipient-amount {
+            color: #0f766e;
+            font-size: 14px;
+            font-weight: 900;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .vk-recipient-share {
+            color: #64748b;
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+
+        .vk-detail-empty {
+            color: #64748b;
+            font-size: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .vk-detail-copy {
+            align-items: center;
+            background: #fff;
+            border: 1px solid #bfdbfe;
+            border-radius: 9px;
+            color: #1d4ed8;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 800;
+            gap: 6px;
+            padding: 9px 11px;
+        }
+
+        .vk-detail-modal .modal-dialog {
+            max-width: 1180px;
+        }
+
+        .vk-detail-shell {
+            background: #eef4fb;
+        }
+
+        .vk-detail-hero {
+            background:
+                linear-gradient(135deg, rgba(15, 23, 42, .94), rgba(30, 64, 175, .88)),
+                linear-gradient(90deg, #0f766e, #be123c);
+            padding: 20px 22px 18px;
+        }
+
+        .vk-detail-identity,
+        .vk-detail-actions {
+            align-items: center;
+            display: flex;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .vk-detail-identity {
+            flex: 1 1 auto;
+        }
+
+        .vk-detail-actions {
+            flex: 0 0 auto;
+        }
+
+        .vk-detail-icon {
+            background: #fff;
+            border: 0;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, .2);
+            color: #1d4ed8;
+        }
+
+        .vk-detail-title {
+            font-size: 21px;
+            line-height: 1.2;
+        }
+
+        .vk-detail-status,
+        .vk-detail-copy {
+            backdrop-filter: blur(8px);
+            min-height: 38px;
+        }
+
+        .vk-detail-copy {
+            background: rgba(255, 255, 255, .15);
+            border-color: rgba(255, 255, 255, .3);
+            color: #fff;
+        }
+
+        .vk-detail-copy:hover {
+            background: #fff;
+            color: #1d4ed8;
+        }
+
+        .vk-detail-kpis {
+            gap: 9px;
+            margin-top: 16px;
+        }
+
+        .vk-detail-kpi {
+            background: rgba(255, 255, 255, .1);
+            border-color: rgba(255, 255, 255, .18);
+            border-radius: 8px;
+            padding: 11px 12px;
+        }
+
+        .vk-detail-kpi strong {
+            font-size: 17px;
+        }
+
+        .vk-detail-body {
+            background: #eef4fb;
+            padding: 14px;
+        }
+
+        .vk-detail-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            margin-bottom: 10px;
+        }
+
+        .vk-detail-badge {
+            align-items: center;
+            background: #fff;
+            border: 1px solid #d8e3ef;
+            border-radius: 999px;
+            color: #334155;
+            display: inline-flex;
+            font-size: 11px;
+            font-weight: 800;
+            gap: 6px;
+            min-height: 32px;
+            padding: 7px 10px;
+        }
+
+        .vk-detail-badge i {
+            color: #1d4ed8;
+            font-size: 15px;
+        }
+
+        .vk-detail-tabs {
+            background: #dbe7f3;
+            border: 0;
+            border-radius: 8px;
+            padding: 5px;
+        }
+
+        .vk-detail-tab {
+            border-radius: 7px;
+            min-height: 38px;
+        }
+
+        .vk-detail-tab.active {
+            background: #fff;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, .08);
+        }
+
+        .vk-detail-overview-grid,
+        .vk-detail-recipient-layout {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr);
+        }
+
+        .vk-detail-recipient-layout {
+            grid-template-columns: minmax(260px, .45fr) minmax(0, 1fr);
+        }
+
+        .vk-detail-side {
+            display: grid;
+            gap: 12px;
+        }
+
+        .vk-detail-panel {
+            border: 1px solid #d8e3ef;
+            border-radius: 8px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .04);
+            padding: 13px;
+        }
+
+        .vk-detail-panel-main {
+            min-height: 100%;
+        }
+
+        .vk-formula-flow-wide {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .vk-formula-flow-wide .vk-formula-step {
+            align-items: stretch;
+            grid-template-columns: 1fr;
+            padding: 12px;
+            position: relative;
+        }
+
+        .vk-formula-flow-wide .vk-formula-step:not(:last-child)::after {
+            color: #94a3b8;
+            content: "\F142";
+            font-family: "Material Design Icons";
+            font-size: 20px;
+            position: absolute;
+            right: -17px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 2;
+        }
+
+        .vk-formula-flow-wide .vk-formula-step-number {
+            height: 30px;
+            width: 30px;
+        }
+
+        .vk-formula-flow-wide .vk-formula-step-value {
+            color: #0f766e;
+            font-size: 16px;
+            text-align: left;
+            white-space: normal;
+        }
+
+        .vk-detail-total-line {
+            background: #0f766e;
+            border: 0;
+            color: #fff;
+        }
+
+        .vk-detail-total-line span,
+        .vk-detail-total-line strong {
+            color: #fff;
+        }
+
+        .vk-detail-composition {
+            display: grid;
+            gap: 9px;
+        }
+
+        .vk-composition-row {
+            display: grid;
+            gap: 7px;
+        }
+
+        .vk-composition-head {
+            align-items: center;
+            color: #334155;
+            display: flex;
+            font-size: 11px;
+            font-weight: 800;
+            justify-content: space-between;
+        }
+
+        .vk-composition-track {
+            background: #e2e8f0;
+            border-radius: 999px;
+            height: 8px;
+            overflow: hidden;
+        }
+
+        .vk-composition-bar {
+            background: linear-gradient(90deg, #1d4ed8, #0f766e);
+            border-radius: 999px;
+            height: 100%;
+            min-width: 2px;
+        }
+
+        .vk-detail-stat-grid,
+        .vk-detail-recipient-metrics {
+            display: grid;
+            gap: 8px;
+        }
+
+        .vk-detail-stat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .vk-detail-stat {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            min-width: 0;
+            padding: 10px;
+        }
+
+        .vk-detail-stat span {
+            color: #64748b;
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .vk-detail-stat strong {
+            color: #0f172a;
+            display: block;
+            font-size: 13px;
+            font-weight: 900;
+            margin-top: 3px;
+            overflow-wrap: anywhere;
+        }
+
+        .vk-recipient-toolbar {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 9px;
+            padding: 10px;
+        }
+
+        .vk-recipient-list {
+            max-height: 470px;
+        }
+
+        .vk-recipient-item {
+            background: #fff;
+            border-radius: 8px;
+            grid-template-columns: 42px minmax(0, 1fr) minmax(150px, auto);
+        }
+
+        .vk-recipient-avatar {
+            background: #ecfdf5;
+            color: #0f766e;
+        }
+
+        .vk-recipient-amount {
+            color: #1d4ed8;
+        }
+
         #modalGenerateVk .modal-dialog {
             max-height: calc(100vh - 1rem);
             max-height: calc(100dvh - 1rem);
@@ -557,11 +1224,20 @@
             align-items: center;
             display: flex;
             font-size: 12px;
+            gap: 10px;
             justify-content: space-between;
+            min-width: 0;
+        }
+
+        .vk-bpjs-preview-row span,
+        .vk-bpjs-preview-row strong {
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
 
         .vk-bpjs-preview-row strong {
             font-size: 13px;
+            text-align: right;
         }
 
         .vk-action-option {
@@ -608,15 +1284,158 @@
             .vk-summary-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
+
+            .vk-detail-kpis {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .vk-detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .vk-detail-overview-grid,
+            .vk-detail-recipient-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .vk-formula-flow-wide {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .vk-formula-flow-wide .vk-formula-step:not(:last-child)::after {
+                display: none;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .vk-detail-modal .modal-dialog {
+                margin: .5rem auto;
+                width: calc(100% - 1rem);
+            }
+
+            .vk-detail-hero,
+            .vk-detail-body {
+                padding: 14px;
+            }
+
+            .vk-detail-title {
+                font-size: 17px;
+            }
+
+            .vk-detail-icon {
+                border-radius: 10px;
+                font-size: 23px;
+                height: 44px;
+                width: 44px;
+            }
+
+            .vk-detail-kpi strong {
+                font-size: 16px;
+            }
+
+            .vk-formula-step {
+                align-items: start;
+                grid-template-columns: 32px minmax(0, 1fr);
+            }
+
+            .vk-formula-step-value {
+                grid-column: 2;
+                text-align: left;
+                white-space: normal;
+            }
+
+            .vk-detail-total-line {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .vk-detail-total-line strong {
+                text-align: left;
+            }
+
+            .vk-recipient-item {
+                align-items: start;
+                grid-template-columns: 38px minmax(0, 1fr);
+            }
+
+            .vk-recipient-avatar {
+                border-radius: 10px;
+                height: 38px;
+                width: 38px;
+            }
+
+            .vk-recipient-amount {
+                grid-column: 2;
+                text-align: left;
+                white-space: normal;
+            }
+
+            .vk-bpjs-preview-row {
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .vk-bpjs-preview-row strong {
+                overflow-wrap: anywhere;
+                text-align: right;
+            }
         }
 
         @media (max-width: 575.98px) {
+            .vk-detail-modal .modal-dialog {
+                height: 100%;
+                margin: 0;
+                max-width: none;
+                width: 100%;
+            }
+
+            .vk-detail-modal .modal-content,
+            .vk-detail-shell {
+                border-radius: 0 !important;
+                max-height: 100vh;
+                max-height: 100dvh;
+                min-height: 100vh;
+                min-height: 100dvh;
+            }
+
             .vk-type-tabs {
                 display: grid;
             }
 
             .vk-summary-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .vk-detail-hero-top,
+            .vk-recipient-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .vk-detail-actions {
+                align-items: stretch;
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+            }
+
+            .vk-detail-kpis,
+            .vk-detail-tabs,
+            .vk-formula-flow-wide,
+            .vk-detail-stat-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .vk-detail-status {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .vk-bpjs-preview-row {
+                flex-direction: column;
+            }
+
+            .vk-bpjs-preview-row strong {
+                text-align: left;
             }
         }
     </style>
@@ -729,6 +1548,10 @@
                 <div class="vk-summary-card">
                     <div class="vk-summary-label">Data Generate</div>
                     <div class="vk-summary-value" id="summaryDataVk">0</div>
+                </div>
+                <div class="vk-summary-card d-none" id="summaryHasilHitungVkCard">
+                    <div class="vk-summary-label">Total Hasil Hitung</div>
+                    <div class="vk-summary-value" id="summaryHasilHitungVk">Rp 0</div>
                 </div>
                 <div class="vk-summary-card total">
                     <div class="vk-summary-label">Total VK</div>

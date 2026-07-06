@@ -34,9 +34,17 @@ class hitungPremiVkController extends Controller
         )
             ->addIndexColumn()
             ->addColumn('actions', function ($row) use ($canUnlock) {
+                $detailButton = $row['jenis_vk'] === 'bpjs' ? '
+                    <button type="button" class="btn btn-outline-info btn-detail-vk"
+                        data-id="'.$row['id'].'" title="Detail perhitungan BPJS">
+                        <i class="mdi mdi-eye-outline"></i>
+                    </button>
+                ' : '';
+
                 if (! $row['is_locked']) {
                     return '
                         <div class="vk-actions">
+                            '.$detailButton.'
                             <button type="button" class="btn btn-outline-primary btn-edit-vk"
                                 data-id="'.$row['id'].'" title="Revisi data">
                                 <i class="mdi mdi-pencil-outline"></i>
@@ -56,6 +64,7 @@ class hitungPremiVkController extends Controller
                 if ($canUnlock) {
                     return '
                         <div class="vk-actions">
+                            '.$detailButton.'
                             <button type="button" class="btn btn-outline-success btn-unlock-vk"
                                 data-id="'.$row['id'].'" title="Buka kunci">
                                 <i class="mdi mdi-lock-open-variant-outline"></i>
@@ -66,6 +75,7 @@ class hitungPremiVkController extends Controller
 
                 return '
                     <div class="vk-actions">
+                        '.$detailButton.'
                         <button type="button" class="btn btn-light" disabled
                             title="Hanya Admin yang dapat membuka kunci">
                             <i class="mdi mdi-lock"></i>

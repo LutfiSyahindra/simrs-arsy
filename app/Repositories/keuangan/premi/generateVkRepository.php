@@ -15,7 +15,7 @@ class generateVkRepository
     public function getResults(?string $periode = null, ?string $jenisVk = null): Collection
     {
         return generateVkModel::query()
-            ->with(['lockedBy:id,name', 'generateBy:id,name'])
+            ->with(['details', 'lockedBy:id,name', 'generateBy:id,name'])
             ->withCount('details')
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when($jenisVk, fn ($query) => $query->where('jenis_vk', $jenisVk))
@@ -43,9 +43,30 @@ class generateVkRepository
             'locked_count' => $rows->where('is_locked', true)->count(),
             'total_vk_awal' => $rows->sum('total_vk_awal') ?: $rows->sum('total_vk'),
             'bpjs_pool' => $rows->sum('bpjs_pool'),
+            'total_hasil_hitung' => $this->totalHasilHitung($rows),
             'total_dibagikan' => $rows->sum('total_dibagikan'),
             'ploting_summaries' => $this->plotingSummaries($rows),
         ];
+    }
+
+    private function totalHasilHitung(Collection $rows): int
+    {
+        return (int) $rows->sum(function ($row) {
+            $snapshot = $row->config_snapshot ?: [];
+            $hasilHitung = data_get($snapshot, 'bpjs_hasil_perhitungan');
+
+            if ($hasilHitung !== null) {
+                return (int) round((float) $hasilHitung);
+            }
+
+            if ($row->jenis_vk === 'bpjs') {
+                $pembagi = max(1, (int) data_get($snapshot, 'bpjs_pembagi', 1));
+
+                return (int) round(((int) ($row->bpjs_pool ?? 0)) / $pembagi);
+            }
+
+            return (int) ($row->total_vk ?? 0);
+        });
     }
 
     private function plotingSummaries(Collection $rows): array

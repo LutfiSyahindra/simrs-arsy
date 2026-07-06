@@ -64,6 +64,158 @@
     </div>
 </div>
 
+<div class="modal fade vk-detail-modal" id="modalDetailVk" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 rounded-3 overflow-hidden">
+            <div class="vk-detail-shell">
+                <div class="vk-detail-hero">
+                    <div class="vk-detail-hero-top">
+                        <div class="vk-detail-identity">
+                            <div class="vk-detail-icon">
+                                <i class="mdi mdi-shield-account-outline"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="vk-eyebrow">Detail Generate BPJS</div>
+                                <div class="vk-detail-title" id="detailVkTitle">VK BPJS</div>
+                                <div class="vk-detail-meta" id="detailVkMeta">-</div>
+                            </div>
+                        </div>
+                        <div class="vk-detail-actions">
+                            <span class="vk-detail-status" id="detailVkStatus">
+                                <i class="mdi mdi-lock-open-variant-outline"></i>
+                                Terbuka
+                            </span>
+                            <button type="button" class="vk-detail-copy" id="btnCopyDetailVk">
+                                <i class="mdi mdi-content-copy"></i>
+                                Salin
+                            </button>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                    </div>
+                    <div class="vk-detail-kpis">
+                        <div class="vk-detail-kpi">
+                            <span>Total VK awal</span>
+                            <strong id="detailVkAwal">Rp 0</strong>
+                        </div>
+                        <div class="vk-detail-kpi">
+                            <span>Pool BPJS</span>
+                            <strong id="detailVkPool">Rp 0</strong>
+                        </div>
+                        <div class="vk-detail-kpi">
+                            <span>Hasil Rumus</span>
+                            <strong id="detailVkHasil">Rp 0</strong>
+                        </div>
+                        <div class="vk-detail-kpi">
+                            <span>Total Pegawai</span>
+                            <strong id="detailVkDibagikan">Rp 0</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="vk-detail-body">
+                    <div class="vk-detail-badges" id="detailVkBadges"></div>
+
+                    <div class="vk-detail-tabs" role="tablist">
+                        <button type="button" class="vk-detail-tab active" data-view="overview">
+                            <i class="mdi mdi-view-dashboard-outline"></i>
+                            Ringkasan
+                        </button>
+                        <button type="button" class="vk-detail-tab" data-view="pegawai">
+                            <i class="mdi mdi-account-group-outline"></i>
+                            Pegawai
+                        </button>
+                        <button type="button" class="vk-detail-tab" data-view="formula">
+                            <i class="mdi mdi-calculator-variant-outline"></i>
+                            Formula
+                        </button>
+                    </div>
+
+                    <div class="vk-detail-view active" data-view="overview">
+                        <div class="vk-detail-overview-grid">
+                            <div class="vk-detail-panel vk-detail-panel-main">
+                                <div class="vk-detail-panel-title">
+                                    <i class="mdi mdi-transit-connection-variant text-primary"></i>
+                                    Alur Perhitungan
+                                </div>
+                                <div class="vk-formula-flow vk-formula-flow-wide" id="detailVkFormulaFlow"></div>
+                                <div class="vk-detail-total-line">
+                                    <span>Total pemberian pegawai dipilih</span>
+                                    <strong id="detailVkTotalSelected">Rp 0</strong>
+                                </div>
+                            </div>
+                            <div class="vk-detail-side">
+                                <div class="vk-detail-panel">
+                                    <div class="vk-detail-panel-title">
+                                        <i class="mdi mdi-chart-donut text-primary"></i>
+                                        Komposisi
+                                    </div>
+                                    <div class="vk-detail-composition" id="detailVkComposition"></div>
+                                </div>
+                                <div class="vk-detail-panel">
+                                    <div class="vk-detail-panel-title">
+                                        <i class="mdi mdi-information-outline text-primary"></i>
+                                        Informasi Generate
+                                    </div>
+                                    <div id="detailVkInfo"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vk-detail-view" data-view="pegawai">
+                        <div class="vk-detail-recipient-layout">
+                            <div class="vk-detail-panel">
+                                <div class="vk-detail-panel-title">
+                                    <i class="mdi mdi-account-multiple-check-outline text-primary"></i>
+                                    Ringkasan Pegawai
+                                </div>
+                                <div class="vk-detail-recipient-metrics" id="detailVkRecipientMetrics"></div>
+                            </div>
+                            <div class="vk-detail-panel vk-detail-panel-main">
+                                <div class="vk-recipient-toolbar">
+                                    <div>
+                                        <div class="vk-detail-panel-title mb-1">
+                                            <i class="mdi mdi-account-group-outline text-primary"></i>
+                                            Pegawai Penerima
+                                        </div>
+                                        <small class="text-muted" id="detailVkRecipientSummary">0 pegawai penerima.</small>
+                                    </div>
+                                    <div class="input-group vk-recipient-search">
+                                        <span class="input-group-text bg-white border-end-0">
+                                            <i class="mdi mdi-magnify text-muted"></i>
+                                        </span>
+                                        <input type="search" class="form-control border-start-0" id="detailVkRecipientSearch"
+                                            placeholder="Cari pegawai...">
+                                    </div>
+                                </div>
+                                <div class="vk-recipient-list" id="detailVkRecipients"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vk-detail-view" data-view="formula">
+                        <div class="vk-detail-grid">
+                            <div class="vk-detail-panel">
+                                <div class="vk-detail-panel-title">
+                                    <i class="mdi mdi-function-variant text-primary"></i>
+                                    Rumus Tersimpan
+                                </div>
+                                <div class="vk-formula-flow" id="detailVkFormulaOnly"></div>
+                            </div>
+                            <div class="vk-detail-panel">
+                                <div class="vk-detail-panel-title">
+                                    <i class="mdi mdi-clipboard-text-outline text-primary"></i>
+                                    Snapshot Konfigurasi
+                                </div>
+                                <div id="detailVkConfigSnapshot"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="modalConfigVk" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <form class="modal-content border-0 rounded-3" id="formConfigVk">
