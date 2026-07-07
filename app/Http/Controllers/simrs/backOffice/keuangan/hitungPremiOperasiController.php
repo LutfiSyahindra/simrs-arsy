@@ -5,10 +5,13 @@ namespace App\Http\Controllers\simrs\backOffice\keuangan;
 use App\Http\Controllers\Controller;
 use App\Services\keuangan\premi\generateOperasiService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
 class hitungPremiOperasiController extends Controller
 {
+    private const MAX_TOTAL_OPERASI = 999999999999;
+
     public function __construct(
         protected generateOperasiService $service
     ) {}
@@ -170,16 +173,15 @@ class hitungPremiOperasiController extends Controller
 
     public function preview(Request $request)
     {
-        $validated = $request->validate([
-            'jenis_operasi' => ['required', 'in:umum,bpjs'],
-            'total_operasi' => ['required', 'integer', 'min:0', 'max:999999999999'],
-        ]);
+        $validated = $this->validateGenerateInput($request);
 
         return response()->json([
             'status' => true,
             'data' => $this->service->preview(
                 $validated['jenis_operasi'],
-                (int) $validated['total_operasi']
+                (int) $validated['total_operasi_resolved'],
+                $validated['jumlah_pasien'] ?? null,
+                $validated['nominal_pengali'] ?? null
             ),
         ]);
     }
@@ -194,16 +196,14 @@ class hitungPremiOperasiController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'periode' => ['required', 'date_format:Y-m'],
-            'jenis_operasi' => ['required', 'in:umum,bpjs'],
-            'total_operasi' => ['required', 'integer', 'min:0', 'max:999999999999'],
-        ]);
+        $validated = $this->validateGenerateInput($request, true);
 
         $result = $this->service->generate(
             $validated['periode'],
             $validated['jenis_operasi'],
-            (int) $validated['total_operasi']
+            (int) $validated['total_operasi_resolved'],
+            $validated['jumlah_pasien'] ?? null,
+            $validated['nominal_pengali'] ?? null
         );
 
         return response()->json([
@@ -239,5 +239,51 @@ class hitungPremiOperasiController extends Controller
             'status' => true,
             'message' => 'Data operasi berhasil dihapus.',
         ]);
+    }
+
+    private function validateGenerateInput(Request $request, bool $withPeriod = false): array
+    {
+        $jenisOperasi = $request->input('jenis_operasi');
+        $rules = [
+            'jenis_operasi' => ['required', 'in:umum,bpjs'],
+        ];
+
+        if ($withPeriod) {
+            $rules['periode'] = ['required', 'date_format:Y-m'];
+        }
+
+        if ($jenisOperasi === 'bpjs') {
+            $rules['jumlah_pasien'] = ['required', 'integer', 'min:1', 'max:1000000'];
+            $rules['nominal_pengali'] = ['required', 'integer', 'min:1', 'max:999999999999'];
+            $rules['total_operasi'] = ['nullable', 'integer', 'min:0', 'max:'.self::MAX_TOTAL_OPERASI];
+        } else {
+            $rules['total_operasi'] = ['required', 'integer', 'min:0', 'max:'.self::MAX_TOTAL_OPERASI];
+            $rules['jumlah_pasien'] = ['nullable', 'integer', 'min:0', 'max:1000000'];
+            $rules['nominal_pengali'] = ['nullable', 'integer', 'min:0', 'max:999999999999'];
+        }
+
+        $validated = $request->validate($rules, [], [
+            'jumlah_pasien' => 'jumlah PX BPJS',
+            'nominal_pengali' => 'nominal BPJS',
+            'total_operasi' => 'total nominal pendapatan operasi',
+        ]);
+
+        if (($validated['jenis_operasi'] ?? null) === 'bpjs') {
+            $total = (int) $validated['jumlah_pasien'] * (int) $validated['nominal_pengali'];
+
+            if ($total > self::MAX_TOTAL_OPERASI) {
+                throw ValidationException::withMessages([
+                    'nominal_pengali' => 'Grand total BPJS melebihi batas maksimal.',
+                ]);
+            }
+
+            $validated['total_operasi_resolved'] = $total;
+
+            return $validated;
+        }
+
+        $validated['total_operasi_resolved'] = (int) $validated['total_operasi'];
+
+        return $validated;
     }
 }

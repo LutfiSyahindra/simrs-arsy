@@ -813,17 +813,7 @@ class generatePremiBersamaRepository
                 $jenisPelayanan,
                 $forUpdate
             ),
-            $this->plainGeneratorSource(
-                'operasi',
-                'Operasi',
-                'generate_operasi',
-                'jenis_operasi',
-                'total_operasi',
-                'total_premi_bersama',
-                $periode,
-                $jenisPelayanan,
-                $forUpdate
-            ),
+            $this->operasiGeneratorSource($periode, $forUpdate),
         ])->values();
     }
 
@@ -1824,6 +1814,51 @@ class generatePremiBersamaRepository
             $countColumn,
             $totalColumn
         );
+    }
+
+    private function operasiGeneratorSource(
+        string $periode,
+        bool $forUpdate = false
+    ): array {
+        $table = 'generate_operasi';
+        $sourceType = 'umum+bpjs';
+        $label = 'Operasi UMUM + BPJS';
+
+        if (! Schema::hasTable($table)) {
+            return $this->emptyGeneratorSource(
+                'operasi',
+                $label,
+                $table,
+                $periode,
+                $sourceType,
+                'Tabel belum tersedia'
+            );
+        }
+
+        $query = DB::table($table)
+            ->where('periode', $periode)
+            ->whereIn('jenis_operasi', ['umum', 'bpjs']);
+
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
+        $source = $this->aggregateGeneratorRows(
+            'operasi',
+            $label,
+            $table,
+            $periode,
+            $sourceType,
+            $query->get(),
+            'total_operasi',
+            'total_premi_bersama'
+        );
+
+        $source['raw_snapshot']['umum_source_periode'] = $periode;
+        $source['raw_snapshot']['bpjs_source_periode'] = $periode;
+        $source['note'] .= ' UMUM dan BPJS periode '.$periode.'.';
+
+        return $source;
     }
 
     private function apotekGeneratorSource(

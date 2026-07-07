@@ -14,6 +14,8 @@ class generateOperasiModel extends Model
     protected $fillable = [
         'periode',
         'jenis_operasi',
+        'jumlah_pasien',
+        'nominal_pengali',
         'total_operasi',
         'total_instrumen',
         'total_premi_bersama',
@@ -31,6 +33,8 @@ class generateOperasiModel extends Model
 
     protected $casts = [
         'total_operasi' => 'integer',
+        'jumlah_pasien' => 'integer',
+        'nominal_pengali' => 'integer',
         'total_instrumen' => 'integer',
         'total_premi_bersama' => 'integer',
         'total_instrumen_petugas' => 'integer',

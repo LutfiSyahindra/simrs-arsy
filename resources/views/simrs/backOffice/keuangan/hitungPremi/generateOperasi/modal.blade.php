@@ -47,13 +47,41 @@
                                 <input type="text" class="form-control" id="jenisGenerateOperasiLabel" readonly>
                                 <input type="hidden" id="jenisGenerateOperasi">
                             </div>
-                            <div class="mb-3">
+                            <div class="mb-3" id="totalGenerateOperasiGroup">
                                 <label class="form-label">Total Nominal Pendapatan Operasi</label>
                                 <div class="input-group">
                                     <span class="input-group-text">Rp</span>
                                     <input type="text" class="form-control text-end fw-bold"
                                         id="totalGenerateOperasi" inputmode="numeric" autocomplete="off"
                                         placeholder="0">
+                                </div>
+                            </div>
+                            <div class="d-none" id="bpjsGenerateOperasiGroup">
+                                <div class="mb-3">
+                                    <label class="form-label">Jumlah PX BPJS</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text"><i class="mdi mdi-account-injury-outline"></i></span>
+                                        <input type="text" class="form-control text-end fw-bold"
+                                            id="jumlahPasienGenerateOperasi" inputmode="numeric" autocomplete="off"
+                                            placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Nominal</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="text" class="form-control text-end fw-bold"
+                                            id="nominalPengaliGenerateOperasi" inputmode="numeric" autocomplete="off"
+                                            placeholder="0">
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Grand Total BPJS (PX x Nominal)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="text" class="form-control text-end fw-bold"
+                                            id="grandTotalBpjsGenerateOperasi" readonly value="0">
+                                    </div>
                                 </div>
                             </div>
 
@@ -301,6 +329,13 @@
                     </div>
                 </div>
 
+                <div class="alert alert-info d-none" id="configBpjsFlowHint">
+                    <strong>Alur BPJS:</strong> grand total berasal dari jumlah PX x nominal.
+                    Anastesi mengambil 80% untuk pegawai anastesi dan 20% ke premi bersama. Instrumen mengambil
+                    80% dari grand total, lalu dipecah 80% untuk pegawai instrumen dan 20% untuk pegawai khusus.
+                    Sisa 20% dari grand total masuk premi bersama.
+                </div>
+
                 <div class="operasi-config-flow">
                     <div class="operasi-config-step">
                         <div class="operasi-config-step-number">1</div>
@@ -355,7 +390,7 @@
                         <div class="operasi-config-field">
                             <div>
                                 <label class="form-label">Instrumen dari total operasi</label>
-                                <small>Default 10% dari total pendapatan operasi.</small>
+                                <small>UMUM mengikuti konfigurasi. BPJS memakai 80% dari grand total.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -365,8 +400,8 @@
                         </div>
                         <div class="operasi-config-field">
                             <div>
-                                <label class="form-label">Premi bersama dari instrumen</label>
-                                <small>Default 20% dari pool instrumen.</small>
+                                <label class="form-label">Premi bersama instrumen</label>
+                                <small>UMUM dari pool instrumen. BPJS memakai 20% dari grand total.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -374,7 +409,7 @@
                                 <span class="input-group-text">%</span>
                             </div>
                         </div>
-                        <div class="operasi-config-field">
+                        <div class="operasi-config-field" id="configInstrumenPetugasField">
                             <div>
                                 <label class="form-label">Petugas instrumen dari instrumen</label>
                                 <small>Default 80% dari pool instrumen.</small>
@@ -387,8 +422,8 @@
                         </div>
                         <div class="operasi-config-field">
                             <div>
-                                <label class="form-label">Kelompok petugas 20</label>
-                                <small>Dibagi rata ke penerima kelompok 20.</small>
+                                <label class="form-label">Pegawai khusus instrumen 20%</label>
+                                <small>Dibagi rata ke pegawai khusus yang dipilih.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -398,8 +433,8 @@
                         </div>
                         <div class="operasi-config-field">
                             <div>
-                                <label class="form-label">Kelompok petugas 80</label>
-                                <small>Dibagi rata ke penerima kelompok 80.</small>
+                                <label class="form-label">Pegawai instrumen 80%</label>
+                                <small>Dibagi rata ke pegawai instrumen yang dipilih.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -411,7 +446,7 @@
 
                     <div class="operasi-config-section">
                         <h6><i class="mdi mdi-stethoscope me-1"></i> Persentase Anastesi</h6>
-                        <div class="operasi-config-field">
+                        <div class="operasi-config-field" id="configDokterAnastesiPercentField">
                             <div>
                                 <label class="form-label">Pool anastesi dari total operasi</label>
                                 <small>Default 40% dari total pendapatan operasi.</small>
@@ -422,7 +457,7 @@
                                 <span class="input-group-text">%</span>
                             </div>
                         </div>
-                        <div class="operasi-config-field">
+                        <div class="operasi-config-field" id="configPerawatAnastesiPercentField">
                             <div>
                                 <label class="form-label">Perawat anastesi dari pool anastesi</label>
                                 <small>Default 10%; bagian ini dipecah lagi untuk petugas dan premi bersama.</small>
@@ -435,8 +470,8 @@
                         </div>
                         <div class="operasi-config-field">
                             <div>
-                                <label class="form-label">Petugas anestesi dari bagian perawat</label>
-                                <small>Default 80% dari bagian perawat anastesi untuk penerima yang dipilih.</small>
+                                <label class="form-label">Pegawai anastesi</label>
+                                <small>BPJS memakai 80% dari grand total. UMUM memakai bagian perawat anastesi.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -446,8 +481,8 @@
                         </div>
                         <div class="operasi-config-field">
                             <div>
-                                <label class="form-label">Premi bersama dari bagian perawat</label>
-                                <small>Default 20% dari bagian perawat anastesi masuk premi bersama.</small>
+                                <label class="form-label">Premi bersama anastesi</label>
+                                <small>BPJS memakai 20% dari grand total. UMUM memakai bagian perawat anastesi.</small>
                             </div>
                             <div class="input-group">
                                 <input type="number" step="0.01" min="0" max="100" class="form-control"
@@ -456,22 +491,22 @@
                             </div>
                         </div>
                         <div class="alert alert-light border mb-0">
-                            <strong>Catatan:</strong> dokter anastesi menerima sisa pool anastesi setelah bagian
-                            perawat dihitung. Dari bagian perawat, 80% default dibagikan ke petugas anastesi dan 20%
-                            default masuk premi bersama.
+                            <strong>Catatan:</strong> untuk BPJS, anastesi langsung memakai grand total dengan pola
+                            80% pegawai dan 20% premi bersama. Untuk UMUM, dokter anastesi menerima sisa pool anastesi
+                            setelah bagian perawat dihitung.
                         </div>
                     </div>
 
                     <div class="operasi-config-section">
                         <h6><i class="mdi mdi-account-group-outline me-1"></i> Penerima Instrumen</h6>
                         <div class="mb-3">
-                            <label class="form-label">Petugas Instrumen Kelompok 20%</label>
+                            <label class="form-label">Pegawai Khusus Instrumen 20%</label>
                             <select class="form-select operasi-pegawai-select" id="configInstrumen20Recipients"
                                 multiple></select>
                             <div class="operasi-recipient-counter" id="countInstrumen20Recipients">0 penerima dipilih</div>
                         </div>
                         <div>
-                            <label class="form-label">Petugas Instrumen Kelompok 80%</label>
+                            <label class="form-label">Pegawai Instrumen 80%</label>
                             <select class="form-select operasi-pegawai-select" id="configInstrumen80Recipients"
                                 multiple></select>
                             <div class="operasi-recipient-counter" id="countInstrumen80Recipients">0 penerima dipilih</div>
@@ -480,14 +515,14 @@
 
                     <div class="operasi-config-section">
                         <h6><i class="mdi mdi-doctor me-1"></i> Penerima Anastesi</h6>
-                        <div class="mb-3">
+                        <div class="mb-3" id="configDokterAnastesiRecipientsGroup">
                             <label class="form-label">Dokter Anastesi</label>
                             <select class="form-select operasi-dokter-select" id="configDokterAnastesiRecipients"
                                 multiple></select>
                             <div class="operasi-recipient-counter" id="countDokterAnastesiRecipients">0 penerima dipilih</div>
                         </div>
                         <div>
-                            <label class="form-label">Perawat Anastesi</label>
+                            <label class="form-label" id="configPerawatAnastesiRecipientsLabel">Perawat Anastesi</label>
                             <select class="form-select operasi-pegawai-select" id="configPerawatAnastesiRecipients"
                                 multiple></select>
                             <div class="operasi-recipient-counter" id="countPerawatAnastesiRecipients">0 penerima dipilih</div>

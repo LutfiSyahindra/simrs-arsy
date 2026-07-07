@@ -68,6 +68,44 @@
             el.value = value ? formatNumber(value) : '';
         }
 
+        function resetGeneratePreview(message) {
+            previewReady = false;
+            $('#btnSubmitGenerateOperasi').prop('disabled', true);
+            $('#previewGenerateOperasiWrap').addClass('d-none');
+            $('#previewQualityOperasi').empty();
+            $('#previewHintOperasi').removeClass('alert-success alert-danger alert-warning').addClass('alert-info')
+                .text(message || 'Masukkan data generate, lalu tampilkan preview konfigurasi sebelum generate.');
+        }
+
+        function bpjsGrandTotal() {
+            return Number(numeric($('#jumlahPasienGenerateOperasi').val())) *
+                Number(numeric($('#nominalPengaliGenerateOperasi').val()));
+        }
+
+        function updateGenerateInputMode() {
+            const isBpjs = activeType === 'bpjs';
+            $('#totalGenerateOperasiGroup').toggleClass('d-none', isBpjs);
+            $('#bpjsGenerateOperasiGroup').toggleClass('d-none', !isBpjs);
+            $('#grandTotalBpjsGenerateOperasi').val(formatNumber(bpjsGrandTotal()));
+        }
+
+        function generatePayload() {
+            const jenis = $('#jenisGenerateOperasi').val() || activeType;
+
+            if (jenis === 'bpjs') {
+                return {
+                    jenis_operasi: jenis,
+                    jumlah_pasien: numeric($('#jumlahPasienGenerateOperasi').val()),
+                    nominal_pengali: numeric($('#nominalPengaliGenerateOperasi').val())
+                };
+            }
+
+            return {
+                jenis_operasi: jenis,
+                total_operasi: numeric($('#totalGenerateOperasi').val())
+            };
+        }
+
         function setDefaultPeriod() {
             const now = new Date();
             $('#periodeOperasi').val(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
@@ -162,10 +200,11 @@
         }
 
         function recipientStatsFromRecipients(recipients) {
+            const dokterAnastesiCount = activeType === 'bpjs' ? 0 : (recipients.dokter_anastesi || []).length;
             const counts = {
                 instrumen20: (recipients.instrumen_20 || []).length,
                 instrumen80: (recipients.instrumen_80 || []).length,
-                dokterAnastesi: (recipients.dokter_anastesi || []).length,
+                dokterAnastesi: dokterAnastesiCount,
                 perawatAnastesi: (recipients.perawat_anastesi || []).length
             };
 
@@ -194,11 +233,21 @@
             renderMiniStats('#generateConfigStats', recipientStatsFromRecipients((config || {}).recipients || {}));
         }
 
+        function applyConfigMode() {
+            const isBpjs = activeType === 'bpjs';
+            $('#configInstrumenPetugasField, #configDokterAnastesiPercentField, #configPerawatAnastesiPercentField, #configDokterAnastesiRecipientsGroup')
+                .toggleClass('d-none', isBpjs);
+            $('#configPerawatAnastesiRecipientsLabel').text(isBpjs ? 'Pegawai Anastesi' : 'Perawat Anastesi');
+            $('#formConfigOperasi input[type="number"]').prop('readonly', isBpjs);
+        }
+
         function formRecipients() {
+            const isBpjs = activeType === 'bpjs';
+
             return {
                 instrumen_20: $('#configInstrumen20Recipients').val() || [],
                 instrumen_80: $('#configInstrumen80Recipients').val() || [],
-                dokter_anastesi: $('#configDokterAnastesiRecipients').val() || [],
+                dokter_anastesi: isBpjs ? [] : ($('#configDokterAnastesiRecipients').val() || []),
                 perawat_anastesi: $('#configPerawatAnastesiRecipients').val() || []
             };
         }
@@ -217,19 +266,25 @@
         function updateConfigOverview() {
             const stats = recipientStatsFromRecipients(formRecipients());
             const instrumenSplit = numericFloat('#configPremiBersamaPercent') + numericFloat('#configInstrumenPetugasPercent');
+            const bpjsInstrumenSplit = numericFloat('#configInstrumenPercent') + numericFloat('#configPremiBersamaPercent');
             const petugasSplit = numericFloat('#configInstrumen20Percent') + numericFloat('#configInstrumen80Percent');
             const anastesiPercent = numericFloat('#configDokterAnastesiPercent');
             const perawatPercent = numericFloat('#configPerawatAnastesiPercent');
             const perawatSplit = numericFloat('#configPerawatAnastesiPetugasPercent') + numericFloat('#configPerawatAnastesiBersamaPercent');
-
-            renderMiniStats('#configRecipientStats', stats);
-            $('#configFormulaHealth').html([
+            const rows = activeType === 'bpjs' ? [
+                healthRow(Math.abs(bpjsInstrumenSplit - 100) < 0.01, 'Instrumen 80 + premi bersama 20 = ' + formatNumber(bpjsInstrumenSplit) + '% dari grand total'),
+                healthRow(Math.abs(petugasSplit - 100) < 0.01, 'Instrumen dibagi pegawai 80 + pegawai khusus 20 = ' + formatNumber(petugasSplit) + '% dari pool instrumen'),
+                healthRow(Math.abs(perawatSplit - 100) < 0.01, 'Anastesi pegawai 80 + premi bersama 20 = ' + formatNumber(perawatSplit) + '% dari grand total')
+            ] : [
                 healthRow(Math.abs(instrumenSplit - 100) < 0.01, 'Premi bersama + petugas instrumen = ' + formatNumber(instrumenSplit) + '%'),
                 healthRow(Math.abs(petugasSplit - 100) < 0.01, 'Kelompok instrumen 20 + 80 = ' + formatNumber(petugasSplit) + '%'),
                 healthRow(anastesiPercent > 0, 'Pool anastesi dari total operasi = ' + formatNumber(anastesiPercent) + '%'),
                 healthRow(perawatPercent <= 100, 'Bagian perawat anastesi dari pool anastesi = ' + formatNumber(perawatPercent) + '%'),
                 healthRow(Math.abs(perawatSplit - 100) < 0.01, 'Petugas anastesi + premi bersama = ' + formatNumber(perawatSplit) + '%')
-            ].join(''));
+            ];
+
+            renderMiniStats('#configRecipientStats', stats);
+            $('#configFormulaHealth').html(rows.join(''));
         }
 
         function percentText(value) {
@@ -240,9 +295,65 @@
             const p = (config && config.percentages) || {};
             const recipients = (config && config.recipients) || {};
             const recipientCounts = (config && config.recipient_counts) || {};
+            const isBpjs = (config && config.jenis_operasi === 'bpjs') || activeType === 'bpjs';
             const count = function(role) {
                 return (recipients[role] || []).length || Number(recipientCounts[role] || 0);
             };
+
+            if (isBpjs) {
+                return [
+                    {
+                        icon: 'mdi-calculator-variant-outline',
+                        title: 'Grand total BPJS',
+                        subtitle: 'Jumlah PX dikali nominal saat generate.',
+                        value: 'PX x nominal'
+                    },
+                    {
+                        icon: 'mdi-stethoscope',
+                        title: 'Anastesi',
+                        subtitle: percentText(p.perawat_anastesi_petugas_percent) +
+                            ' dari grand total dibagi rata ke pegawai anastesi, ' +
+                            percentText(p.perawat_anastesi_premi_bersama_percent) +
+                            ' masuk premi bersama.',
+                        value: count('perawat_anastesi') + ' orang'
+                    },
+                    {
+                        icon: 'mdi-medical-bag',
+                        title: 'Instrumen',
+                        subtitle: percentText(p.instrumen_percent) +
+                            ' dari grand total menjadi pool instrumen.',
+                        value: percentText(p.instrumen_percent)
+                    },
+                    {
+                        icon: 'mdi-account-hard-hat-outline',
+                        title: 'Pegawai instrumen',
+                        subtitle: 'Pool instrumen dipecah ' +
+                            percentText(p.instrumen_petugas_kelompok_80_percent) +
+                            ' untuk pegawai instrumen dan ' +
+                            percentText(p.instrumen_petugas_kelompok_20_percent) +
+                            ' untuk pegawai khusus.',
+                        value: count('instrumen_80') + ' + ' + count('instrumen_20') + ' orang'
+                    },
+                    {
+                        icon: 'mdi-account-group-outline',
+                        title: 'Premi bersama',
+                        subtitle: percentText(p.instrumen_premi_bersama_percent) +
+                            ' dari grand total untuk instrumen + ' +
+                            percentText(p.perawat_anastesi_premi_bersama_percent) +
+                            ' dari grand total untuk anastesi.',
+                        value: 'Otomatis'
+                    }
+                ].map(function(item) {
+                    return '<div class="operasi-flow-row">' +
+                        '<div class="operasi-flow-icon"><i class="mdi ' + item.icon + '"></i></div>' +
+                        '<div>' +
+                        '<div class="operasi-flow-title">' + escapeHtml(item.title) + '</div>' +
+                        '<div class="operasi-flow-subtitle">' + escapeHtml(item.subtitle) + '</div>' +
+                        '</div>' +
+                        '<div class="operasi-flow-value">' + escapeHtml(item.value) + '</div>' +
+                        '</div>';
+                }).join('');
+            }
 
             return [
                 {
@@ -294,8 +405,10 @@
 
         function renderFormulaFlow(config) {
             const p = (config && config.percentages) || {};
+            const isBpjs = (config && config.jenis_operasi === 'bpjs') || activeType === 'bpjs';
 
-            $('#generateFormulaSubtitle').text(
+            $('#generateFormulaSubtitle').text(isBpjs ?
+                'BPJS memakai PX x nominal, lalu alur anastesi dan instrumen 80/20.' :
                 'Instrumen ' + percentText(p.instrumen_percent) +
                 ' / Anastesi ' + percentText(p.dokter_anastesi_percent)
             );
@@ -372,7 +485,20 @@
                             escapeHtml(data) + '</span>';
                     }
                 },
-                { data: 'total_operasi', className: 'text-end', render: formatRupiah },
+                {
+                    data: 'total_operasi',
+                    className: 'text-end',
+                    render: function(data, type, row) {
+                        const bpjsNote = row.jenis_operasi === 'bpjs' ?
+                            '<small class="d-block text-muted">' +
+                            formatNumber(row.jumlah_pasien || 0) + ' PX x ' +
+                            formatRupiah(row.nominal_pengali || 0) +
+                            '</small>' :
+                            '';
+
+                        return '<strong>' + formatRupiah(data) + '</strong>' + bpjsNote;
+                    }
+                },
                 { data: 'total_premi_bersama', className: 'text-end', render: formatRupiah },
                 {
                     data: null,
@@ -433,11 +559,18 @@
             $('#generateHeroPeriodBadge').text($('#periodeOperasi').val() || '-');
             $('#generateModalHeroTitle').text('Generate Operasi ' + typeConfig[activeType]);
             $('#totalGenerateOperasi').val('');
+            $('#jumlahPasienGenerateOperasi').val('');
+            $('#nominalPengaliGenerateOperasi').val('');
+            $('#grandTotalBpjsGenerateOperasi').val('0');
+            updateGenerateInputMode();
             $('#previewGenerateOperasiWrap').addClass('d-none');
             $('#previewInsightOperasi, #previewPoolsOperasi, #previewRecipientsOperasi').empty();
             $('#previewQualityOperasi').empty();
             $('#previewHintOperasi').removeClass('alert-success alert-danger').addClass('alert-info')
-                .text('Masukkan total nominal, lalu tampilkan preview konfigurasi sebelum generate.');
+                .text(activeType === 'bpjs' ?
+                    'Masukkan jumlah PX dan nominal, lalu tampilkan preview konfigurasi sebelum generate.' :
+                    'Masukkan total nominal, lalu tampilkan preview konfigurasi sebelum generate.'
+                );
             $('#btnSubmitGenerateOperasi').prop('disabled', true);
             loadGenerateConfigSummary();
             generateModal.show();
@@ -452,18 +585,39 @@
                 Number(pools.premi_bersama || 0)
             );
             renderFormulaFlow(data.config || {});
-            $('#previewInsightOperasi').html([
+            const insightRows = [
                 ['Total Operasi', data.total_operasi, true],
                 ['Premi Bersama Total', pools.premi_bersama, false],
                 ['Dibagikan', data.total_dibagikan, false],
                 ['Sisa', totalSisa, false]
-            ].map(function(item) {
+            ];
+
+            if (data.jenis_operasi === 'bpjs') {
+                insightRows.splice(1, 0,
+                    ['Jumlah PX', data.jumlah_pasien || 0, false, 'number'],
+                    ['Nominal', data.nominal_pengali || 0, false]
+                );
+            }
+
+            $('#previewInsightOperasi').html(insightRows.map(function(item) {
                 return '<div class="operasi-preview-insight-card' + (item[2] ? ' primary' : '') + '">' +
                     '<div class="operasi-preview-insight-label">' + escapeHtml(item[0]) + '</div>' +
-                    '<div class="operasi-preview-insight-value">' + formatRupiah(item[1]) + '</div>' +
+                    '<div class="operasi-preview-insight-value">' +
+                    (item[3] === 'number' ? formatNumber(item[1]) : formatRupiah(item[1])) +
+                    '</div>' +
                     '</div>';
             }).join(''));
-            $('#previewPoolsOperasi').html([
+            const poolRows = data.jenis_operasi === 'bpjs' ? [
+                ['Grand Total BPJS', data.total_operasi, true],
+                ['Anastesi ke Pegawai', pools.perawat_anastesi, false],
+                ['Premi Bersama Anastesi', pools.perawat_anastesi_premi_bersama, false],
+                ['Pool Instrumen', pools.instrumen, false],
+                ['Pegawai Instrumen 80%', pools.instrumen_kelompok_80, false],
+                ['Pegawai Khusus Instrumen 20%', pools.instrumen_kelompok_20, false],
+                ['Premi Bersama Instrumen', pools.premi_bersama_instrumen, false],
+                ['Premi Bersama Total', pools.premi_bersama, true],
+                ['Total Dibagikan', data.total_dibagikan, true]
+            ] : [
                 ['Total Operasi', data.total_operasi, true],
                 ['Instrumen', pools.instrumen, false],
                 ['Premi Bersama Total', pools.premi_bersama, false],
@@ -475,7 +629,9 @@
                 ['Bagian Perawat Anastesi', pools.perawat_anastesi_pool, false],
                 ['Petugas Anastesi', pools.perawat_anastesi, false],
                 ['Total Dibagikan', data.total_dibagikan, true]
-            ].map(function(item) {
+            ];
+
+            $('#previewPoolsOperasi').html(poolRows.map(function(item) {
                 return '<div class="operasi-preview-item' + (item[2] ? ' highlight' : '') + '">' +
                     '<div class="operasi-preview-label">' + escapeHtml(item[0]) + '</div>' +
                     '<div class="operasi-preview-value">' + formatRupiah(item[1]) + '</div>' +
@@ -542,7 +698,11 @@
 
         function renderPreviewQuality(data, grouped) {
             const pools = data.pools || {};
-            const required = [
+            const required = data.jenis_operasi === 'bpjs' ? [
+                ['instrumen_20', 'Pegawai Khusus Instrumen 20%', pools.instrumen_kelompok_20],
+                ['instrumen_80', 'Pegawai Instrumen 80%', pools.instrumen_kelompok_80],
+                ['perawat_anastesi', 'Pegawai Anastesi', pools.perawat_anastesi]
+            ] : [
                 ['instrumen_20', 'Petugas Instrumen 20%', pools.instrumen_kelompok_20],
                 ['instrumen_80', 'Petugas Instrumen 80%', pools.instrumen_kelompok_80],
                 ['dokter_anastesi', 'Dokter Anastesi', pools.dokter_anastesi],
@@ -584,7 +744,7 @@
                 '<div class="operasi-preview-status-text">Total dibagikan ' + formatRupiah(data.total_dibagikan || 0) +
                 ', premi bersama ' + formatRupiah((pools || {}).premi_bersama || 0) +
                 ' (termasuk ' + formatRupiah((pools || {}).perawat_anastesi_premi_bersama || 0) +
-                ' dari bagian perawat anastesi)' +
+                ' dari premi bersama anastesi)' +
                 ', dan sisa tidak dibagikan ' + formatRupiah(totalSisa) + '.</div>' +
                 '</div>'
             );
@@ -595,11 +755,11 @@
         function detailRoleMeta(role, fallbackLabel) {
             const meta = {
                 instrumen_20: {
-                    label: 'Instrumen 20',
+                    label: 'Pegawai Khusus Instrumen 20%',
                     icon: 'mdi-account-wrench-outline'
                 },
                 instrumen_80: {
-                    label: 'Instrumen 80',
+                    label: 'Pegawai Instrumen 80%',
                     icon: 'mdi-account-hard-hat-outline'
                 },
                 dokter_anastesi: {
@@ -607,7 +767,7 @@
                     icon: 'mdi-doctor'
                 },
                 perawat_anastesi: {
-                    label: 'Perawat Anastesi',
+                    label: 'Pegawai Anastesi',
                     icon: 'mdi-medical-bag'
                 }
             };
@@ -660,7 +820,7 @@
             const pools = data.pools || {};
             const rows = [
                 ['Total Operasi', 'Nominal pendapatan operasi yang menjadi dasar hitung', data.total_operasi, 'mdi-cash-multiple', 'total', 100],
-                ['Premi Bersama', 'Dari instrumen ' + formatRupiah(pools.premi_bersama_instrumen || 0) + ' + bagian perawat anastesi ' + formatRupiah(pools.perawat_anastesi_premi_bersama || 0), data.total_premi_bersama, 'mdi-account-group-outline', '', sharePercent(data.total_premi_bersama, totalOperasi)],
+                ['Premi Bersama', 'Dari instrumen ' + formatRupiah(pools.premi_bersama_instrumen || 0) + ' + anastesi ' + formatRupiah(pools.perawat_anastesi_premi_bersama || 0), data.total_premi_bersama, 'mdi-account-group-outline', '', sharePercent(data.total_premi_bersama, totalOperasi)],
                 ['Dibagikan ke Penerima', 'Total masuk ke pegawai dan dokter terpilih', data.total_dibagikan, 'mdi-hand-coin-outline', '', sharePercent(data.total_dibagikan, totalOperasi)],
                 ['Tidak Dibagikan', 'Sisa di luar premi bersama dan penerima', data.total_tidak_dibagikan, 'mdi-chart-donut', '', sharePercent(data.total_tidak_dibagikan, totalOperasi)]
             ];
@@ -783,6 +943,59 @@
             const pools = data.pools || {};
             const p = ((data.config_snapshot || {}).percentages) || {};
 
+            if (data.jenis_operasi === 'bpjs') {
+                return [
+                    [
+                        'Hitung grand total BPJS',
+                        formatNumber(data.jumlah_pasien || 0) + ' PX x ' +
+                        formatRupiah(data.nominal_pengali || 0) + ' = ' +
+                        formatRupiah(data.total_operasi || 0) + '.'
+                    ],
+                    [
+                        'Bagi anastesi',
+                        percentText(p.perawat_anastesi_petugas_percent) +
+                        ' dari grand total menjadi ' + formatRupiah(pools.perawat_anastesi || 0) +
+                        ' untuk pegawai anastesi, dan ' +
+                        percentText(p.perawat_anastesi_premi_bersama_percent) +
+                        ' menjadi ' + formatRupiah(pools.perawat_anastesi_premi_bersama || 0) +
+                        ' untuk premi bersama.'
+                    ],
+                    [
+                        'Bentuk pool instrumen',
+                        percentText(p.instrumen_percent) + ' dari grand total menjadi pool instrumen ' +
+                        formatRupiah(pools.instrumen || 0) + '.'
+                    ],
+                    [
+                        'Pecah petugas instrumen',
+                        'Pool instrumen dibagi ' +
+                        percentText(p.instrumen_petugas_kelompok_80_percent) + ' sebesar ' +
+                        formatRupiah(pools.instrumen_kelompok_80 || 0) +
+                        ' untuk pegawai instrumen dan ' +
+                        percentText(p.instrumen_petugas_kelompok_20_percent) + ' sebesar ' +
+                        formatRupiah(pools.instrumen_kelompok_20 || 0) +
+                        ' untuk pegawai khusus.'
+                    ],
+                    [
+                        'Premi bersama instrumen',
+                        percentText(p.instrumen_premi_bersama_percent) +
+                        ' dari grand total masuk premi bersama sebesar ' +
+                        formatRupiah(pools.premi_bersama_instrumen || 0) + '.'
+                    ],
+                    [
+                        'Hasil akhir',
+                        'Total dibagikan ke penerima adalah ' + formatRupiah(data.total_dibagikan || 0) +
+                        ', premi bersama total ' + formatRupiah(data.total_premi_bersama || 0) + '.'
+                    ]
+                ].map(function(row) {
+                    return '<div class="operasi-detail-step">' +
+                        '<div>' +
+                        '<div class="operasi-detail-step-title">' + escapeHtml(row[0]) + '</div>' +
+                        '<div class="operasi-detail-step-text">' + escapeHtml(row[1]) + '</div>' +
+                        '</div>' +
+                        '</div>';
+                }).join('');
+            }
+
             return [
                 [
                     'Mulai dari total operasi',
@@ -832,7 +1045,19 @@
 
         function renderDetailSimpleRows(data) {
             const pools = data.pools || {};
-            const rows = [
+            const rows = data.jenis_operasi === 'bpjs' ? [
+                ['Jumlah PX', 'Input jumlah PX BPJS saat generate', data.jumlah_pasien, false, 'number'],
+                ['Nominal', 'Nominal dikalikan jumlah PX', data.nominal_pengali, false],
+                ['Grand Total BPJS', 'Jumlah PX x nominal', data.total_operasi, true],
+                ['Premi Bersama Total', 'Premi bersama instrumen + premi bersama anastesi', data.total_premi_bersama, true],
+                ['Premi Bersama Instrumen', '20% dari grand total BPJS', pools.premi_bersama_instrumen, false],
+                ['Premi Bersama Anastesi', '20% dari grand total BPJS', pools.perawat_anastesi_premi_bersama, false],
+                ['Pegawai Khusus Instrumen 20%', 'Dibagi rata ke pegawai khusus instrumen', pools.instrumen_kelompok_20, false],
+                ['Pegawai Instrumen 80%', 'Dibagi rata ke pegawai instrumen', pools.instrumen_kelompok_80, false],
+                ['Pegawai Anastesi', '80% grand total dibagi rata ke pegawai anastesi', pools.perawat_anastesi, false],
+                ['Total Dibagikan ke Penerima', 'Jumlah semua penerima yang dipilih', data.total_dibagikan, true],
+                ['Sisa Tidak Dibagikan', 'Di luar premi bersama dan penerima', data.total_tidak_dibagikan, false]
+            ] : [
                 ['Total Operasi', 'Dasar semua perhitungan', data.total_operasi, true],
                 ['Premi Bersama Total', 'Premi bersama instrumen + premi bersama dari bagian perawat anastesi', data.total_premi_bersama, true],
                 ['Premi Bersama dari Instrumen', 'Bagian bersama dari pool instrumen', pools.premi_bersama_instrumen, false],
@@ -851,7 +1076,9 @@
                     '<div class="operasi-detail-simple-label">' + escapeHtml(row[0]) + '</div>' +
                     '<div class="operasi-detail-simple-note">' + escapeHtml(row[1]) + '</div>' +
                     '</div>' +
-                    '<div class="operasi-detail-simple-value">' + formatRupiah(row[2] || 0) + '</div>' +
+                    '<div class="operasi-detail-simple-value">' +
+                    (row[4] === 'number' ? formatNumber(row[2] || 0) : formatRupiah(row[2] || 0)) +
+                    '</div>' +
                     '</div>';
             }).join('');
         }
@@ -909,14 +1136,23 @@
             $('#detailFormulaFlow').html(renderDetailSteps(data));
             $('#detailPoolOperasi').html(renderDetailSimpleRows(data));
 
-            $('#detailAuditOperasi').html([
+            const auditRows = [
                 ['Generate oleh', data.generate_by_name || '-', 'mdi-account-check-outline'],
                 ['Waktu generate/update', data.generated_at || '-', 'mdi-clock-outline'],
                 ['Status kunci', data.is_locked ? 'Terkunci' : 'Terbuka', data.is_locked ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline'],
                 ['Dikunci oleh', data.locked_by_name || '-', 'mdi-account-lock-outline'],
                 ['Waktu kunci', data.locked_at || '-', 'mdi-calendar-lock-outline'],
                 ['Snapshot konfigurasi', 'Tersimpan pada hasil generate', 'mdi-content-save-check-outline']
-            ].map(function(item) {
+            ];
+
+            if (data.jenis_operasi === 'bpjs') {
+                auditRows.splice(2, 0,
+                    ['Jumlah PX BPJS', formatNumber(data.jumlah_pasien || 0), 'mdi-account-injury-outline'],
+                    ['Nominal', formatRupiah(data.nominal_pengali || 0), 'mdi-cash-multiple']
+                );
+            }
+
+            $('#detailAuditOperasi').html(auditRows.map(function(item) {
                 return '<div class="operasi-detail-audit-row">' +
                     '<div class="operasi-detail-audit-icon"><i class="mdi ' + escapeHtml(item[2]) + '"></i></div>' +
                     '<div>' +
@@ -961,9 +1197,15 @@
         function loadPreview() {
             const button = $('#btnPreviewOperasi');
             const originalHtml = button.html();
-            const total = numeric($('#totalGenerateOperasi').val());
+            const payload = generatePayload();
 
-            if (total === '') {
+            if (payload.jenis_operasi === 'bpjs' && (payload.jumlah_pasien === '' || payload.nominal_pengali === '')) {
+                $('#previewHintOperasi').removeClass('alert-info alert-success').addClass('alert-danger')
+                    .text('Jumlah PX dan nominal BPJS wajib diisi.');
+                return;
+            }
+
+            if (payload.jenis_operasi !== 'bpjs' && payload.total_operasi === '') {
                 $('#previewHintOperasi').removeClass('alert-info alert-success').addClass('alert-danger')
                     .text('Total nominal pendapatan operasi wajib diisi.');
                 return;
@@ -971,10 +1213,7 @@
 
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateOperasi.preview") }}",
-                data: {
-                    jenis_operasi: activeType,
-                    total_operasi: total
-                },
+                data: payload,
                 beforeSend: function() {
                     previewReady = false;
                     $('#btnSubmitGenerateOperasi').prop('disabled', true);
@@ -1001,8 +1240,10 @@
                     const data = response.data || {};
                     const p = data.percentages || {};
                     const r = data.recipients || {};
+                    const isBpjs = activeType === 'bpjs';
 
                     $('#modalConfigOperasiLabel').text('Konfigurasi Premi Operasi ' + typeConfig[activeType]);
+                    $('#configBpjsFlowHint').toggleClass('d-none', !isBpjs);
                     $('#jenisConfigOperasi').val(activeType);
                     $('#configInstrumenPercent').val(p.instrumen_percent);
                     $('#configPremiBersamaPercent').val(p.instrumen_premi_bersama_percent);
@@ -1015,8 +1256,9 @@
                     $('#configPerawatAnastesiBersamaPercent').val(p.perawat_anastesi_premi_bersama_percent);
                     fillSelect($('#configInstrumen20Recipients'), r.instrumen_20);
                     fillSelect($('#configInstrumen80Recipients'), r.instrumen_80);
-                    fillSelect($('#configDokterAnastesiRecipients'), r.dokter_anastesi);
+                    fillSelect($('#configDokterAnastesiRecipients'), isBpjs ? [] : r.dokter_anastesi);
                     fillSelect($('#configPerawatAnastesiRecipients'), r.perawat_anastesi);
+                    applyConfigMode();
                     updateRecipientCounters();
                     updateConfigOverview();
                     configModal.show();
@@ -1028,6 +1270,8 @@
         }
 
         function configPayload() {
+            const isBpjs = $('#jenisConfigOperasi').val() === 'bpjs';
+
             return {
                 jenis_operasi: $('#jenisConfigOperasi').val(),
                 instrumen_percent: $('#configInstrumenPercent').val(),
@@ -1042,7 +1286,7 @@
                 recipients: {
                     instrumen_20: $('#configInstrumen20Recipients').val() || [],
                     instrumen_80: $('#configInstrumen80Recipients').val() || [],
-                    dokter_anastesi: $('#configDokterAnastesiRecipients').val() || [],
+                    dokter_anastesi: isBpjs ? [] : ($('#configDokterAnastesiRecipients').val() || []),
                     perawat_anastesi: $('#configPerawatAnastesiRecipients').val() || []
                 }
             };
@@ -1073,8 +1317,12 @@
         });
         $('#totalGenerateOperasi').on('input', function() {
             formatInput(this);
-            previewReady = false;
-            $('#btnSubmitGenerateOperasi').prop('disabled', true);
+            resetGeneratePreview('Total nominal berubah. Tampilkan preview ulang sebelum generate.');
+        });
+        $('#jumlahPasienGenerateOperasi, #nominalPengaliGenerateOperasi').on('input', function() {
+            formatInput(this);
+            updateGenerateInputMode();
+            resetGeneratePreview('Input BPJS berubah. Tampilkan preview ulang sebelum generate.');
         });
 
         $('.operasi-pegawai-select, .operasi-dokter-select').on('change', updateRecipientCounters);
@@ -1116,15 +1364,14 @@
 
             const button = $('#btnSubmitGenerateOperasi');
             const originalHtml = button.html();
+            const payload = Object.assign({
+                periode: $('#periodeGenerateOperasi').val()
+            }, generatePayload());
 
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateOperasi.store") }}",
                 method: 'POST',
-                data: {
-                    periode: $('#periodeGenerateOperasi').val(),
-                    jenis_operasi: $('#jenisGenerateOperasi').val(),
-                    total_operasi: numeric($('#totalGenerateOperasi').val())
-                },
+                data: payload,
                 beforeSend: function() {
                     button.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span> Generate...');
                 },

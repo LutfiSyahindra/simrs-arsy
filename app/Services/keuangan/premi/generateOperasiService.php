@@ -54,6 +54,9 @@ class generateOperasiService
     {
         $recipients = $this->hydrateRecipients($data['recipients'] ?? []);
         $percentages = $this->percentagePayload($data);
+        $percentages = $jenisOperasi === 'bpjs'
+            ? $this->bpjsPercentagePayload($percentages)
+            : $percentages;
 
         return $this->configPayload(
             $this->repository->saveConfig($jenisOperasi, $percentages, $recipients)
@@ -87,14 +90,23 @@ class generateOperasiService
             ->values();
     }
 
-    public function preview(string $jenisOperasi, int $totalOperasi): array
-    {
-        return $this->calculate($jenisOperasi, $totalOperasi);
+    public function preview(
+        string $jenisOperasi,
+        int $totalOperasi,
+        ?int $jumlahPasien = null,
+        ?int $nominalPengali = null
+    ): array {
+        return $this->calculate($jenisOperasi, $totalOperasi, false, $jumlahPasien, $nominalPengali);
     }
 
-    public function generate(string $periode, string $jenisOperasi, int $totalOperasi): array
-    {
-        return DB::transaction(function () use ($periode, $jenisOperasi, $totalOperasi) {
+    public function generate(
+        string $periode,
+        string $jenisOperasi,
+        int $totalOperasi,
+        ?int $jumlahPasien = null,
+        ?int $nominalPengali = null
+    ): array {
+        return DB::transaction(function () use ($periode, $jenisOperasi, $totalOperasi, $jumlahPasien, $nominalPengali) {
             $existing = $this->repository->findExistingForUpdate($periode, $jenisOperasi);
 
             if ($existing?->is_locked) {
@@ -103,7 +115,13 @@ class generateOperasiService
                 ]);
             }
 
-            $calculation = $this->calculate($jenisOperasi, $totalOperasi, true);
+            $calculation = $this->calculate(
+                $jenisOperasi,
+                $totalOperasi,
+                true,
+                $jumlahPasien,
+                $nominalPengali
+            );
 
             return $this->resultPayload(
                 $this->repository->saveResult($periode, $jenisOperasi, $calculation)
@@ -123,10 +141,19 @@ class generateOperasiService
         $config = $result->config_snapshot ?: [];
         $configPercentages = $config['percentages'] ?? [];
         $percentages = $this->percentagePayload($configPercentages);
+        $percentages = $result->jenis_operasi === 'bpjs'
+            ? $this->bpjsPercentagePayload($percentages)
+            : $percentages;
         $details = collect($payload['details']);
-        $anastesiPool = $this->portion($result->total_operasi, $percentages['dokter_anastesi_percent']);
-        $perawatAnastesiPool = $this->portion($anastesiPool, $percentages['perawat_anastesi_percent']);
-        $hasPerawatSplit = array_key_exists('perawat_anastesi_petugas_percent', $configPercentages)
+        if ($result->jenis_operasi === 'bpjs') {
+            $anastesiPool = $result->total_operasi;
+            $perawatAnastesiPool = $result->total_operasi;
+        } else {
+            $anastesiPool = $this->portion($result->total_operasi, $percentages['dokter_anastesi_percent']);
+            $perawatAnastesiPool = $this->portion($anastesiPool, $percentages['perawat_anastesi_percent']);
+        }
+        $hasPerawatSplit = $result->jenis_operasi === 'bpjs'
+            || array_key_exists('perawat_anastesi_petugas_percent', $configPercentages)
             || array_key_exists('perawat_anastesi_premi_bersama_percent', $configPercentages);
         $perawatAnastesiPremiBersama = $hasPerawatSplit
             ? $this->portion($perawatAnastesiPool, $percentages['perawat_anastesi_premi_bersama_percent'])
@@ -141,7 +168,7 @@ class generateOperasiService
                 ->groupBy('role')
                 ->map(fn ($items) => $items->count())
                 ->toArray(),
-            'role_labels' => self::ROLE_LABELS,
+            'role_labels' => $this->roleLabels($result->jenis_operasi),
         ];
         $payload['pools'] = [
             'instrumen' => $result->total_instrumen,
@@ -244,11 +271,26 @@ class generateOperasiService
         });
     }
 
-    private function calculate(string $jenisOperasi, int $totalOperasi, bool $strict = false): array
-    {
+    private function calculate(
+        string $jenisOperasi,
+        int $totalOperasi,
+        bool $strict = false,
+        ?int $jumlahPasien = null,
+        ?int $nominalPengali = null
+    ): array {
         $config = $this->repository->getConfig($jenisOperasi);
         $configPayload = $this->configPayload($config);
         $percentages = $configPayload['percentages'];
+
+        if ($jenisOperasi === 'bpjs') {
+            return $this->calculateBpjs(
+                $totalOperasi,
+                $configPayload,
+                $strict,
+                $jumlahPasien,
+                $nominalPengali
+            );
+        }
 
         $instrumen = $this->portion($totalOperasi, $percentages['instrumen_percent']);
         $premiBersamaInstrumen = $this->portion($instrumen, $percentages['instrumen_premi_bersama_percent']);
@@ -285,7 +327,75 @@ class generateOperasiService
         return [
             'jenis_operasi' => $jenisOperasi,
             'jenis_operasi_label' => $this->typeLabel($jenisOperasi),
+            'jumlah_pasien' => null,
+            'nominal_pengali' => null,
             'total_operasi' => $totalOperasi,
+            'config' => $configPayload,
+            'pools' => $pools,
+            'recipients' => $recipients,
+            'total_dibagikan' => collect($recipients)->sum('total_received'),
+        ];
+    }
+
+    private function calculateBpjs(
+        int $grandTotal,
+        array $configPayload,
+        bool $strict,
+        ?int $jumlahPasien,
+        ?int $nominalPengali
+    ): array {
+        $percentages = $this->bpjsPercentagePayload($configPayload['percentages']);
+        $configPayload['percentages'] = $percentages;
+        $configPayload['formula_mode'] = 'bpjs_patient_multiplier';
+        $configPayload['formula_label'] = 'BPJS: jumlah PX x nominal';
+        $configPayload['role_labels'] = $this->roleLabels('bpjs');
+        $configPayload['input'] = [
+            'jumlah_pasien' => $jumlahPasien,
+            'nominal_pengali' => $nominalPengali,
+        ];
+
+        $instrumen = $this->portion($grandTotal, $percentages['instrumen_percent']);
+        $premiBersamaInstrumen = $this->portion($grandTotal, $percentages['instrumen_premi_bersama_percent']);
+        $instrumenPetugas = $instrumen;
+        $instrumen20 = $this->portion($instrumenPetugas, $percentages['instrumen_petugas_kelompok_20_percent']);
+        $instrumen80 = $this->portion($instrumenPetugas, $percentages['instrumen_petugas_kelompok_80_percent']);
+
+        $anastesiPool = $grandTotal;
+        $perawatAnastesiPool = $grandTotal;
+        $perawatAnastesi = $this->portion($grandTotal, $percentages['perawat_anastesi_petugas_percent']);
+        $perawatAnastesiPremiBersama = $this->portion(
+            $grandTotal,
+            $percentages['perawat_anastesi_premi_bersama_percent']
+        );
+        $premiBersama = $premiBersamaInstrumen + $perawatAnastesiPremiBersama;
+        $dokterAnastesi = 0;
+
+        $pools = [
+            'instrumen' => $instrumen,
+            'premi_bersama' => $premiBersama,
+            'premi_bersama_instrumen' => $premiBersamaInstrumen,
+            'instrumen_petugas' => $instrumenPetugas,
+            'instrumen_kelompok_20' => $instrumen20,
+            'instrumen_kelompok_80' => $instrumen80,
+            'anastesi' => $anastesiPool,
+            'dokter_anastesi' => $dokterAnastesi,
+            'perawat_anastesi_pool' => $perawatAnastesiPool,
+            'perawat_anastesi' => $perawatAnastesi,
+            'perawat_anastesi_premi_bersama' => $perawatAnastesiPremiBersama,
+        ];
+
+        $recipients = [];
+        $recipients = array_merge($recipients, $this->splitPool('instrumen_20', $pools['instrumen_kelompok_20'], $configPayload, $strict));
+        $recipients = array_merge($recipients, $this->splitPool('instrumen_80', $pools['instrumen_kelompok_80'], $configPayload, $strict));
+        $recipients = array_merge($recipients, $this->splitPool('dokter_anastesi', $pools['dokter_anastesi'], $configPayload, $strict));
+        $recipients = array_merge($recipients, $this->splitPool('perawat_anastesi', $pools['perawat_anastesi'], $configPayload, $strict));
+
+        return [
+            'jenis_operasi' => 'bpjs',
+            'jenis_operasi_label' => $this->typeLabel('bpjs'),
+            'jumlah_pasien' => $jumlahPasien,
+            'nominal_pengali' => $nominalPengali,
+            'total_operasi' => $grandTotal,
             'config' => $configPayload,
             'pools' => $pools,
             'recipients' => $recipients,
@@ -296,14 +406,19 @@ class generateOperasiService
     private function splitPool(string $role, int $pool, array $config, bool $strict): array
     {
         $items = $config['recipients'][$role] ?? [];
+        $roleLabel = $config['role_labels'][$role] ?? self::ROLE_LABELS[$role];
 
         if ($strict && $pool > 0 && empty($items)) {
             throw ValidationException::withMessages([
-                "recipients.{$role}" => self::ROLE_LABELS[$role].' wajib dipilih sebelum generate.',
+                "recipients.{$role}" => $roleLabel.' wajib dipilih sebelum generate.',
             ]);
         }
 
         if (empty($items)) {
+            return [];
+        }
+
+        if ($pool <= 0) {
             return [];
         }
 
@@ -312,10 +427,10 @@ class generateOperasiService
         $remainder = $pool % $recipientCount;
         $allocationPercent = $pool > 0 ? round(100 / $recipientCount, 2) : null;
 
-        return collect($items)->values()->map(function ($item, $index) use ($role, $pool, $base, $remainder, $allocationPercent) {
+        return collect($items)->values()->map(function ($item, $index) use ($role, $roleLabel, $pool, $base, $remainder, $allocationPercent) {
             return [
                 'role' => $role,
-                'role_label' => self::ROLE_LABELS[$role],
+                'role_label' => $roleLabel,
                 'pegawai_source' => $item['pegawai_source'],
                 'pegawai_id' => $item['pegawai_id'],
                 'pegawai_name' => $item['pegawai_name'],
@@ -385,13 +500,18 @@ class generateOperasiService
             ];
         }
 
+        $percentages = $this->percentagePayload($config->toArray());
+        $percentages = $config->jenis_operasi === 'bpjs'
+            ? $this->bpjsPercentagePayload($percentages)
+            : $percentages;
+
         return [
             'id' => $config->id,
             'jenis_operasi' => $config->jenis_operasi,
             'jenis_operasi_label' => $this->typeLabel($config->jenis_operasi),
-            'percentages' => $this->percentagePayload($config->toArray()),
+            'percentages' => $percentages,
             'recipients' => $recipients,
-            'role_labels' => self::ROLE_LABELS,
+            'role_labels' => $this->roleLabels($config->jenis_operasi),
         ];
     }
 
@@ -410,6 +530,22 @@ class generateOperasiService
         ];
     }
 
+    private function bpjsPercentagePayload(array $percentages): array
+    {
+        return [
+            ...$percentages,
+            'instrumen_percent' => 80.0,
+            'instrumen_premi_bersama_percent' => 20.0,
+            'instrumen_petugas_percent' => 100.0,
+            'instrumen_petugas_kelompok_20_percent' => 20.0,
+            'instrumen_petugas_kelompok_80_percent' => 80.0,
+            'dokter_anastesi_percent' => 100.0,
+            'perawat_anastesi_percent' => 100.0,
+            'perawat_anastesi_petugas_percent' => 80.0,
+            'perawat_anastesi_premi_bersama_percent' => 20.0,
+        ];
+    }
+
     private function portion(int $amount, float $percent): int
     {
         return (int) round($amount * $percent / 100);
@@ -422,6 +558,8 @@ class generateOperasiService
             'periode' => $row->periode,
             'jenis_operasi' => $row->jenis_operasi,
             'jenis_operasi_label' => $this->typeLabel($row->jenis_operasi),
+            'jumlah_pasien' => $row->jumlah_pasien,
+            'nominal_pengali' => $row->nominal_pengali,
             'total_operasi' => $row->total_operasi,
             'total_instrumen' => $row->total_instrumen,
             'total_premi_bersama' => $row->total_premi_bersama,
@@ -466,5 +604,19 @@ class generateOperasiService
     private function typeLabel(string $jenisOperasi): string
     {
         return $jenisOperasi === 'bpjs' ? 'BPJS' : 'Umum';
+    }
+
+    private function roleLabels(string $jenisOperasi): array
+    {
+        if ($jenisOperasi !== 'bpjs') {
+            return self::ROLE_LABELS;
+        }
+
+        return [
+            ...self::ROLE_LABELS,
+            'instrumen_20' => 'Pegawai Khusus Instrumen 20%',
+            'instrumen_80' => 'Pegawai Instrumen 80%',
+            'perawat_anastesi' => 'Pegawai Anastesi',
+        ];
     }
 }

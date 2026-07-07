@@ -166,6 +166,8 @@ class generateOperasiRepository
                 'jenis_operasi' => $jenisOperasi,
             ],
             [
+                'jumlah_pasien' => $calculation['jumlah_pasien'],
+                'nominal_pengali' => $calculation['nominal_pengali'],
                 'total_operasi' => $calculation['total_operasi'],
                 'total_instrumen' => $calculation['pools']['instrumen'],
                 'total_premi_bersama' => $calculation['pools']['premi_bersama'],
@@ -246,21 +248,34 @@ class generateOperasiRepository
 
     private function ensureDefaultConfigs(): void
     {
-        foreach (['umum', 'bpjs'] as $jenis) {
-            generateOperasiConfigModel::query()->firstOrCreate(
-                ['jenis_operasi' => $jenis],
-                [
-                    'instrumen_percent' => 10,
-                    'instrumen_premi_bersama_percent' => 20,
-                    'instrumen_petugas_percent' => 80,
-                    'instrumen_petugas_kelompok_20_percent' => 20,
-                    'instrumen_petugas_kelompok_80_percent' => 80,
-                    'dokter_anastesi_percent' => 40,
-                    'perawat_anastesi_percent' => 10,
-                    'perawat_anastesi_petugas_percent' => 80,
-                    'perawat_anastesi_premi_bersama_percent' => 20,
-                ]
-            );
-        }
+        generateOperasiConfigModel::query()->firstOrCreate(
+            ['jenis_operasi' => 'umum'],
+            [
+                'instrumen_percent' => 10,
+                'instrumen_premi_bersama_percent' => 20,
+                'instrumen_petugas_percent' => 80,
+                'instrumen_petugas_kelompok_20_percent' => 20,
+                'instrumen_petugas_kelompok_80_percent' => 80,
+                'dokter_anastesi_percent' => 40,
+                'perawat_anastesi_percent' => 10,
+                'perawat_anastesi_petugas_percent' => 80,
+                'perawat_anastesi_premi_bersama_percent' => 20,
+            ]
+        );
+
+        generateOperasiConfigModel::query()->firstOrCreate(
+            ['jenis_operasi' => 'bpjs'],
+            [
+                'instrumen_percent' => 80,
+                'instrumen_premi_bersama_percent' => 20,
+                'instrumen_petugas_percent' => 100,
+                'instrumen_petugas_kelompok_20_percent' => 20,
+                'instrumen_petugas_kelompok_80_percent' => 80,
+                'dokter_anastesi_percent' => 100,
+                'perawat_anastesi_percent' => 100,
+                'perawat_anastesi_petugas_percent' => 80,
+                'perawat_anastesi_premi_bersama_percent' => 20,
+            ]
+        );
     }
 }
