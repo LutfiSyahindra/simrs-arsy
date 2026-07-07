@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">15</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">16</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -472,6 +472,34 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Tindakan Medis</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generateTindakanMedis") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #1d4ed8; --card-soft: #dbeafe;"
+                data-title="Generate Premi Bersama"
+                data-search="generate premi bersama agregator umum bpjs ugd laboratorium radiologi apotek vk kamar bhp gizi nicu operasi skor pegawai">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-chart-donut"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Bersama</h5>
+                    <p class="generator-menu-description">
+                        Menggabungkan nilai bersama dari generator lain dan tindakan rawat, lalu membagikan grand total
+                        berdasarkan skor pegawai.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-source-branch"></i>
+                        Generator unit, mapping premi, dan mapping skor
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Premi Bersama</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generatePremiBersama") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>

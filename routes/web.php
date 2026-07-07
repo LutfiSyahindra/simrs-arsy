@@ -11,6 +11,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiLaboratoriumController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBersamaController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiNicuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiOperasiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiPelayananNonMedisController;
@@ -218,6 +219,20 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateTindakanMedis/{id}/detail', [hitungPremiTindakanMedisController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.detail');
         Route::post('/hitung-premi/generateTindakanMedis/{id}/lock', [hitungPremiTindakanMedisController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.lock');
         Route::post('/hitung-premi/generateTindakanMedis/{id}/unlock', [hitungPremiTindakanMedisController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generateTindakanMedis.unlock');
+
+        Route::get('/hitung-premi/generatePremiBersama', [hitungPremiBersamaController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama');
+        Route::get('/hitung-premi/generatePremiBersama/table', [hitungPremiBersamaController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.table');
+        Route::get('/hitung-premi/generatePremiBersama/mapping-premi-options', [hitungPremiBersamaController::class, 'mappingPremiOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.mappingPremiOptions');
+        Route::get('/hitung-premi/generatePremiBersama/mapping-premi-options/{id}/actions', [hitungPremiBersamaController::class, 'mappingActionOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.mappingActionOptions');
+        Route::get('/hitung-premi/generatePremiBersama/ploting-options', [hitungPremiBersamaController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.plotingOptions');
+        Route::get('/hitung-premi/generatePremiBersama/dokter-options', [hitungPremiBersamaController::class, 'dokterOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.dokterOptions');
+        Route::get('/hitung-premi/generatePremiBersama/config', [hitungPremiBersamaController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.config');
+        Route::put('/hitung-premi/generatePremiBersama/config', [hitungPremiBersamaController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.updateConfig');
+        Route::get('/hitung-premi/generatePremiBersama/summary', [hitungPremiBersamaController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.summary');
+        Route::post('/hitung-premi/generatePremiBersama', [hitungPremiBersamaController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.store');
+        Route::get('/hitung-premi/generatePremiBersama/{id}/detail', [hitungPremiBersamaController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.detail');
+        Route::post('/hitung-premi/generatePremiBersama/{id}/lock', [hitungPremiBersamaController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.lock');
+        Route::post('/hitung-premi/generatePremiBersama/{id}/unlock', [hitungPremiBersamaController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.unlock');
 
         Route::get('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateUgd');
         Route::get('/hitung-premi/generateUgd/table', [hitungPremiUgdController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateUgd.table');
