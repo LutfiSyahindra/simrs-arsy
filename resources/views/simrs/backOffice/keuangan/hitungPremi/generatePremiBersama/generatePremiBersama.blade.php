@@ -1735,7 +1735,7 @@
                 <span class="pb-toolbar-label">Mode Generate</span>
                 <div class="pb-type-switch">
                     <button type="button" class="pb-type-btn active" data-type="umum">UMUM</button>
-                    <button type="button" class="pb-type-btn" data-type="bpjs" disabled>BPJS</button>
+                    <button type="button" class="pb-type-btn" data-type="bpjs">BPJS</button>
                 </div>
             </div>
             <div class="pb-action-group">

@@ -86,7 +86,14 @@
                                         <option value="current">Periode Generate</option>
                                     </select>
                                     <div class="pb-config-help" id="configBpjsSourceModeNote">
-                                        Berlaku untuk data BPJS dan karcis BPJS yang ditarik ke UMUM.
+                                        Berlaku untuk data rawat BPJS dan karcis BPJS yang ditarik ke UMUM.
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="form-label" for="configOperasiBpjsPercent">Operasi BPJS ke Premi Bersama (%)</label>
+                                    <input type="number" min="0" max="100" step="0.0001" id="configOperasiBpjsPercent" class="form-control" value="20">
+                                    <div class="pb-config-help">
+                                        Rata-rata pegawai instrumen + rata-rata pegawai anestesi dikali persen ini.
                                     </div>
                                 </div>
                             </div>

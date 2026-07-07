@@ -96,6 +96,7 @@ class generatePremiBersamaService
         ?int $kamarPlotingId,
         ?int $bhpPlotingId,
         string $bpjsSourceMode,
+        float $operasiBpjsPremiBersamaPercent,
         bool $ignoreIcu,
         bool $ignoreNicu,
         array $sourceMappings,
@@ -125,6 +126,7 @@ class generatePremiBersamaService
                 $kamarPlotingId,
                 $bhpPlotingId,
                 $bpjsSourceMode,
+                $operasiBpjsPremiBersamaPercent,
                 $ignoreIcu,
                 $ignoreNicu,
                 $sourceMappings,
@@ -140,10 +142,6 @@ class generatePremiBersamaService
         string $jenis,
         ?int $jnsPremiId = null
     ): array {
-        if ($jenis === 'bpjs') {
-            return $this->comingSoonPayload($periode, $jenis);
-        }
-
         $config = $this->repository->getConfig();
         $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
         $sourceMappings = $this->repository->getConfigSourceMappings((int) $config->id);
@@ -190,7 +188,7 @@ class generatePremiBersamaService
 
         return [
             'periode' => $periode,
-            'source_periode' => $periode,
+            'source_periode' => $calculation['source_periode'],
             'source_tgl_awal' => $calculation['source_tgl_awal'],
             'source_tgl_akhir' => $calculation['source_tgl_akhir'],
             'jenis_pelayanan' => $jenis,
@@ -246,12 +244,6 @@ class generatePremiBersamaService
 
     public function generate(string $periode, string $jenis, ?int $jnsPremiId = null): array
     {
-        if ($jenis === 'bpjs') {
-            throw ValidationException::withMessages([
-                'jenis_pelayanan' => 'Generate Premi Bersama BPJS masih coming soon.',
-            ]);
-        }
-
         return DB::transaction(function () use ($periode, $jenis, $jnsPremiId) {
             $config = $this->repository->getConfig();
             $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
@@ -289,7 +281,7 @@ class generatePremiBersamaService
 
             if ($grandTotal <= 0) {
                 throw ValidationException::withMessages([
-                    'mapping' => "Tidak ada nilai Premi Bersama UMUM periode {$periode} yang dapat digenerate.",
+                    'mapping' => "Tidak ada nilai Premi Bersama {$this->typeLabel($jenis)} periode {$periode} yang dapat digenerate.",
                 ]);
             }
 
@@ -698,6 +690,7 @@ class generatePremiBersamaService
             'vk_plotingPremi_id' => $config->vk_plotingPremi_id ? (int) $config->vk_plotingPremi_id : null,
             'kamar_plotingPremi_id' => $config->kamar_plotingPremi_id ? (int) $config->kamar_plotingPremi_id : null,
             'bhp_plotingPremi_id' => $config->bhp_plotingPremi_id ? (int) $config->bhp_plotingPremi_id : null,
+            'operasi_bpjs_premi_bersama_percent' => (float) ($config->operasi_bpjs_premi_bersama_percent ?? 20),
             'ignore_icu' => (bool) ($config->ignore_icu ?? true),
             'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
             'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
@@ -713,7 +706,7 @@ class generatePremiBersamaService
             'doctor_filter' => $doctorFilter,
             'action_options' => $actionOptions,
             'source_pattern_options' => $this->repository->sourcePatternOptions(),
-            'bpjs_status' => 'coming_soon',
+            'bpjs_status' => 'active',
         ];
     }
 
@@ -1116,38 +1109,6 @@ class generatePremiBersamaService
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values();
-    }
-
-    private function comingSoonPayload(string $periode, string $jenis): array
-    {
-        return [
-            'periode' => $periode,
-            'jenis_pelayanan' => $jenis,
-            'jenis_pelayanan_label' => $this->typeLabel($jenis),
-            'ready' => false,
-            'is_generated' => false,
-            'is_locked' => false,
-            'readiness_message' => 'Alur Premi Bersama BPJS masih coming soon.',
-            'readiness_steps' => [[
-                'key' => 'bpjs',
-                'label' => 'BPJS',
-                'status' => 'muted',
-                'value' => 'Coming soon',
-                'note' => 'Konfigurasi BPJS ditampilkan sebagai persiapan, generate belum diaktifkan.',
-            ]],
-            'jumlah_transaksi' => 0,
-            'jumlah_mapping_premi' => 0,
-            'total_biaya_rawat' => 0,
-            'total_tindakan_rawat' => 0,
-            'total_generator_sumber' => 0,
-            'grand_total' => 0,
-            'jumlah_penerima' => 0,
-            'total_skor' => 0,
-            'total_dibagikan' => 0,
-            'sources' => [],
-            'preview_details' => [],
-            'distributions' => [],
-        ];
     }
 
     private function lockPayload($result): array

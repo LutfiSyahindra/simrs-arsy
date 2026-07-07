@@ -49,6 +49,14 @@
             return 'Rp ' + formatNumber(value);
         }
 
+        function activeTypeLabel() {
+            return activeType === 'bpjs' ? 'BPJS' : 'UMUM';
+        }
+
+        function generateButtonHtml() {
+            return '<i class="mdi mdi-play-circle-outline"></i> Generate ' + activeTypeLabel();
+        }
+
         function percentOf(value, total) {
             const divisor = Number(total || 0);
 
@@ -331,7 +339,7 @@
                 '#configBhpPloting'
             ].filter((selector) => Boolean($(selector).val())).length;
 
-            $('#configHeaderSubtitle').text(`Periode ${periode} / ${typeLabel} - BPJS sumber ${bpjsSourcePeriod}.`);
+            $('#configHeaderSubtitle').text(`Periode ${periode} / ${typeLabel} - rawat BPJS sumber ${bpjsSourcePeriod}.`);
             $('#configSummaryTotalValue').text(formatRupiah(currentSummary?.grand_total || 0));
             $('#configSummaryTotalFoot').text(
                 currentSummary ?
@@ -359,8 +367,8 @@
             );
             $('#configBpjsSourceModeNote').text(
                 bpjsSourceMode === 'current' ?
-                `Data BPJS dan karcis BPJS memakai periode generate ${periode}.` :
-                `Data BPJS dan karcis BPJS memakai bulan sebelumnya: ${bpjsSourcePeriod}.`
+                `Data rawat BPJS dan karcis BPJS memakai periode generate ${periode}. Generator tetap memakai periode berjalan.` :
+                `Data rawat BPJS dan karcis BPJS memakai bulan sebelumnya: ${bpjsSourcePeriod}. Generator tetap memakai periode berjalan.`
             );
 
             if (doctorCount > 0 && doctorActionCount > 0) {
@@ -477,7 +485,7 @@
             $('#summarySkorFoot').text('Total skor ' + formatNumber(data.total_skor || 0, 2));
             $('#summaryReadyText').text(data.ready ? 'Siap generate' : 'Belum siap');
             $('#readinessMessage').text(data.readiness_message || '-');
-            $('#btnGeneratePremiBersama').prop('disabled', !data.ready);
+            $('#btnGeneratePremiBersama').prop('disabled', !data.ready).html(generateButtonHtml());
 
             renderReadinessSteps(data.readiness_steps || []);
             renderSources('#sourceGeneratorGrid', data.sources || []);
@@ -532,6 +540,7 @@
             $('#summaryRawatFoot').text('0 transaksi');
             $('#summarySkorFoot').text('Total skor 0');
             $('#summaryReadyText').text('Belum siap');
+            $('#btnGeneratePremiBersama').html(generateButtonHtml());
             $('#readinessSteps').html('<div class="pb-empty">Preview belum tersedia.</div>');
             $('#sourceGeneratorGrid').html('<div class="pb-empty">Sumber generator belum tersedia.</div>');
             previewActionRows = [];
@@ -878,7 +887,7 @@
             selectedDetailMappingId = detailActionRows.length ? detailKey(detailActionRows[0], 0) : '';
 
             $('#detailPremiBersamaMeta').text(
-                `${detailData.jenis_pelayanan_label || '-'} / ${detailData.periode || '-'} / sumber ${detailData.source_periode || detailData.periode || '-'}`
+                `${detailData.jenis_pelayanan_label || '-'} / ${detailData.periode || '-'} / rawat sumber ${detailData.source_periode || detailData.periode || '-'}`
             );
             $('#detailStatusBadge').text(detailData.is_locked ? 'Terkunci' : 'Terbuka');
             $('#detailGeneratedBy').text(`Generate oleh ${detailData.generate_by_name || '-'}`);
@@ -1436,6 +1445,7 @@
             fillSelect('#configMappingUmum', mappingOptions, configData.jnsPremi_umum_id, 'Pilih mapping UMUM');
             fillSelect('#configMappingBpjs', mappingOptions, configData.jnsPremi_bpjs_id, 'Pilih mapping BPJS');
             $('#configBpjsSourceMode').val(configData.bpjs_source_mode || 'previous');
+            $('#configOperasiBpjsPercent').val(configData.operasi_bpjs_premi_bersama_percent ?? 20);
             fillSelect('#configUgdPloting', plotingOptions, configData.ugd_plotingPremi_id, 'Pilih plotting UGD');
             fillSelect('#configVkPloting', plotingOptions, configData.vk_plotingPremi_id, 'Pilih plotting VK');
             fillSelect('#configKamarPloting', plotingOptions, configData.kamar_plotingPremi_id, 'Pilih plotting Kamar');
@@ -1560,6 +1570,7 @@
                     kamar_plotingPremi_id: $('#configKamarPloting').val(),
                     bhp_plotingPremi_id: $('#configBhpPloting').val(),
                     bpjs_source_mode: $('#configBpjsSourceMode').val() || 'previous',
+                    operasi_bpjs_premi_bersama_percent: $('#configOperasiBpjsPercent').val() || 20,
                     ignore_icu: $('#configIgnoreIcu').is(':checked') ? 1 : 0,
                     ignore_nicu: $('#configIgnoreNicu').is(':checked') ? 1 : 0,
                     included_umum_action_ids: $('#configIncludedActions').val() || [],
@@ -1600,7 +1611,7 @@
                     notifyError(xhr, 'Gagal generate Premi Bersama.');
                     loadSummary();
                 }).always(() => {
-                    button.html('<i class="mdi mdi-play-circle-outline"></i> Generate UMUM');
+                    button.html(generateButtonHtml());
                 });
             });
         }
@@ -1649,10 +1660,11 @@
             loadSummary();
         });
 
-        $('.pb-type-btn:not(:disabled)').on('click', function() {
+        $('.pb-type-btn').on('click', function() {
             activeType = $(this).data('type');
             $('.pb-type-btn').removeClass('active');
             $(this).addClass('active');
+            $('#btnGeneratePremiBersama').html(generateButtonHtml());
             table.ajax.reload();
             loadSummary();
         });
@@ -1742,7 +1754,7 @@
             loadActionOptions(selectedPremiIds(), () => setConfigLoading(false), () => setConfigLoading(false));
         });
 
-        $('#modalConfigPremiBersama').on('change', 'select, input[type="checkbox"]', updateConfigSummary);
+        $('#modalConfigPremiBersama').on('change input', 'select, input[type="checkbox"], input[type="number"]', updateConfigSummary);
 
         $('#btnAddSourceMapping').on('click', function() {
             addSourceMappingRow();

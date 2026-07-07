@@ -140,12 +140,14 @@ class hitungPremiBersamaController extends Controller
                 $request->input('jnsPremi_umum_id')
             ),
             'bpjs_source_mode' => $request->input('bpjs_source_mode', 'previous'),
+            'operasi_bpjs_premi_bersama_percent' => $request->input('operasi_bpjs_premi_bersama_percent', 20),
         ]);
 
         $validated = $request->validate([
             'jnsPremi_umum_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
             'jnsPremi_bpjs_id' => ['nullable', 'integer', 'exists:master_jenis_premi,id'],
             'bpjs_source_mode' => ['required', Rule::in(['current', 'previous'])],
+            'operasi_bpjs_premi_bersama_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'ugd_plotingPremi_id' => ['nullable', 'integer', 'exists:master_ploting_premi,id'],
             'vk_plotingPremi_id' => ['nullable', 'integer', 'exists:master_ploting_premi,id'],
             'kamar_plotingPremi_id' => ['nullable', 'integer', 'exists:master_ploting_premi,id'],
@@ -200,6 +202,7 @@ class hitungPremiBersamaController extends Controller
                 isset($validated['kamar_plotingPremi_id']) ? (int) $validated['kamar_plotingPremi_id'] : null,
                 isset($validated['bhp_plotingPremi_id']) ? (int) $validated['bhp_plotingPremi_id'] : null,
                 $validated['bpjs_source_mode'],
+                (float) $validated['operasi_bpjs_premi_bersama_percent'],
                 (bool) $validated['ignore_icu'],
                 (bool) $validated['ignore_nicu'],
                 $validated['source_mappings'],

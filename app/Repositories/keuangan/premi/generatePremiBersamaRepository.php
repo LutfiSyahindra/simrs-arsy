@@ -149,7 +149,7 @@ class generatePremiBersamaRepository
             ->orderBy('jenis')
             ->value('id');
         $now = now();
-        $id = DB::table('generate_premi_bersama_configs')->insertGetId([
+        $configInsert = [
             'jnsPremi_umum_id' => $defaultPremiId,
             'jnsPremi_bpjs_id' => $defaultPremiId,
             'bpjs_source_mode' => PremiSourcePeriod::MODE_PREVIOUS,
@@ -157,7 +157,13 @@ class generatePremiBersamaRepository
             'ignore_nicu' => true,
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+
+        if (Schema::hasColumn('generate_premi_bersama_configs', 'operasi_bpjs_premi_bersama_percent')) {
+            $configInsert['operasi_bpjs_premi_bersama_percent'] = 20;
+        }
+
+        $id = DB::table('generate_premi_bersama_configs')->insertGetId($configInsert);
 
         return DB::table('generate_premi_bersama_configs')->where('id', $id)->first();
     }
@@ -170,6 +176,7 @@ class generatePremiBersamaRepository
         ?int $kamarPlotingId,
         ?int $bhpPlotingId,
         string $bpjsSourceMode,
+        float $operasiBpjsPremiBersamaPercent,
         bool $ignoreIcu,
         bool $ignoreNicu,
         array $sourceMappings,
@@ -185,6 +192,7 @@ class generatePremiBersamaRepository
             $kamarPlotingId,
             $bhpPlotingId,
             $bpjsSourceMode,
+            $operasiBpjsPremiBersamaPercent,
             $ignoreIcu,
             $ignoreNicu,
             $sourceMappings,
@@ -194,21 +202,26 @@ class generatePremiBersamaRepository
         ) {
             $config = $this->getConfig();
             $now = now();
+            $configUpdate = [
+                'jnsPremi_umum_id' => $jnsPremiUmumId,
+                'jnsPremi_bpjs_id' => $jnsPremiBpjsId ?: $jnsPremiUmumId,
+                'ugd_plotingPremi_id' => $ugdPlotingId,
+                'vk_plotingPremi_id' => $vkPlotingId,
+                'kamar_plotingPremi_id' => $kamarPlotingId,
+                'bhp_plotingPremi_id' => $bhpPlotingId,
+                'bpjs_source_mode' => PremiSourcePeriod::normalizeMode($bpjsSourceMode, 'bpjs'),
+                'ignore_icu' => $ignoreIcu,
+                'ignore_nicu' => $ignoreNicu,
+                'updated_at' => $now,
+            ];
+
+            if (Schema::hasColumn('generate_premi_bersama_configs', 'operasi_bpjs_premi_bersama_percent')) {
+                $configUpdate['operasi_bpjs_premi_bersama_percent'] = $operasiBpjsPremiBersamaPercent;
+            }
 
             DB::table('generate_premi_bersama_configs')
                 ->where('id', $config->id)
-                ->update([
-                    'jnsPremi_umum_id' => $jnsPremiUmumId,
-                    'jnsPremi_bpjs_id' => $jnsPremiBpjsId ?: $jnsPremiUmumId,
-                    'ugd_plotingPremi_id' => $ugdPlotingId,
-                    'vk_plotingPremi_id' => $vkPlotingId,
-                    'kamar_plotingPremi_id' => $kamarPlotingId,
-                    'bhp_plotingPremi_id' => $bhpPlotingId,
-                    'bpjs_source_mode' => PremiSourcePeriod::normalizeMode($bpjsSourceMode, 'bpjs'),
-                    'ignore_icu' => $ignoreIcu,
-                    'ignore_nicu' => $ignoreNicu,
-                    'updated_at' => $now,
-                ]);
+                ->update($configUpdate);
 
             DB::table('generate_premi_bersama_config_source')
                 ->where('config_id', $config->id)
@@ -715,6 +728,91 @@ class generatePremiBersamaRepository
         object $config,
         bool $forUpdate = false
     ): Collection {
+        if ($jenisPelayanan === 'bpjs') {
+            return collect([
+                $this->plainGeneratorSource(
+                    'laboratorium',
+                    'Laboratorium',
+                    'generate_laboratorium',
+                    'jenis_laboratorium',
+                    'jumlah_tindakan',
+                    'total_premi_bersama',
+                    $periode,
+                    $jenisPelayanan,
+                    $forUpdate
+                ),
+                $this->plainGeneratorSource(
+                    'radiologi',
+                    'Radiologi',
+                    'generate_radiologi',
+                    'jenis_radiologi',
+                    'jumlah_tindakan',
+                    'total_premi_bersama',
+                    $periode,
+                    $jenisPelayanan,
+                    $forUpdate
+                ),
+                $this->plainGeneratorSource(
+                    'vk',
+                    'VK',
+                    'generate_vk',
+                    'jenis_vk',
+                    'jumlah_tindakan',
+                    'total_premi_bersama',
+                    $periode,
+                    $jenisPelayanan,
+                    $forUpdate
+                ),
+                $this->plotingGeneratorSource(
+                    'kamar',
+                    'Kamar',
+                    'generate_kamar_inap',
+                    'jenis_kamar',
+                    'jumlah_lama_inap',
+                    'total_lama_inap',
+                    $periode,
+                    $jenisPelayanan,
+                    $config->kamar_plotingPremi_id ?? null,
+                    $forUpdate
+                ),
+                $this->plotingGeneratorSource(
+                    'bhp',
+                    'BHP',
+                    'generate_bhp',
+                    'jenis_bhp',
+                    'jumlah_bhp',
+                    'total_bhp',
+                    $periode,
+                    $jenisPelayanan,
+                    $config->bhp_plotingPremi_id ?? null,
+                    $forUpdate
+                ),
+                $this->plainGeneratorSource(
+                    'gizi',
+                    'Gizi',
+                    'generate_gizi',
+                    'jenis_gizi',
+                    'jumlah_tindakan',
+                    'total_premi_bersama',
+                    $periode,
+                    $jenisPelayanan,
+                    $forUpdate
+                ),
+                $this->operasiBpjsGeneratorSource($periode, $config, $forUpdate),
+                $this->plainGeneratorSource(
+                    'icu',
+                    'ICU',
+                    'generate_icu',
+                    'jenis_icu',
+                    'jumlah_tindakan',
+                    'total_premi_bersama',
+                    $periode,
+                    $jenisPelayanan,
+                    $forUpdate
+                ),
+            ])->values();
+        }
+
         if ($jenisPelayanan !== 'umum') {
             return collect();
         }
@@ -912,6 +1010,7 @@ class generatePremiBersamaRepository
                 'config_snapshot' => [
                     'bpjs_source_mode' => $calculation['bpjs_source_mode'],
                     'bpjs_source_periode' => $calculation['bpjs_source_periode'],
+                    'operasi_bpjs_premi_bersama_percent' => $this->operasiBpjsPremiBersamaPercent($config),
                     'ignore_icu' => (bool) ($config->ignore_icu ?? true),
                     'ignore_nicu' => (bool) ($config->ignore_nicu ?? true),
                     'source_mappings' => $this->sourceMappingsPayload($sourceMappings),
@@ -1861,6 +1960,110 @@ class generatePremiBersamaRepository
         return $source;
     }
 
+    private function operasiBpjsGeneratorSource(
+        string $periode,
+        object $config,
+        bool $forUpdate = false
+    ): array {
+        $table = 'generate_operasi';
+        $label = 'Operasi';
+        $jenisPelayanan = 'bpjs';
+
+        if (! Schema::hasTable($table)) {
+            return $this->emptyGeneratorSource(
+                'operasi',
+                $label,
+                $table,
+                $periode,
+                $jenisPelayanan,
+                'Tabel belum tersedia'
+            );
+        }
+
+        if (! Schema::hasTable('generate_operasi_details')) {
+            return $this->emptyGeneratorSource(
+                'operasi',
+                $label,
+                $table,
+                $periode,
+                $jenisPelayanan,
+                'Detail operasi belum tersedia'
+            );
+        }
+
+        $query = DB::table($table)
+            ->where('periode', $periode)
+            ->where('jenis_operasi', $jenisPelayanan);
+
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
+        $rows = $query->get();
+
+        if ($rows->isEmpty()) {
+            return $this->emptyGeneratorSource(
+                'operasi',
+                $label,
+                $table,
+                $periode,
+                $jenisPelayanan,
+                'Belum digenerate'
+            );
+        }
+
+        $details = DB::table('generate_operasi_details')
+            ->whereIn('generate_operasi_id', $rows->pluck('id')->all())
+            ->whereIn('role', ['instrumen_20', 'instrumen_80', 'perawat_anastesi'])
+            ->get()
+            ->groupBy('generate_operasi_id');
+        $percent = $this->operasiBpjsPremiBersamaPercent($config);
+        $rows = $rows->map(function ($row) use ($details, $percent) {
+            $rowDetails = collect($details->get((int) $row->id, collect()));
+            $instrumenDetails = $rowDetails->where('role', 'instrumen_80');
+
+            if ($instrumenDetails->isEmpty()) {
+                $instrumenDetails = $rowDetails->whereIn('role', ['instrumen_20', 'instrumen_80']);
+            }
+
+            $anestesiDetails = $rowDetails->where('role', 'perawat_anastesi');
+            $instrumenAverage = $this->averageReceived($instrumenDetails);
+            $anestesiAverage = $this->averageReceived($anestesiDetails);
+            $total = round(($instrumenAverage + $anestesiAverage) * $percent / 100, 2);
+
+            $row->premi_bersama_bpjs_hitung = $total;
+            $row->premi_bersama_formula = [
+                'formula_label' => 'Rata-rata petugas instrumen + rata-rata pegawai anestesi x persen konfigurasi',
+                'operasi_bpjs_premi_bersama_percent' => $percent,
+                'instrumen_role' => $instrumenDetails->pluck('role')->unique()->values()->all(),
+                'instrumen_count' => $instrumenDetails->count(),
+                'instrumen_average' => $instrumenAverage,
+                'anestesi_role' => 'perawat_anastesi',
+                'anestesi_count' => $anestesiDetails->count(),
+                'anestesi_average' => $anestesiAverage,
+                'hasil' => $total,
+            ];
+
+            return $row;
+        });
+        $source = $this->aggregateGeneratorRows(
+            'operasi',
+            $label,
+            $table,
+            $periode,
+            $jenisPelayanan,
+            $rows,
+            'jumlah_pasien',
+            'premi_bersama_bpjs_hitung'
+        );
+
+        $source['note'] .= ' Operasi BPJS dihitung dari rata-rata pegawai instrumen dan anestesi x '
+            .number_format($percent, 2, ',', '.').'%.';
+        $source['raw_snapshot']['operasi_bpjs_premi_bersama_percent'] = $percent;
+
+        return $source;
+    }
+
     private function apotekGeneratorSource(
         string $periode,
         string $jenisPelayanan,
@@ -1973,11 +2176,26 @@ class generatePremiBersamaRepository
                         'total' => round((float) data_get($row, $totalColumn, 0), 2),
                         'is_locked' => (bool) ($row->is_locked ?? false),
                         'ploting_label' => trim((($row->kode_ploting ?? null) ? $row->kode_ploting.' - ' : '').($row->nama_ploting ?? '')),
+                        'formula' => $row->premi_bersama_formula ?? null,
                     ])
                     ->values()
                     ->all(),
             ],
         ];
+    }
+
+    private function operasiBpjsPremiBersamaPercent(object $config): float
+    {
+        return max(0, (float) ($config->operasi_bpjs_premi_bersama_percent ?? 20));
+    }
+
+    private function averageReceived(Collection $details): float
+    {
+        if ($details->isEmpty()) {
+            return 0;
+        }
+
+        return round((float) $details->sum('total_received') / max(1, $details->count()), 2);
     }
 
     private function emptyGeneratorSource(
