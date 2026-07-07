@@ -76,6 +76,7 @@
             jenis_vk: 'bpjs',
             bpjs_percent: 4,
             bpjs_pembagi: 4,
+            premi_bersama_percent: 20,
             distribution_mode: 'rata',
             recipients: []
         };
@@ -167,7 +168,7 @@
             const nominal = Number(numeric(row.find('.nominal-generate-vk').val())) || 0;
             const rawTotal = jumlah * nominal;
 
-            return jenis === 'bpjs' ? bpjsCalculation(rawTotal).totalDistributed : rawTotal;
+            return jenis === 'bpjs' ? bpjsCalculation(rawTotal).totalVk : rawTotal;
         }
 
         function rawRowTotal(row) {
@@ -180,19 +181,25 @@
         function bpjsCalculation(rawTotal) {
             const percent = Number($('#configVkBpjsPercent').val() || vkConfig.bpjs_percent || 4);
             const pembagi = Math.max(1, Number($('#configVkBpjsPembagi').val() || vkConfig.bpjs_pembagi || 4));
+            const premiBersamaPercent = Number($('#configVkPremiBersamaPercent').val() || vkConfig.premi_bersama_percent || 20);
             const distributionMode = $('#configVkDistributionMode').val() || vkConfig.distribution_mode || 'rata';
             const recipients = (vkConfig.recipients || []).length;
             const pool = Math.round((Number(rawTotal) || 0) * percent / 100);
             const finalTotal = Math.round(pool / pembagi);
+            const totalVk = Number(rawTotal) || 0;
+            const premiBersama = Math.round(totalVk * premiBersamaPercent / 100);
 
             return {
                 rawTotal: Number(rawTotal) || 0,
                 percent: percent,
                 pembagi: pembagi,
+                premiBersamaPercent: premiBersamaPercent,
                 distributionMode: distributionMode,
                 recipients: recipients,
                 pool: pool,
                 finalTotal: finalTotal,
+                totalVk: totalVk,
+                premiBersama: premiBersama,
                 totalDistributed: distributionMode === 'per_pegawai' ? finalTotal * recipients : finalTotal,
                 perRecipient: distributionMode === 'per_pegawai' ?
                     finalTotal :
@@ -290,7 +297,8 @@
             const rawTotal = Number(row.total_vk_awal || row.total_vk || 0);
             const pool = Number(row.bpjs_pool || 0);
             const hasil = Number(config.bpjs_hasil_perhitungan || row.total_vk || 0);
-            const distributed = Number(row.total_dibagikan || row.total_vk || 0);
+            const distributed = Number(row.total_dibagikan || 0);
+            const premiBersama = Number(row.total_premi_bersama || config.total_premi_bersama || 0);
             const rows = [{
                     label: 'Pool BPJS dari total awal',
                     value: formatRupiah(pool),
@@ -300,6 +308,11 @@
                     label: 'Hasil setelah pembagi',
                     value: formatRupiah(hasil),
                     percent: detailPercent(hasil, rawTotal)
+                },
+                {
+                    label: 'Premi bersama dari Total VK',
+                    value: formatRupiah(premiBersama),
+                    percent: detailPercent(premiBersama, rawTotal)
                 },
                 {
                     label: 'Total masuk pegawai',
@@ -330,7 +343,9 @@
             const pool = Number(row.bpjs_pool || Math.round(rawTotal * percent / 100) || 0);
             const hasil = Number(config.bpjs_hasil_perhitungan || Math.round(pool / pembagi) || 0);
             const recipients = row.details || [];
-            const totalPegawai = Number(row.total_dibagikan || row.total_vk || 0);
+            const totalPegawai = Number(row.total_dibagikan || 0);
+            const premiBersamaPercent = Number(config.premi_bersama_percent ?? 20);
+            const premiBersama = Number(row.total_premi_bersama || config.total_premi_bersama || Math.round(rawTotal * premiBersamaPercent / 100) || 0);
             const modeLabel = config.distribution_mode_label || 'Bagi rata ke semua pegawai';
 
             return [{
@@ -347,6 +362,11 @@
                     label: 'Hasil perhitungan',
                     note: 'Pool BPJS dibagi ' + formatNumber(pembagi),
                     value: formatRupiah(hasil)
+                },
+                {
+                    label: 'Premi bersama',
+                    note: percentText(premiBersamaPercent) + ' dari Total VK',
+                    value: formatRupiah(premiBersama)
                 },
                 {
                     label: 'Pemberian pegawai',
@@ -416,6 +436,10 @@
                     value: formatNumber(config.bpjs_pembagi || 1)
                 },
                 {
+                    label: 'Premi Bersama',
+                    value: percentText(config.premi_bersama_percent) + ' = ' + formatRupiah(row.total_premi_bersama || config.total_premi_bersama || 0)
+                },
+                {
                     label: 'Mode',
                     value: config.distribution_mode_label || '-'
                 },
@@ -425,7 +449,7 @@
                 },
                 {
                     label: 'Total dibagikan',
-                    value: formatRupiah(row.total_dibagikan || row.total_vk || 0)
+                    value: formatRupiah(row.total_dibagikan || 0)
                 }
             ]));
         }
@@ -550,7 +574,7 @@
             $('#detailVkAwal').text(formatRupiah(row.total_vk_awal || row.total_vk || 0));
             $('#detailVkPool').text(formatRupiah(row.bpjs_pool || 0));
             $('#detailVkHasil').text(formatRupiah(config.bpjs_hasil_perhitungan || row.total_vk || 0));
-            $('#detailVkDibagikan, #detailVkTotalSelected').text(formatRupiah(row.total_dibagikan || row.total_vk || 0));
+            $('#detailVkDibagikan, #detailVkTotalSelected').text(formatRupiah(row.total_dibagikan || 0));
             $('#detailVkFormulaFlow, #detailVkFormulaOnly').html(formulaStepsHtml(steps));
             $('#detailVkRecipientSearch').val('');
 
@@ -572,9 +596,10 @@
                 'Ploting: ' + (row.ploting_label || '-'),
                 'Total VK awal: ' + formatRupiah(row.total_vk_awal || 0),
                 'Pool BPJS: ' + formatRupiah(row.bpjs_pool || 0),
+                'Premi bersama: ' + formatRupiah(row.total_premi_bersama || 0),
                 'Hasil rumus: ' + formatRupiah(config.bpjs_hasil_perhitungan || 0),
                 'Mode: ' + (config.distribution_mode_label || '-'),
-                'Total pemberian pegawai: ' + formatRupiah(row.total_dibagikan || row.total_vk || 0),
+                'Total pemberian pegawai: ' + formatRupiah(row.total_dibagikan || 0),
                 'Pegawai: ' + (row.details || []).map(function(item) {
                     return (item.pegawai_name || '-') + ' = ' + formatRupiah(item.total_received || 0);
                 }).join(', ')
@@ -628,6 +653,10 @@
                 .html(bpjsPreviewRowsHtml([{
                         label: 'Total VK awal',
                         value: formatRupiah(calc.rawTotal)
+                    },
+                    {
+                        label: 'Premi bersama ' + formatNumber(calc.premiBersamaPercent) + '%',
+                        value: formatRupiah(calc.premiBersama)
                     },
                     {
                         label: 'Persen BPJS',
@@ -757,6 +786,7 @@
                     vkConfig = response.data || vkConfig;
                     $('#configVkBpjsPercent').val(vkConfig.bpjs_percent ?? 4);
                     $('#configVkBpjsPembagi').val(vkConfig.bpjs_pembagi ?? 4);
+                    $('#configVkPremiBersamaPercent').val(vkConfig.premi_bersama_percent ?? 20);
                     $('#configVkDistributionMode').val(vkConfig.distribution_mode || 'rata');
                     setConfigRecipients(vkConfig.recipients || []);
                     renderConfigPreview();
@@ -791,6 +821,10 @@
                 {
                     label: 'Hasil setelah pembagi',
                     value: formatRupiah(calc.finalTotal)
+                },
+                {
+                    label: 'Premi bersama ' + formatNumber(calc.premiBersamaPercent) + '%',
+                    value: formatRupiah(calc.premiBersama)
                 },
                 {
                     label: 'Mode pembagian',
@@ -912,6 +946,8 @@
                     $('#summaryDataVk').text(formatNumber(data.generated_count));
                     $('#summaryHasilHitungVk').text(formatRupiah(data.total_hasil_hitung || 0));
                     $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
+                    $('#summaryPremiBersamaVk').text(formatRupiah(data.total_premi_bersama || 0));
+                    $('#summaryPremiBersamaVkCard').toggleClass('d-none', activeType !== 'bpjs');
                     $('#summaryTotalVk').text(formatRupiah(data.total_vk));
                     renderPlotingSummary(data.ploting_summaries);
                     $('#summaryVkSubtitle').text(
@@ -923,6 +959,8 @@
                     $('#summaryTindakanVk, #summaryJumlahVk, #summaryDataVk').text('0');
                     $('#summaryHasilHitungVk').text('Rp 0');
                     $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
+                    $('#summaryPremiBersamaVk').text('Rp 0');
+                    $('#summaryPremiBersamaVkCard').toggleClass('d-none', activeType !== 'bpjs');
                     $('#summaryTotalVk').text('Rp 0');
                     renderPlotingSummary([]);
                     $('#summaryVkSubtitle').text('Ringkasan gagal dimuat.');
@@ -1008,6 +1046,7 @@
                         const bpjsInfo = row.jenis_vk === 'bpjs' ?
                             '<small class="d-block text-muted">Awal ' + formatRupiah(row.total_vk_awal || data) +
                             ' / hasil ' + formatRupiah(config.bpjs_hasil_perhitungan || data) + '</small>' +
+                            '<small class="d-block text-muted">Premi bersama ' + formatRupiah(row.total_premi_bersama || 0) + '</small>' +
                             '<small class="d-block text-muted">' +
                             escapeHtml(config.distribution_mode_label || 'Bagi rata ke semua pegawai') +
                             ' / ' + formatNumber(row.details_count || 0) + ' penerima</small>' :
@@ -1068,6 +1107,7 @@
             $('.vk-type-tab[data-type="' + type + '"]').addClass('active');
             $('#resultVkTitle').text('Hasil Generate VK ' + typeConfig[activeType]);
             $('#summaryHasilHitungVkCard').toggleClass('d-none', activeType !== 'bpjs');
+            $('#summaryPremiBersamaVkCard').toggleClass('d-none', activeType !== 'bpjs');
         }
 
         function openGenerateModal(row) {
@@ -1342,7 +1382,7 @@
 
         $('#btnConfigVk').on('click', openConfigModal);
 
-        $('#configVkBpjsPercent, #configVkBpjsPembagi, #configVkDistributionMode').on('input change', function() {
+        $('#configVkBpjsPercent, #configVkBpjsPembagi, #configVkPremiBersamaPercent, #configVkDistributionMode').on('input change', function() {
             vkConfig.distribution_mode = $('#configVkDistributionMode').val() || 'rata';
             renderConfigPreview();
             updatePreviewTotal();
@@ -1461,6 +1501,7 @@
                     jenis_vk: 'bpjs',
                     bpjs_percent: $('#configVkBpjsPercent').val(),
                     bpjs_pembagi: $('#configVkBpjsPembagi').val(),
+                    premi_bersama_percent: $('#configVkPremiBersamaPercent').val(),
                     distribution_mode: $('#configVkDistributionMode').val(),
                     recipients: $('#configVkRecipients').val() || []
                 },

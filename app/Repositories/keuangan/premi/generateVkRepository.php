@@ -45,6 +45,7 @@ class generateVkRepository
             'bpjs_pool' => $rows->sum('bpjs_pool'),
             'total_hasil_hitung' => $this->totalHasilHitung($rows),
             'total_dibagikan' => $rows->sum('total_dibagikan'),
+            'total_premi_bersama' => $rows->sum('total_premi_bersama'),
             'ploting_summaries' => $this->plotingSummaries($rows),
         ];
     }
@@ -85,6 +86,7 @@ class generateVkRepository
                     'jumlah_tindakan' => $items->sum('jumlah_tindakan'),
                     'total_vk' => $items->sum('total_vk'),
                     'total_dibagikan' => $items->sum('total_dibagikan'),
+                    'total_premi_bersama' => $items->sum('total_premi_bersama'),
                     'locked_count' => $items->where('is_locked', true)->count(),
                 ];
             })
@@ -223,6 +225,7 @@ class generateVkRepository
                 'total_vk_awal' => $calculation['total_vk_awal'],
                 'bpjs_pool' => $calculation['bpjs_pool'],
                 'total_dibagikan' => $calculation['total_dibagikan'],
+                'total_premi_bersama' => $calculation['total_premi_bersama'],
                 'config_snapshot' => $calculation['config_snapshot'],
                 'generate_by' => Auth::id(),
             ]
@@ -317,6 +320,7 @@ class generateVkRepository
                 [
                     'bpjs_percent' => $jenis === 'bpjs' ? 4 : 100,
                     'bpjs_pembagi' => 4,
+                    'premi_bersama_percent' => 20,
                     'distribution_mode' => 'rata',
                 ]
             );

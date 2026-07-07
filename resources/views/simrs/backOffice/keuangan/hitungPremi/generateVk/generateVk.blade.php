@@ -1553,6 +1553,10 @@
                     <div class="vk-summary-label">Total Hasil Hitung</div>
                     <div class="vk-summary-value" id="summaryHasilHitungVk">Rp 0</div>
                 </div>
+                <div class="vk-summary-card d-none" id="summaryPremiBersamaVkCard">
+                    <div class="vk-summary-label">Premi Bersama</div>
+                    <div class="vk-summary-value" id="summaryPremiBersamaVk">Rp 0</div>
+                </div>
                 <div class="vk-summary-card total">
                     <div class="vk-summary-label">Total VK</div>
                     <div class="vk-summary-value" id="summaryTotalVk">Rp 0</div>

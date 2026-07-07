@@ -144,6 +144,7 @@ class hitungPremiVkController extends Controller
             'jenis_vk' => ['required', 'in:umum,bpjs'],
             'bpjs_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'bpjs_pembagi' => ['required', 'integer', 'min:1', 'max:999999'],
+            'premi_bersama_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'distribution_mode' => ['required', 'in:rata,per_pegawai'],
             'recipients' => ['nullable', 'array'],
             'recipients.*' => ['string', 'max:30'],

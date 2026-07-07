@@ -50,6 +50,7 @@ class generateVkService
             $this->repository->saveConfig($jenisVk, [
                 'bpjs_percent' => (float) ($data['bpjs_percent'] ?? 4),
                 'bpjs_pembagi' => max(1, (int) ($data['bpjs_pembagi'] ?? 4)),
+                'premi_bersama_percent' => (float) ($data['premi_bersama_percent'] ?? 20),
                 'distribution_mode' => $this->distributionMode($data['distribution_mode'] ?? 'rata'),
             ], $recipients)
         );
@@ -349,6 +350,7 @@ class generateVkService
             'total_vk_awal' => $row->total_vk_awal ?: $row->total_vk,
             'bpjs_pool' => $row->bpjs_pool ?? 0,
             'total_dibagikan' => $row->total_dibagikan ?? 0,
+            'total_premi_bersama' => $row->total_premi_bersama ?? 0,
             'details_count' => $row->details_count ?? $row->details?->count() ?? 0,
             'config_snapshot' => $row->config_snapshot,
             'details' => $row->relationLoaded('details')
@@ -381,12 +383,14 @@ class generateVkService
         $baseTotal = $jumlahTindakan * $nominal;
         $config = $this->configPayload($this->repository->getConfig($jenisVk));
         $bpjsPool = 0;
+        $premiBersama = 0;
         $totalVk = $baseTotal;
         $recipients = [];
 
         if ($jenisVk === 'bpjs') {
             $bpjsPool = (int) round($baseTotal * $config['bpjs_percent'] / 100);
             $hasilPerhitungan = (int) round($bpjsPool / max(1, $config['bpjs_pembagi']));
+            $premiBersama = (int) round($baseTotal * $config['premi_bersama_percent'] / 100);
             $recipients = $this->splitBpjsPool(
                 $hasilPerhitungan,
                 $config['recipients'],
@@ -394,7 +398,7 @@ class generateVkService
                 $strict,
                 $errorPrefix
             );
-            $totalVk = collect($recipients)->sum('total_received');
+            $totalVk = $baseTotal;
         }
 
         return [
@@ -403,11 +407,13 @@ class generateVkService
             'total_vk' => $totalVk,
             'recipients' => $recipients,
             'total_dibagikan' => collect($recipients)->sum('total_received'),
+            'total_premi_bersama' => $premiBersama,
             'config_snapshot' => [
                 ...$config,
                 'bpjs_hasil_perhitungan' => $jenisVk === 'bpjs' ? ($hasilPerhitungan ?? 0) : $baseTotal,
+                'total_premi_bersama' => $premiBersama,
                 'formula_label' => $jenisVk === 'bpjs'
-                    ? 'Total VK awal x persen BPJS / pembagi'
+                    ? 'Total VK awal; pegawai dari persen BPJS / pembagi; premi bersama dari persen premi bersama'
                     : 'Jumlah tindakan x nominal hitung',
             ],
         ];
@@ -497,6 +503,7 @@ class generateVkService
             'jenis_vk_label' => $this->typeLabel($config->jenis_vk),
             'bpjs_percent' => (float) ($config->bpjs_percent ?? 4),
             'bpjs_pembagi' => max(1, (int) ($config->bpjs_pembagi ?? 4)),
+            'premi_bersama_percent' => (float) ($config->premi_bersama_percent ?? 20),
             'distribution_mode' => $this->distributionMode($config->distribution_mode ?? 'rata'),
             'distribution_mode_label' => $this->distributionModeLabel($config->distribution_mode ?? 'rata'),
             'recipients' => $config->pegawai->map(fn ($pegawai) => [

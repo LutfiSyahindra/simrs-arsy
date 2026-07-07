@@ -223,7 +223,7 @@
                 <div>
                     <h5 class="modal-title fw-bold">Konfigurasi VK BPJS</h5>
                     <small class="text-muted">
-                        Persen diambil dari total VK awal, dibagi pembagi, lalu dibagikan sesuai mode.
+                        Total VK BPJS memakai nilai awal. Premi bersama diambil dari persen konfigurasi.
                     </small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -231,7 +231,8 @@
             <div class="modal-body">
                 <input type="hidden" id="jenisConfigVk" value="bpjs">
                 <div class="alert alert-primary py-2">
-                    Rumus: <strong>Total VK awal x Persen BPJS / Pembagi</strong>.
+                    Rumus pegawai: <strong>Total VK awal x Persen BPJS / Pembagi</strong>.
+                    Premi bersama: <strong>Total VK awal x Persen Premi Bersama</strong>.
                 </div>
                 <div class="row g-3">
                     <div class="col-md-6">
@@ -248,6 +249,15 @@
                         <input type="number" step="1" min="1" max="999999" class="form-control"
                             id="configVkBpjsPembagi">
                         <small class="text-muted">Hasil persen BPJS akan dibagi angka ini.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Persen Premi Bersama</label>
+                        <div class="input-group">
+                            <input type="number" step="0.0001" min="0" max="100" class="form-control"
+                                id="configVkPremiBersamaPercent">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">Default 20% dari Total VK awal sebelum pembagi.</small>
                     </div>
                     <div class="col-12">
                         <label class="form-label">Mode Pembagian</label>

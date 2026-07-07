@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('jenis_vk', 10)->unique();
             $table->decimal('bpjs_percent', 8, 4)->default(4);
             $table->unsignedInteger('bpjs_pembagi')->default(4);
+            $table->decimal('premi_bersama_percent', 8, 4)->default(20);
             $table->timestamps();
         });
 
@@ -43,8 +44,12 @@ return new class extends Migration
                 $table->unsignedBigInteger('total_dibagikan')->default(0)->after('bpjs_pool');
             }
 
+            if (! Schema::hasColumn('generate_vk', 'total_premi_bersama')) {
+                $table->unsignedBigInteger('total_premi_bersama')->default(0)->after('total_dibagikan');
+            }
+
             if (! Schema::hasColumn('generate_vk', 'config_snapshot')) {
-                $table->json('config_snapshot')->nullable()->after('total_dibagikan');
+                $table->json('config_snapshot')->nullable()->after('total_premi_bersama');
             }
         });
 
@@ -79,6 +84,10 @@ return new class extends Migration
 
             if (Schema::hasColumn('generate_vk', 'total_dibagikan')) {
                 $table->dropColumn('total_dibagikan');
+            }
+
+            if (Schema::hasColumn('generate_vk', 'total_premi_bersama')) {
+                $table->dropColumn('total_premi_bersama');
             }
 
             if (Schema::hasColumn('generate_vk', 'bpjs_pool')) {
