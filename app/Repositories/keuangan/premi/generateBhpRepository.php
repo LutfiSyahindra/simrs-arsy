@@ -131,6 +131,16 @@ class generateBhpRepository
             ->find($id);
     }
 
+    public function getUnlockedForPeriodAndType(string $periode, string $jenisBhp): Collection
+    {
+        return generateBhpModel::query()
+            ->where('periode', $periode)
+            ->where('jenis_bhp', $jenisBhp)
+            ->where('is_locked', false)
+            ->lockForUpdate()
+            ->get();
+    }
+
     public function saveResult(
         string $periode,
         string $jenisBhp,
@@ -174,6 +184,18 @@ class generateBhpRepository
             ->each(fn ($chunk) => generateBhpDetailModel::query()->insert($chunk->all()));
     }
 
+    public function deleteExceptPlotingIds(
+        string $periode,
+        string $jenisBhp,
+        array $plotingIds
+    ): int {
+        return generateBhpModel::query()
+            ->where('periode', $periode)
+            ->where('jenis_bhp', $jenisBhp)
+            ->whereNotIn('plotingPremi_id', $plotingIds)
+            ->delete();
+    }
+
     public function findWithDetails(int $id): ?generateBhpModel
     {
         return generateBhpModel::query()
@@ -202,6 +224,35 @@ class generateBhpRepository
         return generateBhpModel::query()
             ->with('lockedBy:id,name')
             ->findOrFail($generateBhp->id);
+    }
+
+    public function updateManyLock(Collection $results, int $userId): int
+    {
+        $ids = $results->pluck('id')->values();
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return DB::table('generate_bhp')
+            ->whereIn('id', $ids)
+            ->update([
+                'is_locked' => true,
+                'locked_at' => now(),
+                'locked_by' => $userId,
+            ]);
+    }
+
+    public function isUsedInPremiPelayananNonMedis(int $id): bool
+    {
+        return DB::table('premi_pelayanan_non_medis')
+            ->where('generate_bhp_id', $id)
+            ->exists();
+    }
+
+    public function deleteResult(generateBhpModel $result): void
+    {
+        $result->delete();
     }
 
     public function getPenjaminNames(Collection $codes): Collection

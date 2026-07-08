@@ -48,6 +48,10 @@ class hitungPremiBhpController extends Controller
                             data-id="'.$row['id'].'" title="Kunci data">
                             <i class="mdi mdi-lock-outline"></i>
                         </button>
+                        <button type="button" class="btn btn-outline-danger btn-delete-bhp"
+                            data-id="'.$row['id'].'" title="Hapus data">
+                            <i class="mdi mdi-delete-outline"></i>
+                        </button>
                     ';
                 } elseif ($canUnlock) {
                     $actions .= '
@@ -93,7 +97,7 @@ class hitungPremiBhpController extends Controller
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_bhp' => ['required', 'in:umum,bpjs'],
             'nominal_hitung' => ['required', 'array'],
-            'nominal_hitung.*' => ['required', 'integer', 'min:1', 'max:999999999999'],
+            'nominal_hitung.*' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
         ]);
 
         $result = $this->generateBhpService->generate(
@@ -136,6 +140,36 @@ class hitungPremiBhpController extends Controller
             'status' => true,
             'message' => 'Kunci data BHP berhasil dibuka.',
             'data' => $result,
+        ]);
+    }
+
+    public function lockAll(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+            'jenis_bhp' => ['required', 'in:umum,bpjs'],
+        ]);
+
+        $result = $this->generateBhpService->lockAll(
+            $validated['periode'],
+            $validated['jenis_bhp'],
+            $request->user()
+        );
+
+        return response()->json([
+            'status' => true,
+            'message' => "{$result['locked_count']} data BHP {$result['jenis_bhp_label']} berhasil dikunci.",
+            'data' => $result,
+        ]);
+    }
+
+    public function destroy(int $id)
+    {
+        $this->generateBhpService->delete($id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data BHP berhasil dihapus.',
         ]);
     }
 }

@@ -116,6 +116,21 @@ class generateKamarService
                 ]);
             }
 
+            $selectedPlotingIds = array_keys($nominals);
+            $plotings = $plotings
+                ->whereIn('id', $selectedPlotingIds)
+                ->values();
+            $usedSkippedRows = $existingRows
+                ->whereNotIn('plotingPremi_id', $selectedPlotingIds)
+                ->filter(fn ($row) => $this->generateKamarRepository
+                    ->isUsedInPremiPelayananNonMedis($row->id));
+
+            if ($usedSkippedRows->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'nominal_hitung' => "Ada {$usedSkippedRows->count()} data kamar bernominal 0 yang sudah dipakai pada premi pelayanan non-medis.",
+                ]);
+            }
+
             $details = $this->generateKamarRepository->getEligibleByType($periode, $jenisKamar);
 
             if ($details->isEmpty()) {
@@ -123,6 +138,12 @@ class generateKamarService
                     'periode' => "Tidak ada data kamar inap {$typeLabel} yang memenuhi kriteria pada periode sumber {$sourcePeriod}.",
                 ]);
             }
+
+            $this->generateKamarRepository->deleteExceptPlotingIds(
+                $periode,
+                $jenisKamar,
+                $selectedPlotingIds
+            );
 
             $jumlahLamaInap = (int) $details->sum('lama');
             $results = $plotings->map(function ($ploting) use (
@@ -209,6 +230,32 @@ class generateKamarService
         });
     }
 
+    public function lockAll(string $periode, string $jenisKamar, User $user): array
+    {
+        return DB::transaction(function () use ($periode, $jenisKamar, $user) {
+            $results = $this->generateKamarRepository
+                ->getUnlockedForPeriodAndType($periode, $jenisKamar);
+
+            if ($results->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Tidak ada data kamar terbuka yang bisa dikunci.',
+                ]);
+            }
+
+            $lockedCount = $this->generateKamarRepository->updateManyLock(
+                $results,
+                $user->id
+            );
+
+            return [
+                'periode' => $periode,
+                'jenis_kamar' => $jenisKamar,
+                'jenis_kamar_label' => $this->typeLabel($jenisKamar),
+                'locked_count' => $lockedCount,
+            ];
+        });
+    }
+
     public function unlock(int $id, User $user): array
     {
         if (! $user->hasRole('Admin')) {
@@ -233,6 +280,31 @@ class generateKamarService
             return $this->lockPayload(
                 $this->generateKamarRepository->updateLock($result, false)
             );
+        });
+    }
+
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $result = $this->generateKamarRepository->findForUpdate($id);
+
+            if (! $result) {
+                abort(404, 'Data generate kamar tidak ditemukan.');
+            }
+
+            if ($result->is_locked) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data kamar yang sudah terkunci tidak dapat dihapus.',
+                ]);
+            }
+
+            if ($this->generateKamarRepository->isUsedInPremiPelayananNonMedis($result->id)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data kamar sudah dipakai pada premi pelayanan non-medis dan tidak dapat dihapus.',
+                ]);
+            }
+
+            $this->generateKamarRepository->deleteResult($result);
         });
     }
 
@@ -280,9 +352,6 @@ class generateKamarService
             $nominal = (int) preg_replace('/\D/', '', (string) $rawNominal);
 
             if ($nominal < 1) {
-                $errors["nominal_hitung.{$ploting->id}"] =
-                    "Nominal hitung {$ploting->ploting} wajib lebih dari Rp 0.";
-
                 continue;
             }
 
@@ -291,6 +360,12 @@ class generateKamarService
 
         if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
+        }
+
+        if (empty($nominals)) {
+            throw ValidationException::withMessages([
+                'nominal_hitung' => 'Minimal satu nominal hitung ploting wajib lebih dari Rp 0.',
+            ]);
         }
 
         return $nominals;

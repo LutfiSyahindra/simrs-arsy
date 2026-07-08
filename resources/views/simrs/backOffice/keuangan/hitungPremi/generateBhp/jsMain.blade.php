@@ -216,9 +216,12 @@
             const hasResult = generatedPloting > 0;
             const status = $('#activeBhpLockStatus');
             const generateButton = $('#btnGenerateBhp');
+            const lockAllButton = $('#btnLockAllBhp');
             const lockCard = $('#summaryLockCard');
             const lockedBy = data.locked_by_name || '';
             const lockedAt = data.locked_at || '';
+            const lockedPloting = Number(data.locked_ploting_count || 0);
+            const unlockedPloting = Math.max(generatedPloting - lockedPloting, 0);
             const plotingInfo = generatedPloting + ' dari ' + plotingCount + ' ploting';
 
             status.toggleClass('d-none', !hasResult);
@@ -240,6 +243,13 @@
                 isLocked ?
                 'Data BHP Terkunci' :
                 'Generate BHP ' + typeConfig[activeType].label
+            );
+            lockAllButton.prop('disabled', unlockedPloting < 1);
+            lockAllButton.attr(
+                'title',
+                unlockedPloting > 0 ?
+                'Kunci ' + unlockedPloting + ' data BHP yang masih terbuka.' :
+                (hasResult ? 'Semua data BHP sudah terkunci.' : 'Belum ada data BHP yang bisa dikunci.')
             );
 
             lockCard.toggleClass('is-locked', isLocked);
@@ -573,6 +583,94 @@
             });
         });
 
+        $('#btnLockAllBhp').on('click', function() {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Kunci semua data BHP?',
+                text: 'Semua data BHP ' + typeConfig[activeType].label + ' periode ' +
+                    ($('#periodeBhp').val() || '-') + ' yang masih terbuka akan dikunci.',
+                showCancelButton: true,
+                confirmButtonText: '<i class="mdi mdi-lock-check-outline me-1"></i> Kunci Semua',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#d97706'
+            }).then(function(result) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route("backOffice.keuangan.hitungPremi.generateBhp.lockAll") }}",
+                    type: 'POST',
+                    data: {
+                        periode: $('#periodeBhp').val(),
+                        jenis_bhp: activeType
+                    },
+                    success: function(response) {
+                        refreshBhpData();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Data Dikunci',
+                            text: response.message ||
+                                'Semua data BHP berhasil dikunci.',
+                            timer: 1600,
+                            showConfirmButton: false
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal Mengunci',
+                            text: getErrorMessage(xhr,
+                                'Data BHP gagal dikunci.')
+                        });
+                    }
+                });
+            });
+        });
+
+        $('#tableGenerateBhp').on('click', '.btn-delete-bhp', function() {
+            const id = $(this).data('id');
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Hapus data BHP?',
+                text: 'Data yang dihapus tidak bisa dikembalikan.',
+                showCancelButton: true,
+                confirmButtonText: '<i class="mdi mdi-delete-outline me-1"></i> Hapus Data',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#dc3545'
+            }).then(function(result) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                $.ajax({
+                    url: "{{ route("backOffice.keuangan.hitungPremi.generateBhp.delete", ["id" => "__ID__"]) }}"
+                        .replace('__ID__', id),
+                    type: 'DELETE',
+                    success: function(response) {
+                        refreshBhpData();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Data Dihapus',
+                            text: response.message ||
+                                'Data BHP berhasil dihapus.',
+                            timer: 1600,
+                            showConfirmButton: false
+                        });
+                    },
+                    error: function(xhr) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Gagal Menghapus',
+                            text: getErrorMessage(xhr,
+                                'Data BHP gagal dihapus.')
+                        });
+                    }
+                });
+            });
+        });
+
         $('#btnGenerateBhp').on('click', function() {
             const periode = $('#periodeBhp').val();
             const config = typeConfig[activeType];
@@ -593,7 +691,7 @@
             $('#periodeGenerateSourceInfo').text(
                         'Data sumber: ' + getSourcePeriod(periode, activeType) +
                 (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.') +
-                ' Hasil akan dibuat untuk seluruh Master Ploting Premi.'
+                ' Ploting bernominal Rp 0 tidak akan digenerate.'
             );
             renderPlotingNominalInputs(activeSummary.ploting_nominals || []);
             $('#nominalHitungBhpError').text('');
@@ -618,6 +716,7 @@
             const originalHtml = submitButton.html();
             const nominalPayload = {};
             let firstInvalidInput = null;
+            let hasPositiveNominal = false;
             const jenisBhp = $('#jenisGenerateBhp').val();
             const typeLabel = typeConfig[jenisBhp].label;
 
@@ -627,7 +726,11 @@
                 const nominal = this.value.replace(/\D/g, '');
                 nominalPayload[plotingId] = nominal;
 
-                if (!nominal || Number(nominal) < 1) {
+                if (nominal && Number(nominal) > 0) {
+                    hasPositiveNominal = true;
+                }
+
+                if (nominal && Number(nominal) > 999999999999) {
                     input.addClass('is-invalid');
                     firstInvalidInput = firstInvalidInput || input;
                 }
@@ -636,7 +739,15 @@
             if (firstInvalidInput) {
                 firstInvalidInput.trigger('focus');
                 $('#nominalHitungBhpError').text(
-                    'Semua nominal hitung per ploting wajib lebih dari Rp 0.'
+                    'Nominal hitung per ploting maksimal Rp 999.999.999.999.'
+                );
+                return;
+            }
+
+            if (!hasPositiveNominal) {
+                $('.ploting-nominal-input:first').trigger('focus');
+                $('#nominalHitungBhpError').text(
+                    'Isi minimal satu nominal ploting lebih dari Rp 0. Nominal Rp 0 akan dilewati.'
                 );
                 return;
             }

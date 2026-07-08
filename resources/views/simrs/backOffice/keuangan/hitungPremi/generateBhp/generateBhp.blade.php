@@ -1225,6 +1225,11 @@
                         title="Refresh data">
                         <i class="mdi mdi-refresh"></i>
                     </button>
+                    <button type="button" id="btnLockAllBhp" class="btn btn-warning btn-sm" disabled
+                        title="Kunci semua data terbuka">
+                        <i class="mdi mdi-lock-check-outline me-1"></i>
+                        Kunci Semua
+                    </button>
                 </div>
             </div>
 

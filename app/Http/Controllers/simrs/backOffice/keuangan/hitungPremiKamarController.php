@@ -48,6 +48,10 @@ class hitungPremiKamarController extends Controller
                             data-id="'.$row['id'].'" title="Kunci data">
                             <i class="mdi mdi-lock-outline"></i>
                         </button>
+                        <button type="button" class="btn btn-outline-danger btn-delete-kamar"
+                            data-id="'.$row['id'].'" title="Hapus data">
+                            <i class="mdi mdi-delete-outline"></i>
+                        </button>
                     ';
                 } elseif ($canUnlock) {
                     $actions .= '
@@ -93,7 +97,7 @@ class hitungPremiKamarController extends Controller
             'periode' => ['required', 'date_format:Y-m'],
             'jenis_kamar' => ['required', 'in:umum,bpjs'],
             'nominal_hitung' => ['required', 'array'],
-            'nominal_hitung.*' => ['required', 'integer', 'min:1', 'max:999999999999'],
+            'nominal_hitung.*' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
         ]);
 
         $result = $this->generateKamarService->generate(
@@ -136,6 +140,36 @@ class hitungPremiKamarController extends Controller
             'status' => true,
             'message' => 'Kunci data kamar berhasil dibuka.',
             'data' => $result,
+        ]);
+    }
+
+    public function lockAll(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+            'jenis_kamar' => ['required', 'in:umum,bpjs'],
+        ]);
+
+        $result = $this->generateKamarService->lockAll(
+            $validated['periode'],
+            $validated['jenis_kamar'],
+            $request->user()
+        );
+
+        return response()->json([
+            'status' => true,
+            'message' => "{$result['locked_count']} data kamar {$result['jenis_kamar_label']} berhasil dikunci.",
+            'data' => $result,
+        ]);
+    }
+
+    public function destroy(int $id)
+    {
+        $this->generateKamarService->delete($id);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Data kamar berhasil dihapus.',
         ]);
     }
 }

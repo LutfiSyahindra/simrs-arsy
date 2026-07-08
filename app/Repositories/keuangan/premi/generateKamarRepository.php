@@ -137,6 +137,16 @@ class generateKamarRepository
             ->find($id);
     }
 
+    public function getUnlockedForPeriodAndType(string $periode, string $jenisKamar): Collection
+    {
+        return generateKamarModel::query()
+            ->where('periode', $periode)
+            ->where('jenis_kamar', $jenisKamar)
+            ->where('is_locked', false)
+            ->lockForUpdate()
+            ->get();
+    }
+
     public function saveResult(
         string $periode,
         string $jenisKamar,
@@ -185,6 +195,18 @@ class generateKamarRepository
             ->each(fn ($chunk) => generateKamarDetailModel::query()->insert($chunk->all()));
     }
 
+    public function deleteExceptPlotingIds(
+        string $periode,
+        string $jenisKamar,
+        array $plotingIds
+    ): int {
+        return generateKamarModel::query()
+            ->where('periode', $periode)
+            ->where('jenis_kamar', $jenisKamar)
+            ->whereNotIn('plotingPremi_id', $plotingIds)
+            ->delete();
+    }
+
     public function findWithDetails(int $id): ?generateKamarModel
     {
         return generateKamarModel::query()
@@ -214,6 +236,35 @@ class generateKamarRepository
         return generateKamarModel::query()
             ->with('lockedBy:id,name')
             ->findOrFail($generateKamar->id);
+    }
+
+    public function updateManyLock(Collection $results, int $userId): int
+    {
+        $ids = $results->pluck('id')->values();
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return DB::table('generate_kamar_inap')
+            ->whereIn('id', $ids)
+            ->update([
+                'is_locked' => true,
+                'locked_at' => now(),
+                'locked_by' => $userId,
+            ]);
+    }
+
+    public function isUsedInPremiPelayananNonMedis(int $id): bool
+    {
+        return DB::table('premi_pelayanan_non_medis')
+            ->where('generate_kamar_inap_id', $id)
+            ->exists();
+    }
+
+    public function deleteResult(generateKamarModel $result): void
+    {
+        $result->delete();
     }
 
     public function getPenjaminNames(Collection $codes): Collection

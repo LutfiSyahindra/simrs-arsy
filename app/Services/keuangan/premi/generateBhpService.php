@@ -113,6 +113,21 @@ class generateBhpService
                 ]);
             }
 
+            $selectedPlotingIds = array_keys($nominals);
+            $plotings = $plotings
+                ->whereIn('id', $selectedPlotingIds)
+                ->values();
+            $usedSkippedRows = $existingRows
+                ->whereNotIn('plotingPremi_id', $selectedPlotingIds)
+                ->filter(fn ($row) => $this->generateBhpRepository
+                    ->isUsedInPremiPelayananNonMedis($row->id));
+
+            if ($usedSkippedRows->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    'nominal_hitung' => "Ada {$usedSkippedRows->count()} data BHP bernominal 0 yang sudah dipakai pada premi pelayanan non-medis.",
+                ]);
+            }
+
             $details = $this->generateBhpRepository->getEligibleByType($periode, $jenisBhp);
 
             if ($details->isEmpty()) {
@@ -120,6 +135,12 @@ class generateBhpService
                     'periode' => "Tidak ada data rawat inap {$typeLabel} yang memenuhi kriteria pada periode sumber {$sourcePeriod}.",
                 ]);
             }
+
+            $this->generateBhpRepository->deleteExceptPlotingIds(
+                $periode,
+                $jenisBhp,
+                $selectedPlotingIds
+            );
 
             $results = $plotings->map(function ($ploting) use (
                 $periode,
@@ -223,6 +244,32 @@ class generateBhpService
         });
     }
 
+    public function lockAll(string $periode, string $jenisBhp, User $user): array
+    {
+        return DB::transaction(function () use ($periode, $jenisBhp, $user) {
+            $results = $this->generateBhpRepository
+                ->getUnlockedForPeriodAndType($periode, $jenisBhp);
+
+            if ($results->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'status' => 'Tidak ada data BHP terbuka yang bisa dikunci.',
+                ]);
+            }
+
+            $lockedCount = $this->generateBhpRepository->updateManyLock(
+                $results,
+                $user->id
+            );
+
+            return [
+                'periode' => $periode,
+                'jenis_bhp' => $jenisBhp,
+                'jenis_bhp_label' => $this->typeLabel($jenisBhp),
+                'locked_count' => $lockedCount,
+            ];
+        });
+    }
+
     public function unlock(int $id, User $user): array
     {
         if (! $user->hasRole('Admin')) {
@@ -250,6 +297,31 @@ class generateBhpService
         });
     }
 
+    public function delete(int $id): void
+    {
+        DB::transaction(function () use ($id) {
+            $result = $this->generateBhpRepository->findForUpdate($id);
+
+            if (! $result) {
+                abort(404, 'Data generate BHP tidak ditemukan.');
+            }
+
+            if ($result->is_locked) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data BHP yang sudah terkunci tidak dapat dihapus.',
+                ]);
+            }
+
+            if ($this->generateBhpRepository->isUsedInPremiPelayananNonMedis($result->id)) {
+                throw ValidationException::withMessages([
+                    'status' => 'Data BHP sudah dipakai pada premi pelayanan non-medis dan tidak dapat dihapus.',
+                ]);
+            }
+
+            $this->generateBhpRepository->deleteResult($result);
+        });
+    }
+
     private function lockPayload($result): array
     {
         return [
@@ -272,9 +344,6 @@ class generateBhpService
             $nominal = (int) preg_replace('/\D/', '', (string) $rawNominal);
 
             if ($nominal < 1) {
-                $errors["nominal_hitung.{$ploting->id}"] =
-                    "Nominal hitung {$ploting->ploting} wajib lebih dari Rp 0.";
-
                 continue;
             }
 
@@ -283,6 +352,12 @@ class generateBhpService
 
         if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
+        }
+
+        if (empty($nominals)) {
+            throw ValidationException::withMessages([
+                'nominal_hitung' => 'Minimal satu nominal hitung ploting wajib lebih dari Rp 0.',
+            ]);
         }
 
         return $nominals;
