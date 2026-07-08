@@ -5,6 +5,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiDokterController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiDriverController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiFisioController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
@@ -237,6 +238,18 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generatePremiBersama/{id}/detail', [hitungPremiBersamaController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.detail');
         Route::post('/hitung-premi/generatePremiBersama/{id}/lock', [hitungPremiBersamaController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.lock');
         Route::post('/hitung-premi/generatePremiBersama/{id}/unlock', [hitungPremiBersamaController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePremiBersama.unlock');
+
+        Route::get('/hitung-premi/generatePremiDokter', [hitungPremiDokterController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter');
+        Route::get('/hitung-premi/generatePremiDokter/table', [hitungPremiDokterController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.table');
+        Route::get('/hitung-premi/generatePremiDokter/summary', [hitungPremiDokterController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.summary');
+        Route::get('/hitung-premi/generatePremiDokter/config', [hitungPremiDokterController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.config');
+        Route::put('/hitung-premi/generatePremiDokter/config', [hitungPremiDokterController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.updateConfig');
+        Route::get('/hitung-premi/generatePremiDokter/mapping-tindakan-options', [hitungPremiDokterController::class, 'mappingTindakanOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.mappingTindakanOptions');
+        Route::get('/hitung-premi/generatePremiDokter/dokter-options', [hitungPremiDokterController::class, 'dokterOptions'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.dokterOptions');
+        Route::post('/hitung-premi/generatePremiDokter', [hitungPremiDokterController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.store');
+        Route::get('/hitung-premi/generatePremiDokter/{id}/detail', [hitungPremiDokterController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.detail');
+        Route::post('/hitung-premi/generatePremiDokter/{id}/lock', [hitungPremiDokterController::class, 'lock'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.lock');
+        Route::post('/hitung-premi/generatePremiDokter/{id}/unlock', [hitungPremiDokterController::class, 'unlock'])->name('backOffice.keuangan.hitungPremi.generatePremiDokter.unlock');
 
         Route::get('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'index'])->name('backOffice.keuangan.hitungPremi.generateUgd');
         Route::get('/hitung-premi/generateUgd/table', [hitungPremiUgdController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateUgd.table');

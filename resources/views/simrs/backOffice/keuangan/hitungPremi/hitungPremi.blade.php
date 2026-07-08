@@ -360,7 +360,7 @@
             <div>
                 <div class="generator-toolbar-title">Daftar Generator Premi</div>
                 <div class="generator-toolbar-subtitle">
-                    Tersedia <span id="generatorMenuCount">16</span> menu untuk memproses premi.
+                    Tersedia <span id="generatorMenuCount">17</span> menu untuk memproses premi.
                 </div>
             </div>
             <div class="input-group generator-search">
@@ -500,6 +500,33 @@
                 <div class="generator-menu-footer">
                     <span class="generator-menu-code">Premi Bersama</span>
                     <a href="{{ route("backOffice.keuangan.hitungPremi.generatePremiBersama") }}"
+                        class="btn-open-generator">
+                        Buka Generator <i class="mdi mdi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+
+            <article class="generator-menu-card" style="--card-color: #9333ea; --card-soft: #f3e8ff;"
+                data-title="Generate Premi Dokter"
+                data-search="generate premi dokter visite jasa operasi rawat jalan poli igd ecg konsul wa kehadiran spesialis umum">
+                <div class="generator-menu-accent"></div>
+                <div class="generator-menu-body">
+                    <div class="generator-menu-head">
+                        <div class="generator-menu-icon"><i class="mdi mdi-doctor"></i></div>
+                        <span class="generator-menu-status">Siap</span>
+                    </div>
+                    <h5 class="generator-menu-title">Generate Premi Dokter</h5>
+                    <p class="generator-menu-description">
+                        Mengelola kategori premi dokter dan memproses Jasa Visite berdasarkan mapping tindakan, dokter umum, dan dokter spesialis.
+                    </p>
+                    <div class="generator-menu-source">
+                        <i class="mdi mdi-database-outline"></i>
+                        Enam tabel rawat Khanza dan konfigurasi dokter
+                    </div>
+                </div>
+                <div class="generator-menu-footer">
+                    <span class="generator-menu-code">Dokter</span>
+                    <a href="{{ route("backOffice.keuangan.hitungPremi.generatePremiDokter") }}"
                         class="btn-open-generator">
                         Buka Generator <i class="mdi mdi-arrow-right"></i>
                     </a>
