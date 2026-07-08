@@ -42,6 +42,37 @@
                 </section>
 
                 <section class="pd-config-section">
+                    <div class="pd-config-title"><i class="mdi mdi-account-group-outline"></i> Formula Kebersamaan</div>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label" for="configKebersamaanUmumPercent">Persen Visite UMUM</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="configKebersamaanUmumPercent" min="0" max="100" step="0.0001" value="30">
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <div class="text-muted small mt-1">Total premi Jasa Visite UMUM dikali persen ini.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="configKebersamaanBpjsNominal">Nominal BPJS per Tindakan</label>
+                            <input type="number" class="form-control" id="configKebersamaanBpjsNominal" min="0" step="1" value="40000">
+                            <div class="text-muted small mt-1">Jumlah transaksi Jasa Visite BPJS dikali nominal ini.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="configKebersamaanBpjsPercent">Persen Visite BPJS</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="configKebersamaanBpjsPercent" min="0" max="100" step="0.0001" value="30">
+                                <span class="input-group-text">%</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="configKebersamaanDivider">Pembagi Grand Total</label>
+                            <input type="number" class="form-control" id="configKebersamaanDivider" min="1" step="1" value="4">
+                            <div class="text-muted small mt-1">Grand total kebersamaan dibagi angka ini.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="pd-config-section">
                     <div class="pd-config-title"><i class="mdi mdi-clipboard-pulse-outline"></i> Pilih dari Master Mapping Tindakan</div>
                     <select id="configMappingTindakan" class="form-select" multiple></select>
                     <div class="text-muted small mt-2">
@@ -61,10 +92,16 @@
                     <div id="doctorRowsSpesialis65" class="mt-2"></div>
                 </section>
 
-                <section class="pd-config-section mb-0">
+                <section class="pd-config-section">
                     <div class="pd-config-title"><i class="mdi mdi-account-star-outline"></i> Dokter Spesialis 80%</div>
                     <select id="doctorSelectSpesialis80" class="form-select pd-doctor-select" data-category="spesialis_80" multiple></select>
                     <div id="doctorRowsSpesialis80" class="mt-2"></div>
+                </section>
+
+                <section class="pd-config-section mb-0">
+                    <div class="pd-config-title"><i class="mdi mdi-account-group-outline"></i> Dokter Kebersamaan</div>
+                    <select id="doctorSelectKebersamaan" class="form-select pd-doctor-select" data-category="kebersamaan" multiple></select>
+                    <div id="doctorRowsKebersamaan" class="mt-2"></div>
                 </section>
             </div>
             <div class="modal-footer">

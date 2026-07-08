@@ -687,7 +687,7 @@
         </section>
 
         <div class="pd-toolbar">
-            <div class="pd-type-switch">
+            <div class="pd-type-switch" id="jenisPelayananSwitch">
                 <button type="button" class="pd-type-btn active" data-type="umum">UMUM</button>
                 <button type="button" class="pd-type-btn" data-type="bpjs">BPJS</button>
             </div>
@@ -702,10 +702,10 @@
         </div>
 
         <div class="pd-type-grid" id="premiDokterTypeGrid">
-            <div class="pd-type-card"><div class="pd-type-label">Kebersamaan</div><div class="pd-type-status">Draft</div></div>
+            <div class="pd-type-card" data-premi-type="kebersamaan"><div class="pd-type-label">Kebersamaan</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card"><div class="pd-type-label">Jasa Operasi</div><div class="pd-type-status">Draft</div></div>
             <div class="pd-type-card"><div class="pd-type-label">Jasa Rawat Jalan</div><div class="pd-type-status">Draft</div></div>
-            <div class="pd-type-card active"><div class="pd-type-label">Jasa Visite</div><div class="pd-type-status">Aktif</div></div>
+            <div class="pd-type-card active" data-premi-type="visite"><div class="pd-type-label">Jasa Visite</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card"><div class="pd-type-label">Jasa Poli</div><div class="pd-type-status">Draft</div></div>
             <div class="pd-type-card"><div class="pd-type-label">Jasa IGD</div><div class="pd-type-status">Draft</div></div>
             <div class="pd-type-card"><div class="pd-type-label">Jasa ECG</div><div class="pd-type-status">Draft</div></div>
@@ -751,7 +751,7 @@
         <section class="pd-panel">
             <div class="pd-panel-head">
                 <div>
-                    <h5 class="pd-panel-title">Preview Jasa Visite</h5>
+                    <h5 class="pd-panel-title" id="previewPanelTitle">Preview Jasa Visite</h5>
                     <div class="pd-panel-note" id="summaryMessage">Memuat preview...</div>
                 </div>
             </div>
@@ -781,7 +781,7 @@
         <section class="pd-panel">
             <div class="pd-panel-head">
                 <div>
-                    <h5 class="pd-panel-title">History Generate Premi Dokter</h5>
+                    <h5 class="pd-panel-title" id="historyPanelTitle">History Generate Premi Dokter</h5>
                     <div class="pd-panel-note">Hasil tersimpan per periode, tipe premi, dan jenis pelayanan.</div>
                 </div>
             </div>

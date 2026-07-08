@@ -23,14 +23,17 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['nullable', 'date_format:Y-m'],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan'])],
             'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
         ]);
+        $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
         $canUnlock = $request->user()?->hasRole('Admin') ?? false;
 
         return DataTables::of(
             $this->service->getResults(
                 $validated['periode'] ?? null,
-                $validated['jenis_pelayanan'] ?? null
+                $validated['jenis_pelayanan'] ?? null,
+                $jenisPremiDokter
             )
         )
             ->addIndexColumn()
@@ -106,6 +109,10 @@ class hitungPremiDokterController extends Controller
     {
         $request->merge([
             'source_period_mode' => $request->input('source_period_mode', 'current'),
+            'kebersamaan_umum_percent' => $request->input('kebersamaan_umum_percent', 30),
+            'kebersamaan_bpjs_nominal' => $request->input('kebersamaan_bpjs_nominal', 40000),
+            'kebersamaan_bpjs_percent' => $request->input('kebersamaan_bpjs_percent', 30),
+            'kebersamaan_divider' => $request->input('kebersamaan_divider', 4),
             'mapping_tindakan_ids' => $request->input('mapping_tindakan_ids', []),
             'doctor_configs' => $request->input('doctor_configs', []),
         ]);
@@ -115,12 +122,16 @@ class hitungPremiDokterController extends Controller
             'visite_bpjs_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'visite_bpjs_nominal' => ['required', 'integer', 'min:0'],
             'source_period_mode' => ['required', Rule::in(['current', 'previous'])],
+            'kebersamaan_umum_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'kebersamaan_bpjs_nominal' => ['required', 'integer', 'min:0'],
+            'kebersamaan_bpjs_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'kebersamaan_divider' => ['required', 'integer', 'min:1', 'max:100'],
             'mapping_tindakan_ids' => ['present', 'array'],
             'mapping_tindakan_ids.*' => ['required', 'integer', 'distinct', 'exists:master_jenis_tindakan,id'],
             'doctor_configs' => ['present', 'array'],
             'doctor_configs.*.kategori' => [
                 'required',
-                Rule::in(['umum', 'spesialis_65', 'spesialis_80']),
+                Rule::in(['umum', 'spesialis_65', 'spesialis_80', 'kebersamaan']),
             ],
             'doctor_configs.*.kd_dokter' => ['required', 'string', 'max:30'],
             'doctor_configs.*.percent' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -140,6 +151,10 @@ class hitungPremiDokterController extends Controller
                 (float) $validated['visite_bpjs_percent'],
                 (int) $validated['visite_bpjs_nominal'],
                 $validated['source_period_mode'],
+                (float) $validated['kebersamaan_umum_percent'],
+                (int) $validated['kebersamaan_bpjs_nominal'],
+                (float) $validated['kebersamaan_bpjs_percent'],
+                (int) $validated['kebersamaan_divider'],
                 $validated['mapping_tindakan_ids'],
                 $validated['doctor_configs']
             ),
@@ -150,14 +165,17 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
-            'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan'])],
+            'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
         ]);
+        $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
 
         return response()->json([
             'status' => true,
             'data' => $this->service->getSummary(
                 $validated['periode'],
-                $validated['jenis_pelayanan']
+                $validated['jenis_pelayanan'] ?? null,
+                $jenisPremiDokter
             ),
         ]);
     }
@@ -166,16 +184,21 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
-            'jenis_pelayanan' => ['required', 'in:umum,bpjs'],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan'])],
+            'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
         ]);
+        $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
         $result = $this->service->generate(
             $validated['periode'],
-            $validated['jenis_pelayanan']
+            $validated['jenis_pelayanan'] ?? null,
+            $jenisPremiDokter
         );
 
         return response()->json([
             'status' => true,
-            'message' => "Premi Dokter Visite {$result['jenis_pelayanan_label']} berhasil digenerate.",
+            'message' => "{$result['jenis_premi_dokter_label']} Dokter"
+                .($jenisPremiDokter === 'visite' ? " {$result['jenis_pelayanan_label']}" : '')
+                .' berhasil digenerate.',
             'data' => $result,
         ]);
     }

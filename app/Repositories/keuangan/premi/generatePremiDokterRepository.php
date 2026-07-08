@@ -13,15 +13,27 @@ class generatePremiDokterRepository
 {
     public const TYPE_VISITE = 'visite';
 
+    public const TYPE_KEBERSAMAAN = 'kebersamaan';
+
+    public const SERVICE_KEBERSAMAAN = 'all';
+
     public const CATEGORY_UMUM = 'umum';
 
     public const CATEGORY_SPESIALIS_65 = 'spesialis_65';
 
     public const CATEGORY_SPESIALIS_80 = 'spesialis_80';
 
+    public const CATEGORY_KEBERSAMAAN = 'kebersamaan';
+
     public const SOURCE_PERIOD_CURRENT = 'current';
 
     public const SOURCE_PERIOD_PREVIOUS = 'previous';
+
+    private const VISITE_CATEGORIES = [
+        self::CATEGORY_UMUM,
+        self::CATEGORY_SPESIALIS_65,
+        self::CATEGORY_SPESIALIS_80,
+    ];
 
     private const SOURCE_TABLES = [
         [
@@ -68,15 +80,19 @@ class generatePremiDokterRepository
         ],
     ];
 
-    public function getResults(?string $periode = null, ?string $jenisPelayanan = null): Collection
-    {
+    public function getResults(
+        ?string $periode = null,
+        ?string $jenisPelayanan = null,
+        ?string $jenisPremiDokter = self::TYPE_VISITE
+    ): Collection {
         return generatePremiDokterModel::query()
             ->with(['lockedBy:id,name', 'generateBy:id,name'])
             ->withCount('details')
-            ->where('jenis_premi_dokter', self::TYPE_VISITE)
+            ->when($jenisPremiDokter, fn ($query) => $query->where('jenis_premi_dokter', $jenisPremiDokter))
             ->when($periode, fn ($query) => $query->where('periode', $periode))
             ->when($jenisPelayanan, fn ($query) => $query->where('jenis_pelayanan', $jenisPelayanan))
             ->orderByDesc('periode')
+            ->orderBy('jenis_premi_dokter')
             ->orderBy('jenis_pelayanan')
             ->get();
     }
@@ -94,6 +110,10 @@ class generatePremiDokterRepository
             'visite_bpjs_percent' => 50,
             'visite_bpjs_nominal' => 0,
             'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+            'kebersamaan_umum_percent' => 30,
+            'kebersamaan_bpjs_nominal' => 40000,
+            'kebersamaan_bpjs_percent' => 30,
+            'kebersamaan_divider' => 4,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -106,6 +126,10 @@ class generatePremiDokterRepository
         float $visiteBpjsPercent,
         int $visiteBpjsNominal,
         string $sourcePeriodMode,
+        float $kebersamaanUmumPercent,
+        int $kebersamaanBpjsNominal,
+        float $kebersamaanBpjsPercent,
+        int $kebersamaanDivider,
         array $jnsTindakanIds,
         array $doctorRows
     ): object {
@@ -114,6 +138,10 @@ class generatePremiDokterRepository
             $visiteBpjsPercent,
             $visiteBpjsNominal,
             $sourcePeriodMode,
+            $kebersamaanUmumPercent,
+            $kebersamaanBpjsNominal,
+            $kebersamaanBpjsPercent,
+            $kebersamaanDivider,
             $jnsTindakanIds,
             $doctorRows
         ) {
@@ -128,6 +156,10 @@ class generatePremiDokterRepository
                     'visite_bpjs_percent' => $visiteBpjsPercent,
                     'visite_bpjs_nominal' => $visiteBpjsNominal,
                     'source_period_mode' => $sourcePeriodMode,
+                    'kebersamaan_umum_percent' => $kebersamaanUmumPercent,
+                    'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
+                    'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
+                    'kebersamaan_divider' => max(1, $kebersamaanDivider),
                     'updated_at' => $now,
                 ]);
 
@@ -167,7 +199,7 @@ class generatePremiDokterRepository
                     'created_at' => $now,
                     'updated_at' => $now,
                 ])
-                ->unique('kd_dokter')
+                ->unique(fn (array $row) => $row['kategori'].'|'.$row['kd_dokter'])
                 ->values();
 
             if ($doctorRows->isNotEmpty()) {
@@ -237,7 +269,7 @@ class generatePremiDokterRepository
 
         return DB::table('generate_premi_dokter_config_doctor')
             ->where('config_id', $configId)
-            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 else 3 end")
+            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 when 'kebersamaan' then 3 else 4 end")
             ->orderBy('nm_dokter')
             ->get();
     }
@@ -343,12 +375,15 @@ class generatePremiDokterRepository
         $jenisTindakan = $this->getConfigTindakan((int) $config->id);
         $mappingTindakan = $this->getConfiguredMappingTindakan((int) $config->id);
         $allDoctorConfig = $this->getConfigDoctors((int) $config->id);
+        $visiteDoctorConfig = $allDoctorConfig
+            ->whereIn('kategori', self::VISITE_CATEGORIES)
+            ->values();
         $doctorConfig = $jenisPelayanan === 'bpjs'
-            ? $allDoctorConfig->where('kategori', self::CATEGORY_UMUM)->values()
-            : $allDoctorConfig->values();
+            ? $visiteDoctorConfig->where('kategori', self::CATEGORY_UMUM)->values()
+            : $visiteDoctorConfig;
         $doctorByCode = $doctorConfig->keyBy('kd_dokter');
         $specialistCodes = $jenisPelayanan === 'bpjs'
-            ? $allDoctorConfig
+            ? $visiteDoctorConfig
                 ->whereIn('kategori', [self::CATEGORY_SPESIALIS_65, self::CATEGORY_SPESIALIS_80])
                 ->pluck('kd_dokter')
                 ->map(fn ($code) => (string) $code)
@@ -463,18 +498,225 @@ class generatePremiDokterRepository
         ];
     }
 
+    public function calculateKebersamaan(string $periode, object $config): array
+    {
+        $umumCalculation = $this->calculate($periode, 'umum', $config);
+        $bpjsCalculation = $this->calculate($periode, 'bpjs', $config);
+        $bpjsSourcePeriodMode = $this->normalizeSourcePeriodMode($config->source_period_mode ?? null);
+        $bpjsSourcePeriode = $bpjsCalculation['source_periode'];
+        $bpjsRange = $this->periodRange($bpjsSourcePeriode);
+        $periodeRange = $this->periodRange($periode);
+        $jenisTindakan = $this->getConfigTindakan((int) $config->id);
+        $mappingTindakan = $this->getConfiguredMappingTindakan((int) $config->id);
+        $doctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_KEBERSAMAAN)
+            ->values();
+
+        $kebersamaanUmumPercent = (float) ($config->kebersamaan_umum_percent ?? 30);
+        $kebersamaanBpjsNominal = (int) ($config->kebersamaan_bpjs_nominal ?? 40000);
+        $kebersamaanBpjsPercent = (float) ($config->kebersamaan_bpjs_percent ?? 30);
+        $kebersamaanDivider = max(1, (int) ($config->kebersamaan_divider ?? 4));
+        $visiteUmumTotalPremi = round((float) $umumCalculation['total_premi'], 2);
+        $kebersamaanVisiteUmum = round($visiteUmumTotalPremi * ($kebersamaanUmumPercent / 100), 2);
+        $bpjsJumlahTransaksi = (int) $bpjsCalculation['jumlah_transaksi'];
+        $bpjsJumlahPasien = (int) $bpjsCalculation['jumlah_pasien'];
+        $bpjsJumlahTindakan = (int) $bpjsCalculation['jumlah_tindakan'];
+        $bpjsDasarHitung = round($bpjsJumlahTransaksi * $kebersamaanBpjsNominal, 2);
+        $kebersamaanVisiteBpjs = round($bpjsDasarHitung * ($kebersamaanBpjsPercent / 100), 2);
+        $grandTotalKebersamaan = round($kebersamaanVisiteUmum + $kebersamaanVisiteBpjs, 2);
+        $allocationPercent = round(100 / $kebersamaanDivider, 4);
+        $allocationPerDoctor = round($grandTotalKebersamaan / $kebersamaanDivider, 2);
+        $jumlahTransaksi = (int) $umumCalculation['jumlah_transaksi'] + $bpjsJumlahTransaksi;
+        $jumlahPasien = (int) $umumCalculation['jumlah_pasien'] + $bpjsJumlahPasien;
+        $sourceBreakdown = [
+            [
+                'key' => 'visite_umum',
+                'label' => 'Kebersamaan Visite UMUM',
+                'jumlah_data' => (int) $umumCalculation['jumlah_transaksi'],
+                'jumlah_pasien' => (int) $umumCalculation['jumlah_pasien'],
+                'total_biaya_rawat' => $kebersamaanVisiteUmum,
+            ],
+            [
+                'key' => 'visite_bpjs',
+                'label' => 'Kebersamaan Visite BPJS',
+                'jumlah_data' => $bpjsJumlahTransaksi,
+                'jumlah_pasien' => $bpjsJumlahPasien,
+                'total_biaya_rawat' => $kebersamaanVisiteBpjs,
+            ],
+        ];
+        $actionBreakdown = [
+            [
+                'key' => 'formula_visite_umum',
+                'label' => 'Total premi Jasa Visite UMUM x '.$kebersamaanUmumPercent.'%',
+                'jumlah_data' => (int) $umumCalculation['jumlah_transaksi'],
+                'jumlah_pasien' => (int) $umumCalculation['jumlah_pasien'],
+                'total_biaya_rawat' => $kebersamaanVisiteUmum,
+            ],
+            [
+                'key' => 'formula_visite_bpjs',
+                'label' => 'Jumlah transaksi BPJS x '.$kebersamaanBpjsNominal.' x '.$kebersamaanBpjsPercent.'%',
+                'jumlah_data' => $bpjsJumlahTransaksi,
+                'jumlah_pasien' => $bpjsJumlahPasien,
+                'total_biaya_rawat' => $kebersamaanVisiteBpjs,
+            ],
+        ];
+        $formulaRows = [
+            [
+                'source_table' => 'kebersamaan_visite_umum',
+                'sumber_tindakan' => 'VISITE_UMUM',
+                'source_label' => 'Kebersamaan Visite UMUM',
+                'mapping_tindakan_id' => null,
+                'jnsTindakan_id' => null,
+                'kode_jenis_tindakan' => 'VISITE_UMUM',
+                'nama_jenis_tindakan' => 'Kebersamaan Visite UMUM',
+                'no_rawat' => 'KB-UMUM-'.$periode,
+                'no_rkm_medis' => null,
+                'nm_pasien' => 'Total premi Jasa Visite UMUM',
+                'kd_pj' => 'UMUM',
+                'nama_penjamin' => 'UMUM',
+                'tanggal' => $umumCalculation['source_tgl_akhir'],
+                'jam' => null,
+                'kd_tindakan' => 'VISITE_UMUM',
+                'nm_tindakan' => 'Total premi Jasa Visite UMUM x '.$kebersamaanUmumPercent.'%',
+                'kd_dokter' => null,
+                'nm_dokter' => null,
+                'kd_sps' => null,
+                'nm_sps' => null,
+                'doctor_source' => 'formula',
+                'nip' => null,
+                'nama_petugas' => null,
+                'biaya_rawat' => $kebersamaanVisiteUmum,
+            ],
+            [
+                'source_table' => 'kebersamaan_visite_bpjs',
+                'sumber_tindakan' => 'VISITE_BPJS',
+                'source_label' => 'Kebersamaan Visite BPJS',
+                'mapping_tindakan_id' => null,
+                'jnsTindakan_id' => null,
+                'kode_jenis_tindakan' => 'VISITE_BPJS',
+                'nama_jenis_tindakan' => 'Kebersamaan Visite BPJS',
+                'no_rawat' => 'KB-BPJS-'.$bpjsSourcePeriode,
+                'no_rkm_medis' => null,
+                'nm_pasien' => 'Jumlah transaksi Jasa Visite BPJS',
+                'kd_pj' => 'BPJ',
+                'nama_penjamin' => 'BPJS',
+                'tanggal' => $bpjsRange['end']->copy()->subDay()->toDateString(),
+                'jam' => null,
+                'kd_tindakan' => 'VISITE_BPJS',
+                'nm_tindakan' => $bpjsJumlahTransaksi.' transaksi x '.$kebersamaanBpjsNominal.' x '.$kebersamaanBpjsPercent.'%',
+                'kd_dokter' => null,
+                'nm_dokter' => null,
+                'kd_sps' => null,
+                'nm_sps' => null,
+                'doctor_source' => 'formula',
+                'nip' => null,
+                'nama_petugas' => null,
+                'biaya_rawat' => $kebersamaanVisiteBpjs,
+            ],
+        ];
+        $details = $doctorConfig
+            ->map(fn ($doctor) => [
+                'kd_dokter' => $doctor->kd_dokter,
+                'nm_dokter' => $doctor->nm_dokter,
+                'kd_sps' => $doctor->kd_sps,
+                'nm_sps' => $doctor->nm_sps,
+                'kategori' => self::CATEGORY_KEBERSAMAAN,
+                'percent' => $allocationPercent,
+                'jumlah_data' => $jumlahTransaksi,
+                'jumlah_pasien' => $jumlahPasien,
+                'total_biaya_rawat' => round($visiteUmumTotalPremi + $bpjsDasarHitung, 2),
+                'grand_total' => $grandTotalKebersamaan,
+                'total_premi' => $allocationPerDoctor,
+                'source_breakdown' => $sourceBreakdown,
+                'action_breakdown' => $actionBreakdown,
+                'data_rawat' => $formulaRows,
+            ])
+            ->sortBy('nm_dokter')
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $periode,
+            'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+            'source_period_mode_label' => 'Periode Berjalan',
+            'source_period_text' => 'UMUM '.$umumCalculation['source_periode'].' / BPJS '.$bpjsSourcePeriode.' ('.$this->sourcePeriodModeLabel($bpjsSourcePeriodMode).')',
+            'source_tgl_awal' => $periodeRange['start']->toDateString(),
+            'source_tgl_akhir' => $periodeRange['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_KEBERSAMAAN,
+            'jenis_pelayanan' => self::SERVICE_KEBERSAMAAN,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'kebersamaan_umum_percent' => $kebersamaanUmumPercent,
+            'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
+            'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
+            'kebersamaan_divider' => $kebersamaanDivider,
+            'kebersamaan_allocation_percent' => $allocationPercent,
+            'kebersamaan_allocation_per_doctor' => $allocationPerDoctor,
+            'kebersamaan_visite_umum_total_premi' => $visiteUmumTotalPremi,
+            'kebersamaan_visite_umum_total' => $kebersamaanVisiteUmum,
+            'kebersamaan_visite_bpjs_jumlah_transaksi' => $bpjsJumlahTransaksi,
+            'kebersamaan_visite_bpjs_jumlah_tindakan' => $bpjsJumlahTindakan,
+            'kebersamaan_visite_bpjs_dasar_hitung' => $bpjsDasarHitung,
+            'kebersamaan_visite_bpjs_total' => $kebersamaanVisiteBpjs,
+            'jumlah_transaksi' => $jumlahTransaksi,
+            'jumlah_pasien' => $jumlahPasien,
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => (int) $umumCalculation['jumlah_tindakan'] + $bpjsJumlahTindakan,
+            'jumlah_jenis_tindakan' => $jenisTindakan->count(),
+            'jumlah_mapping_tindakan' => $mappingTindakan->count(),
+            'jumlah_tidak_terkonfigurasi' => 0,
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => round($visiteUmumTotalPremi + $bpjsDasarHitung, 2),
+            'total_grand' => $grandTotalKebersamaan,
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $jumlahTransaksi,
+            'unconfigured_doctors' => [],
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => $jenisTindakan->values()->all(),
+                'mapping_tindakan' => $mappingTindakan->values()->all(),
+                'doctor_config' => $doctorConfig->values()->all(),
+                'source_tables' => collect(self::SOURCE_TABLES)->pluck('table')->values()->all(),
+                'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+                'source_period_mode_label' => 'Periode Berjalan',
+                'source_periode' => $periode,
+                'source_period_text' => 'UMUM '.$umumCalculation['source_periode'].' / BPJS '.$bpjsSourcePeriode.' ('.$this->sourcePeriodModeLabel($bpjsSourcePeriodMode).')',
+                'bpjs_source_period_mode' => $bpjsSourcePeriodMode,
+                'bpjs_source_period_mode_label' => $this->sourcePeriodModeLabel($bpjsSourcePeriodMode),
+                'bpjs_source_periode' => $bpjsSourcePeriode,
+                'kebersamaan_umum_percent' => $kebersamaanUmumPercent,
+                'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
+                'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
+                'kebersamaan_divider' => $kebersamaanDivider,
+                'kebersamaan_allocation_percent' => $allocationPercent,
+                'kebersamaan_allocation_per_doctor' => $allocationPerDoctor,
+                'kebersamaan_visite_umum_total_premi' => $visiteUmumTotalPremi,
+                'kebersamaan_visite_umum_total' => $kebersamaanVisiteUmum,
+                'kebersamaan_visite_bpjs_jumlah_transaksi' => $bpjsJumlahTransaksi,
+                'kebersamaan_visite_bpjs_jumlah_tindakan' => $bpjsJumlahTindakan,
+                'kebersamaan_visite_bpjs_dasar_hitung' => $bpjsDasarHitung,
+                'kebersamaan_visite_bpjs_total' => $kebersamaanVisiteBpjs,
+                'kebersamaan_grand_total' => $grandTotalKebersamaan,
+                'kebersamaan_formula_rows' => $formulaRows,
+            ],
+        ];
+    }
+
     public function saveResult(
         string $periode,
         string $jenisPelayanan,
         object $config,
-        array $calculation
+        array $calculation,
+        string $jenisPremiDokter = self::TYPE_VISITE
     ): generatePremiDokterModel {
-        return DB::transaction(function () use ($periode, $jenisPelayanan, $config, $calculation) {
-            $existing = $this->findByPeriodAndTypeForUpdate($periode, $jenisPelayanan, self::TYPE_VISITE);
+        return DB::transaction(function () use ($periode, $jenisPelayanan, $config, $calculation, $jenisPremiDokter) {
+            $existing = $this->findByPeriodAndTypeForUpdate($periode, $jenisPelayanan, $jenisPremiDokter);
 
             if ($existing?->is_locked) {
                 throw ValidationException::withMessages([
-                    'periode' => "Premi dokter visite {$jenisPelayanan} periode {$periode} sudah dikunci.",
+                    'periode' => "Premi dokter {$jenisPremiDokter} periode {$periode} sudah dikunci.",
                 ]);
             }
 
@@ -502,7 +744,7 @@ class generatePremiDokterRepository
             $header = generatePremiDokterModel::query()->updateOrCreate(
                 [
                     'periode' => $periode,
-                    'jenis_premi_dokter' => self::TYPE_VISITE,
+                    'jenis_premi_dokter' => $jenisPremiDokter,
                     'jenis_pelayanan' => $jenisPelayanan,
                 ],
                 $payload

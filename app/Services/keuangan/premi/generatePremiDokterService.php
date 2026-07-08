@@ -24,16 +24,29 @@ class generatePremiDokterService
             'label' => 'Dokter Spesialis 80%',
             'percent' => 80,
         ],
+        generatePremiDokterRepository::CATEGORY_KEBERSAMAAN => [
+            'label' => 'Dokter Kebersamaan',
+            'percent' => 0,
+        ],
     ];
 
     public function __construct(
         protected generatePremiDokterRepository $repository
     ) {}
 
-    public function getResults(?string $periode = null, ?string $jenisPelayanan = null): Collection
+    public function getResults(
+        ?string $periode = null,
+        ?string $jenisPelayanan = null,
+        ?string $jenisPremiDokter = generatePremiDokterRepository::TYPE_VISITE
+    ): Collection
     {
+        $jenisPremiDokter = $this->normalizePremiumType($jenisPremiDokter);
+        $jenisPelayanan = $jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            ? generatePremiDokterRepository::SERVICE_KEBERSAMAAN
+            : $jenisPelayanan;
+
         return $this->repository
-            ->getResults($periode, $jenisPelayanan)
+            ->getResults($periode, $jenisPelayanan, $jenisPremiDokter)
             ->map(fn ($row) => [
                 ...$this->resultPayload($row),
                 'jumlah_detail' => $row->details_count,
@@ -55,6 +68,10 @@ class generatePremiDokterService
         float $visiteBpjsPercent,
         int $visiteBpjsNominal,
         string $sourcePeriodMode,
+        float $kebersamaanUmumPercent,
+        int $kebersamaanBpjsNominal,
+        float $kebersamaanBpjsPercent,
+        int $kebersamaanDivider,
         array $jnsTindakanIds,
         array $doctorConfigs
     ): array {
@@ -74,6 +91,10 @@ class generatePremiDokterService
                 $visiteBpjsPercent,
                 $visiteBpjsNominal,
                 $this->normalizeSourcePeriodMode($sourcePeriodMode),
+                $kebersamaanUmumPercent,
+                $kebersamaanBpjsNominal,
+                $kebersamaanBpjsPercent,
+                $kebersamaanDivider,
                 $jnsTindakanIds,
                 $doctorRows
             )
@@ -96,13 +117,19 @@ class generatePremiDokterService
             ->values();
     }
 
-    public function getSummary(string $periode, string $jenisPelayanan): array
+    public function getSummary(
+        string $periode,
+        ?string $jenisPelayanan,
+        ?string $jenisPremiDokter = generatePremiDokterRepository::TYPE_VISITE
+    ): array
     {
         $config = $this->repository->getConfig();
+        $jenisPremiDokter = $this->normalizePremiumType($jenisPremiDokter);
+        $jenisPelayanan = $this->normalizeServiceType($jenisPremiDokter, $jenisPelayanan);
         $existing = $this->repository->findByPeriodAndType(
             $periode,
             $jenisPelayanan,
-            generatePremiDokterRepository::TYPE_VISITE
+            $jenisPremiDokter
         );
 
         if ($existing?->is_locked) {
@@ -118,14 +145,16 @@ class generatePremiDokterService
             ];
         }
 
-        $calculation = $this->repository->calculate($periode, $jenisPelayanan, $config);
-        $ready = $this->isReady($jenisPelayanan, $calculation);
+        $calculation = $jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            ? $this->repository->calculateKebersamaan($periode, $config)
+            : $this->repository->calculate($periode, $jenisPelayanan, $config);
+        $ready = $this->isReady($jenisPremiDokter, $jenisPelayanan, $calculation);
 
         return [
             ...$this->summaryPayload($calculation),
             'ready' => $ready,
-            'readiness_message' => $this->readinessMessage($jenisPelayanan, $calculation),
-            'readiness_steps' => $this->readinessSteps($jenisPelayanan, $calculation),
+            'readiness_message' => $this->readinessMessage($jenisPremiDokter, $jenisPelayanan, $calculation),
+            'readiness_steps' => $this->readinessSteps($jenisPremiDokter, $jenisPelayanan, $calculation),
             'is_generated' => (bool) $existing,
             'is_locked' => false,
             'locked_at' => optional($existing?->locked_at)->format('d-m-Y H:i'),
@@ -134,18 +163,26 @@ class generatePremiDokterService
         ];
     }
 
-    public function generate(string $periode, string $jenisPelayanan): array
+    public function generate(
+        string $periode,
+        ?string $jenisPelayanan,
+        ?string $jenisPremiDokter = generatePremiDokterRepository::TYPE_VISITE
+    ): array
     {
         $config = $this->repository->getConfig();
-        $calculation = $this->repository->calculate($periode, $jenisPelayanan, $config);
+        $jenisPremiDokter = $this->normalizePremiumType($jenisPremiDokter);
+        $jenisPelayanan = $this->normalizeServiceType($jenisPremiDokter, $jenisPelayanan);
+        $calculation = $jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            ? $this->repository->calculateKebersamaan($periode, $config)
+            : $this->repository->calculate($periode, $jenisPelayanan, $config);
 
-        if (! $this->isReady($jenisPelayanan, $calculation)) {
+        if (! $this->isReady($jenisPremiDokter, $jenisPelayanan, $calculation)) {
             throw ValidationException::withMessages([
-                'periode' => $this->readinessMessage($jenisPelayanan, $calculation),
+                'periode' => $this->readinessMessage($jenisPremiDokter, $jenisPelayanan, $calculation),
             ]);
         }
 
-        $result = $this->repository->saveResult($periode, $jenisPelayanan, $config, $calculation);
+        $result = $this->repository->saveResult($periode, $jenisPelayanan, $config, $calculation, $jenisPremiDokter);
 
         return [
             ...$this->resultPayload($result),
@@ -203,13 +240,25 @@ class generatePremiDokterService
             ->values();
 
         $duplicates = $configs
-            ->groupBy('kd_dokter')
+            ->groupBy(fn (array $row) => $row['kategori'].'|'.$row['kd_dokter'])
             ->filter(fn (Collection $rows) => $rows->count() > 1)
             ->keys();
 
         if ($duplicates->isNotEmpty()) {
             throw ValidationException::withMessages([
-                'doctor_configs' => 'Dokter tidak boleh masuk lebih dari satu kategori: '.$duplicates->implode(', '),
+                'doctor_configs' => 'Dokter tidak boleh dipilih lebih dari satu kali pada kategori yang sama: '.$duplicates->implode(', '),
+            ]);
+        }
+
+        $visiteDuplicates = $configs
+            ->reject(fn (array $row) => $row['kategori'] === generatePremiDokterRepository::CATEGORY_KEBERSAMAAN)
+            ->groupBy('kd_dokter')
+            ->filter(fn (Collection $rows) => $rows->count() > 1)
+            ->keys();
+
+        if ($visiteDuplicates->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'doctor_configs' => 'Dokter visite tidak boleh masuk lebih dari satu kategori: '.$visiteDuplicates->implode(', '),
             ]);
         }
 
@@ -265,7 +314,7 @@ class generatePremiDokterService
         }
     }
 
-    private function isReady(string $jenisPelayanan, array $calculation): bool
+    private function isReady(string $jenisPremiDokter, string $jenisPelayanan, array $calculation): bool
     {
         if ((int) ($calculation['jumlah_jenis_tindakan'] ?? 0) <= 0) {
             return false;
@@ -273,6 +322,11 @@ class generatePremiDokterService
 
         if ((int) $calculation['jumlah_mapping_tindakan'] <= 0) {
             return false;
+        }
+
+        if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN) {
+            return (float) $calculation['total_grand'] > 0
+                && (int) $calculation['jumlah_dokter'] === (int) $calculation['kebersamaan_divider'];
         }
 
         if ($jenisPelayanan === 'bpjs' && (int) $calculation['visite_bpjs_nominal'] <= 0) {
@@ -283,7 +337,7 @@ class generatePremiDokterService
             && (int) $calculation['jumlah_dokter'] > 0;
     }
 
-    private function readinessMessage(string $jenisPelayanan, array $calculation): string
+    private function readinessMessage(string $jenisPremiDokter, string $jenisPelayanan, array $calculation): string
     {
         if ((int) ($calculation['jumlah_jenis_tindakan'] ?? 0) <= 0) {
             return 'Pilih mapping tindakan visite dokter pada konfigurasi.';
@@ -291,6 +345,32 @@ class generatePremiDokterService
 
         if ((int) $calculation['jumlah_mapping_tindakan'] <= 0) {
             return 'Mapping tindakan visite dokter yang dipilih belum memiliki rincian RAJAL/RANAP.';
+        }
+
+        if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN) {
+            if ((int) ($calculation['kebersamaan_bpjs_nominal'] ?? 0) <= 0) {
+                return 'Isi nominal BPJS kebersamaan pada konfigurasi.';
+            }
+
+            if ((float) ($calculation['kebersamaan_umum_percent'] ?? 0) <= 0
+                && (float) ($calculation['kebersamaan_bpjs_percent'] ?? 0) <= 0) {
+                return 'Isi minimal salah satu persen kebersamaan UMUM atau BPJS pada konfigurasi.';
+            }
+
+            if ((int) $calculation['jumlah_dokter'] <= 0) {
+                return 'Pilih dokter penerima Kebersamaan pada konfigurasi.';
+            }
+
+            if ((int) $calculation['jumlah_dokter'] !== (int) $calculation['kebersamaan_divider']) {
+                return 'Jumlah dokter Kebersamaan harus sama dengan pembagi: '
+                    .(int) $calculation['kebersamaan_divider'].' dokter.';
+            }
+
+            if ((float) $calculation['total_grand'] <= 0) {
+                return 'Data ditemukan, tetapi grand total Kebersamaan masih Rp 0.';
+            }
+
+            return 'Siap generate Premi Dokter Kebersamaan.';
         }
 
         if ($jenisPelayanan === 'bpjs' && (int) $calculation['visite_bpjs_nominal'] <= 0) {
@@ -310,8 +390,47 @@ class generatePremiDokterService
         return 'Siap generate premi dokter visite '.$this->typeLabel($jenisPelayanan).'.';
     }
 
-    private function readinessSteps(string $jenisPelayanan, array $calculation): array
+    private function readinessSteps(string $jenisPremiDokter, string $jenisPelayanan, array $calculation): array
     {
+        if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN) {
+            return [
+                [
+                    'label' => 'Periode sumber data',
+                    'status' => 'success',
+                    'value' => $calculation['source_period_text'] ?? '-',
+                ],
+                [
+                    'label' => 'Formula UMUM',
+                    'status' => (float) ($calculation['kebersamaan_visite_umum_total'] ?? 0) > 0 ? 'success' : 'warning',
+                    'value' => $this->formatRupiah((float) ($calculation['kebersamaan_visite_umum_total_premi'] ?? 0))
+                        .' x '.$this->formatPercent((float) ($calculation['kebersamaan_umum_percent'] ?? 0)),
+                ],
+                [
+                    'label' => 'Formula BPJS',
+                    'status' => ((int) ($calculation['kebersamaan_bpjs_nominal'] ?? 0) > 0
+                        && (float) ($calculation['kebersamaan_bpjs_percent'] ?? 0) > 0) ? 'success' : 'danger',
+                    'value' => (int) ($calculation['kebersamaan_visite_bpjs_jumlah_transaksi'] ?? 0)
+                        .' transaksi x '.$this->formatRupiah((int) ($calculation['kebersamaan_bpjs_nominal'] ?? 0))
+                        .' x '.$this->formatPercent((float) ($calculation['kebersamaan_bpjs_percent'] ?? 0)),
+                ],
+                [
+                    'label' => 'Dokter penerima',
+                    'status' => (int) $calculation['jumlah_dokter'] === (int) $calculation['kebersamaan_divider']
+                        ? 'success'
+                        : 'warning',
+                    'value' => (int) $calculation['jumlah_dokter'].' / '
+                        .(int) $calculation['kebersamaan_divider'].' dokter',
+                ],
+                [
+                    'label' => 'Pembagian',
+                    'status' => (float) $calculation['total_grand'] > 0 ? 'success' : 'warning',
+                    'value' => $this->formatRupiah((float) $calculation['total_grand'])
+                        .' / '.(int) $calculation['kebersamaan_divider']
+                        .' = '.$this->formatRupiah((float) $calculation['kebersamaan_allocation_per_doctor']),
+                ],
+            ];
+        }
+
         $steps = [
             [
                 'label' => 'Periode sumber data',
@@ -358,7 +477,7 @@ class generatePremiDokterService
             [
                 'label' => 'Periode sumber data',
                 'status' => 'success',
-                'value' => $result->source_periode.' / '.$this->sourcePeriodModeLabel(
+                'value' => data_get($result->config_snapshot, 'source_period_text') ?: $result->source_periode.' / '.$this->sourcePeriodModeLabel(
                     $result->source_period_mode ?? data_get($result->config_snapshot, 'source_period_mode')
                 ),
             ],
@@ -387,15 +506,28 @@ class generatePremiDokterService
             'source_periode' => $calculation['source_periode'],
             'source_period_mode' => $calculation['source_period_mode'],
             'source_period_mode_label' => $calculation['source_period_mode_label'],
+            'source_period_text' => $calculation['source_period_text'] ?? null,
             'source_tgl_awal' => $calculation['source_tgl_awal'],
             'source_tgl_akhir' => $calculation['source_tgl_akhir'],
             'jenis_premi_dokter' => $calculation['jenis_premi_dokter'],
-            'jenis_premi_dokter_label' => 'Jasa Visite',
+            'jenis_premi_dokter_label' => $this->premiumTypeLabel($calculation['jenis_premi_dokter']),
             'jenis_pelayanan' => $calculation['jenis_pelayanan'],
             'jenis_pelayanan_label' => $this->typeLabel($calculation['jenis_pelayanan']),
             'visite_umum_percent' => $calculation['visite_umum_percent'],
             'visite_bpjs_percent' => $calculation['visite_bpjs_percent'],
             'visite_bpjs_nominal' => $calculation['visite_bpjs_nominal'],
+            'kebersamaan_umum_percent' => $calculation['kebersamaan_umum_percent'] ?? 30,
+            'kebersamaan_bpjs_nominal' => $calculation['kebersamaan_bpjs_nominal'] ?? 40000,
+            'kebersamaan_bpjs_percent' => $calculation['kebersamaan_bpjs_percent'] ?? 30,
+            'kebersamaan_divider' => $calculation['kebersamaan_divider'] ?? 4,
+            'kebersamaan_allocation_percent' => $calculation['kebersamaan_allocation_percent'] ?? 0,
+            'kebersamaan_allocation_per_doctor' => $calculation['kebersamaan_allocation_per_doctor'] ?? 0,
+            'kebersamaan_visite_umum_total_premi' => $calculation['kebersamaan_visite_umum_total_premi'] ?? 0,
+            'kebersamaan_visite_umum_total' => $calculation['kebersamaan_visite_umum_total'] ?? 0,
+            'kebersamaan_visite_bpjs_jumlah_transaksi' => $calculation['kebersamaan_visite_bpjs_jumlah_transaksi'] ?? 0,
+            'kebersamaan_visite_bpjs_jumlah_tindakan' => $calculation['kebersamaan_visite_bpjs_jumlah_tindakan'] ?? 0,
+            'kebersamaan_visite_bpjs_dasar_hitung' => $calculation['kebersamaan_visite_bpjs_dasar_hitung'] ?? 0,
+            'kebersamaan_visite_bpjs_total' => $calculation['kebersamaan_visite_bpjs_total'] ?? 0,
             'jumlah_transaksi' => $calculation['jumlah_transaksi'],
             'jumlah_pasien' => $calculation['jumlah_pasien'],
             'jumlah_dokter' => $calculation['jumlah_dokter'],
@@ -425,15 +557,32 @@ class generatePremiDokterService
             'source_period_mode_label' => $this->sourcePeriodModeLabel(
                 $result->source_period_mode ?? data_get($result->config_snapshot, 'source_period_mode')
             ),
+            'source_period_text' => data_get($result->config_snapshot, 'source_period_text'),
             'source_tgl_awal' => optional($result->source_tgl_awal)->format('Y-m-d') ?? $result->source_tgl_awal,
             'source_tgl_akhir' => optional($result->source_tgl_akhir)->format('Y-m-d') ?? $result->source_tgl_akhir,
             'jenis_premi_dokter' => $result->jenis_premi_dokter,
-            'jenis_premi_dokter_label' => 'Jasa Visite',
+            'jenis_premi_dokter_label' => $this->premiumTypeLabel($result->jenis_premi_dokter),
             'jenis_pelayanan' => $result->jenis_pelayanan,
             'jenis_pelayanan_label' => $this->typeLabel($result->jenis_pelayanan),
             'visite_umum_percent' => (float) $result->visite_umum_percent,
             'visite_bpjs_percent' => (float) $result->visite_bpjs_percent,
             'visite_bpjs_nominal' => (int) $result->visite_bpjs_nominal,
+            'kebersamaan_umum_percent' => (float) data_get($result->config_snapshot, 'kebersamaan_umum_percent', 30),
+            'kebersamaan_bpjs_nominal' => (int) data_get($result->config_snapshot, 'kebersamaan_bpjs_nominal', 40000),
+            'kebersamaan_bpjs_percent' => (float) data_get($result->config_snapshot, 'kebersamaan_bpjs_percent', 30),
+            'kebersamaan_divider' => (int) data_get($result->config_snapshot, 'kebersamaan_divider', 4),
+            'kebersamaan_allocation_percent' => (float) data_get($result->config_snapshot, 'kebersamaan_allocation_percent', 0),
+            'kebersamaan_allocation_per_doctor' => (float) data_get($result->config_snapshot, 'kebersamaan_allocation_per_doctor', 0),
+            'kebersamaan_visite_umum_total_premi' => (float) data_get($result->config_snapshot, 'kebersamaan_visite_umum_total_premi', 0),
+            'kebersamaan_visite_umum_total' => (float) data_get($result->config_snapshot, 'kebersamaan_visite_umum_total', 0),
+            'kebersamaan_visite_bpjs_jumlah_transaksi' => (int) data_get(
+                $result->config_snapshot,
+                'kebersamaan_visite_bpjs_jumlah_transaksi',
+                data_get($result->config_snapshot, 'kebersamaan_visite_bpjs_jumlah_tindakan', 0)
+            ),
+            'kebersamaan_visite_bpjs_jumlah_tindakan' => (int) data_get($result->config_snapshot, 'kebersamaan_visite_bpjs_jumlah_tindakan', 0),
+            'kebersamaan_visite_bpjs_dasar_hitung' => (float) data_get($result->config_snapshot, 'kebersamaan_visite_bpjs_dasar_hitung', 0),
+            'kebersamaan_visite_bpjs_total' => (float) data_get($result->config_snapshot, 'kebersamaan_visite_bpjs_total', 0),
             'jumlah_transaksi' => (int) $result->jumlah_transaksi,
             'jumlah_pasien' => (int) $result->jumlah_pasien,
             'jumlah_dokter' => (int) $result->jumlah_dokter,
@@ -502,6 +651,10 @@ class generatePremiDokterService
             'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
             'source_period_mode' => $this->normalizeSourcePeriodMode($config->source_period_mode ?? null),
             'source_period_mode_label' => $this->sourcePeriodModeLabel($config->source_period_mode ?? null),
+            'kebersamaan_umum_percent' => (float) ($config->kebersamaan_umum_percent ?? 30),
+            'kebersamaan_bpjs_nominal' => (int) ($config->kebersamaan_bpjs_nominal ?? 40000),
+            'kebersamaan_bpjs_percent' => (float) ($config->kebersamaan_bpjs_percent ?? 30),
+            'kebersamaan_divider' => (int) ($config->kebersamaan_divider ?? 4),
             'source_period_options' => [
                 [
                     'id' => generatePremiDokterRepository::SOURCE_PERIOD_CURRENT,
@@ -563,10 +716,10 @@ class generatePremiDokterService
     private function premiumTypes(): array
     {
         return [
-            ['id' => 'kebersamaan', 'label' => 'Kebersamaan', 'status' => 'draft'],
+            ['id' => generatePremiDokterRepository::TYPE_KEBERSAMAAN, 'label' => 'Kebersamaan', 'status' => 'active'],
             ['id' => 'jasa_operasi', 'label' => 'Jasa Operasi', 'status' => 'draft'],
             ['id' => 'jasa_rawat_jalan', 'label' => 'Jasa Rawat Jalan', 'status' => 'draft'],
-            ['id' => 'jasa_visite', 'label' => 'Jasa Visite', 'status' => 'active'],
+            ['id' => generatePremiDokterRepository::TYPE_VISITE, 'label' => 'Jasa Visite', 'status' => 'active'],
             ['id' => 'jasa_poli', 'label' => 'Jasa Poli', 'status' => 'draft'],
             ['id' => 'jasa_igd', 'label' => 'Jasa IGD', 'status' => 'draft'],
             ['id' => 'jasa_ecg', 'label' => 'Jasa ECG', 'status' => 'draft'],
@@ -580,9 +733,36 @@ class generatePremiDokterService
         return self::CATEGORY_DEFAULTS[$category]['label'] ?? 'Dokter';
     }
 
+    private function premiumTypeLabel(?string $type): string
+    {
+        return $type === generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            ? 'Kebersamaan'
+            : 'Jasa Visite';
+    }
+
     private function typeLabel(string $type): string
     {
+        if ($type === generatePremiDokterRepository::SERVICE_KEBERSAMAAN) {
+            return 'Tanpa Jenis';
+        }
+
         return $type === 'bpjs' ? 'BPJS' : 'UMUM';
+    }
+
+    private function normalizePremiumType(?string $type): string
+    {
+        return $type === generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            ? generatePremiDokterRepository::TYPE_KEBERSAMAAN
+            : generatePremiDokterRepository::TYPE_VISITE;
+    }
+
+    private function normalizeServiceType(string $premiumType, ?string $serviceType): string
+    {
+        if ($premiumType === generatePremiDokterRepository::TYPE_KEBERSAMAAN) {
+            return generatePremiDokterRepository::SERVICE_KEBERSAMAAN;
+        }
+
+        return $serviceType === 'bpjs' ? 'bpjs' : 'umum';
     }
 
     private function normalizeSourcePeriodMode(?string $mode): string
@@ -602,5 +782,10 @@ class generatePremiDokterService
     private function formatRupiah(float|int $value): string
     {
         return 'Rp '.number_format($value, 0, ',', '.');
+    }
+
+    private function formatPercent(float|int $value): string
+    {
+        return number_format((float) $value, 2, ',', '.').'%';
     }
 }

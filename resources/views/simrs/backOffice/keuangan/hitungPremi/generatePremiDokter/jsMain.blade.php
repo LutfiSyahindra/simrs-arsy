@@ -16,10 +16,12 @@
             umum: { label: 'Dokter Umum', percent: 50, select: '#doctorSelectUmum', rows: '#doctorRowsUmum' },
             spesialis_65: { label: 'Dokter Spesialis 65%', percent: 65, select: '#doctorSelectSpesialis65', rows: '#doctorRowsSpesialis65' },
             spesialis_80: { label: 'Dokter Spesialis 80%', percent: 80, select: '#doctorSelectSpesialis80', rows: '#doctorRowsSpesialis80' },
+            kebersamaan: { label: 'Dokter Kebersamaan', percent: 0, select: '#doctorSelectKebersamaan', rows: '#doctorRowsKebersamaan', usePercent: false },
         };
         const csrf = $('meta[name="csrf-token"]').attr('content');
         const modalConfig = new bootstrap.Modal(document.getElementById('modalConfigPremiDokter'));
         const modalDetail = new bootstrap.Modal(document.getElementById('modalDetailPremiDokter'));
+        let activePremiumType = 'visite';
         let activeType = 'umum';
         let configData = null;
         let currentSummary = null;
@@ -57,7 +59,23 @@
             return activeType === 'bpjs' ? 'BPJS' : 'UMUM';
         }
 
+        function activePremiumLabel() {
+            return activePremiumType === 'kebersamaan' ? 'Kebersamaan' : 'Jasa Visite';
+        }
+
+        function isKebersamaan() {
+            return activePremiumType === 'kebersamaan';
+        }
+
+        function generateButtonLabel() {
+            return isKebersamaan() ? 'Generate Kebersamaan' : `Generate ${activeTypeLabel()}`;
+        }
+
         function sourcePeriodText(data) {
+            if (data.source_period_text) {
+                return data.source_period_text;
+            }
+
             return `Sumber ${data.source_periode || '-'} (${data.source_period_mode_label || '-'})`;
         }
 
@@ -252,6 +270,7 @@
         function renderDoctorRows(category) {
             const target = $(categoryDefaults[category].rows);
             const rows = doctorSelectedItems(category);
+            const meta = categoryDefaults[category];
 
             if (!rows.length) {
                 target.html('<div class="text-muted small mt-2">Belum ada dokter dipilih.</div>');
@@ -262,15 +281,17 @@
                 <div class="pd-doctor-row">
                     <div>
                         <div class="pd-doctor-name">${escapeHtml(item.text)}</div>
-                        <div class="pd-doctor-meta">${escapeHtml(categoryDefaults[category].label)}</div>
+                        <div class="pd-doctor-meta">${escapeHtml(meta.label)}</div>
                     </div>
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control doctor-percent"
-                            data-category="${escapeHtml(category)}"
-                            data-code="${escapeHtml(item.kd_dokter)}"
-                            min="0" max="100" step="0.0001" value="${escapeHtml(item.percent)}">
-                        <span class="input-group-text">%</span>
-                    </div>
+                    ${meta.usePercent === false
+                        ? '<div class="text-end text-muted small">Dibagi dari formula</div>'
+                        : `<div class="input-group input-group-sm">
+                            <input type="number" class="form-control doctor-percent"
+                                data-category="${escapeHtml(category)}"
+                                data-code="${escapeHtml(item.kd_dokter)}"
+                                min="0" max="100" step="0.0001" value="${escapeHtml(item.percent)}">
+                            <span class="input-group-text">%</span>
+                        </div>`}
                 </div>
             `).join(''));
         }
@@ -281,6 +302,10 @@
             $('#configVisiteBpjsPercent').val(data.visite_bpjs_percent || 50);
             $('#configVisiteBpjsNominal').val(data.visite_bpjs_nominal || 0);
             $('#configSourcePeriodMode').val(data.source_period_mode || 'current');
+            $('#configKebersamaanUmumPercent').val(data.kebersamaan_umum_percent || 30);
+            $('#configKebersamaanBpjsNominal').val(data.kebersamaan_bpjs_nominal || 40000);
+            $('#configKebersamaanBpjsPercent').val(data.kebersamaan_bpjs_percent || 30);
+            $('#configKebersamaanDivider').val(data.kebersamaan_divider || 4);
             setSelectedOptions('#configMappingTindakan', data.mapping_tindakan || []);
 
             Object.entries(categoryDefaults).forEach(([category, meta]) => {
@@ -331,6 +356,10 @@
                 visite_bpjs_percent: Number($('#configVisiteBpjsPercent').val() || 50),
                 visite_bpjs_nominal: Number($('#configVisiteBpjsNominal').val() || 0),
                 source_period_mode: $('#configSourcePeriodMode').val() || 'current',
+                kebersamaan_umum_percent: Number($('#configKebersamaanUmumPercent').val() || 30),
+                kebersamaan_bpjs_nominal: Number($('#configKebersamaanBpjsNominal').val() || 40000),
+                kebersamaan_bpjs_percent: Number($('#configKebersamaanBpjsPercent').val() || 30),
+                kebersamaan_divider: Number($('#configKebersamaanDivider').val() || 4),
                 mapping_tindakan_ids: $('#configMappingTindakan').val() || [],
                 doctor_configs: collectDoctorConfigs()
             };
@@ -389,23 +418,31 @@
 
         function renderSummary(data) {
             currentSummary = data;
+            $('#previewPanelTitle').text(`Preview ${activePremiumLabel()}`);
+            $('#historyPanelTitle').text(`History Generate Premi Dokter ${activePremiumLabel()}`);
             $('#summaryTotalPremi').text(formatRupiah(data.total_premi || 0));
             $('#summaryGrandTotal').text(formatRupiah(data.total_grand || 0));
             $('#summaryTransaksi').text(formatNumber(data.jumlah_transaksi || 0));
             $('#summaryPasien').text(formatNumber(data.jumlah_pasien || 0) + ' pasien');
             $('#summaryDokter').text(formatNumber(data.jumlah_dokter || 0));
             $('#summaryMapping').text(formatNumber(data.jumlah_mapping_tindakan || 0));
-            $('#summarySkipped').text(formatNumber(data.jumlah_tidak_terkonfigurasi || 0));
-            $('#summarySkippedFoot').text(activeType === 'bpjs'
+            $('#summarySkipped').text(isKebersamaan()
+                ? formatNumber(data.kebersamaan_divider || 0)
+                : formatNumber(data.jumlah_tidak_terkonfigurasi || 0));
+            $('#summarySkippedFoot').text(isKebersamaan()
+                ? `Pembagi, alokasi ${formatRupiah(data.kebersamaan_allocation_per_doctor || 0)} per dokter`
+                : activeType === 'bpjs'
                 ? `${formatNumber(data.jumlah_spesialis_diabaikan || 0)} data spesialis BPJS diabaikan`
                 : 'Baris dokter belum dikonfigurasi');
             $('#summaryMessage').text(data.readiness_message || '-');
-            $('#summaryFormula').text(activeType === 'bpjs'
+            $('#summaryFormula').text(isKebersamaan()
+                ? `${formatRupiah(data.kebersamaan_visite_umum_total_premi || 0)} x ${formatNumber(data.kebersamaan_umum_percent || 0, 2)}% + ${formatNumber(data.kebersamaan_visite_bpjs_jumlah_transaksi || 0)} transaksi x ${formatRupiah(data.kebersamaan_bpjs_nominal || 0)} x ${formatNumber(data.kebersamaan_bpjs_percent || 0, 2)}%`
+                : activeType === 'bpjs'
                 ? `${formatNumber(data.jumlah_transaksi || 0)} data x ${formatRupiah(data.visite_bpjs_nominal || 0)} x ${formatNumber(data.visite_bpjs_percent || 0, 2)}% | ${sourcePeriodText(data)}`
                 : `Biaya rawat x persen kategori dokter | ${sourcePeriodText(data)}`);
             $('#btnGeneratePremiDokter')
                 .prop('disabled', !data.ready)
-                .html(`<i class="mdi mdi-play-circle-outline"></i> Generate ${activeTypeLabel()}`);
+                .html(`<i class="mdi mdi-play-circle-outline"></i> ${generateButtonLabel()}`);
             renderSteps(data.readiness_steps || []);
             renderPreviewRows(data.details || []);
         }
@@ -420,10 +457,16 @@
             $('#summaryMessage').text('Memuat preview...');
             $('#btnGeneratePremiDokter').prop('disabled', true);
 
-            $.get(routes.summary, {
+            const payload = {
                 periode,
-                jenis_pelayanan: activeType
-            })
+                jenis_premi_dokter: activePremiumType
+            };
+
+            if (!isKebersamaan()) {
+                payload.jenis_pelayanan = activeType;
+            }
+
+            $.get(routes.summary, payload)
                 .done((response) => renderSummary(response.data || {}))
                 .fail((xhr) => {
                     notifyError(xhr, 'Preview gagal dimuat.');
@@ -439,14 +482,20 @@
 
             confirmAction(
                 'Generate Premi Dokter?',
-                `Data Jasa Visite ${activeTypeLabel()} periode ${$('#periodePremiDokter').val()} akan disimpan.`,
+                `Data ${activePremiumLabel()}${isKebersamaan() ? '' : ' ' + activeTypeLabel()} periode ${$('#periodePremiDokter').val()} akan disimpan.`,
                 () => {
                     $('#btnGeneratePremiDokter').prop('disabled', true);
 
-                    $.post(routes.store, {
+                    const payload = {
                         periode: $('#periodePremiDokter').val(),
-                        jenis_pelayanan: activeType
-                    })
+                        jenis_premi_dokter: activePremiumType
+                    };
+
+                    if (!isKebersamaan()) {
+                        payload.jenis_pelayanan = activeType;
+                    }
+
+                    $.post(routes.store, payload)
                         .done((response) => {
                             notifySuccess(response.message || 'Premi dokter berhasil digenerate.');
                             refreshSummary();
@@ -465,7 +514,11 @@
                 url: routes.table,
                 data: function(data) {
                     data.periode = $('#periodePremiDokter').val();
-                    data.jenis_pelayanan = activeType;
+                    data.jenis_premi_dokter = activePremiumType;
+
+                    if (!isKebersamaan()) {
+                        data.jenis_pelayanan = activeType;
+                    }
                 }
             },
             order: [[1, 'desc']],
@@ -474,7 +527,7 @@
                 { data: 'periode' },
                 {
                     data: 'jenis_pelayanan_label',
-                    render: (value, type, row) => `${escapeHtml(row.jenis_premi_dokter_label || 'Jasa Visite')}<br><span class="text-muted">${escapeHtml(value || '-')} / sumber ${escapeHtml(row.source_periode || '-')}</span>`
+                    render: (value, type, row) => `${escapeHtml(row.jenis_premi_dokter_label || 'Jasa Visite')}<br><span class="text-muted">${row.jenis_premi_dokter === 'kebersamaan' ? escapeHtml(row.source_period_text || row.source_periode || '-') : `${escapeHtml(value || '-')} / sumber ${escapeHtml(row.source_periode || '-')}`}</span>`
                 },
                 { data: 'jumlah_dokter', className: 'text-end', render: value => formatNumber(value || 0) },
                 { data: 'jumlah_transaksi', className: 'text-end', render: value => formatNumber(value || 0) },
@@ -765,7 +818,10 @@
             $.get(routeWithId(routes.detail, id))
                 .done((response) => {
                     const data = response.data || {};
-                    $('#detailPremiDokterMeta').text(`${data.jenis_premi_dokter_label || 'Jasa Visite'} ${data.jenis_pelayanan_label || '-'} periode ${data.periode || '-'} / ${sourcePeriodText(data)}`);
+                    const serviceLabel = data.jenis_premi_dokter === 'kebersamaan'
+                        ? ''
+                        : ` ${data.jenis_pelayanan_label || '-'}`;
+                    $('#detailPremiDokterMeta').text(`${data.jenis_premi_dokter_label || 'Jasa Visite'}${serviceLabel} periode ${data.periode || '-'} / ${sourcePeriodText(data)}`);
                     $('#detailTotalPremi').text(formatRupiah(data.total_premi || 0));
                     $('#detailGrandTotal').text(formatRupiah(data.total_grand || 0));
                     $('#detailJumlahDokter').text(formatNumber(data.jumlah_dokter || 0));
@@ -796,11 +852,27 @@
             );
         }
 
+        function updatePremiumUi() {
+            $('#jenisPelayananSwitch').toggle(!isKebersamaan());
+            $('#premiDokterTypeGrid .pd-type-card').removeClass('active');
+            $(`#premiDokterTypeGrid .pd-type-card[data-premi-type="${activePremiumType}"]`).addClass('active');
+            $('#btnGeneratePremiDokter').html(`<i class="mdi mdi-play-circle-outline"></i> ${generateButtonLabel()}`);
+            $('#previewPanelTitle').text(`Preview ${activePremiumLabel()}`);
+            $('#historyPanelTitle').text(`History Generate Premi Dokter ${activePremiumLabel()}`);
+        }
+
         $('.pd-type-btn').on('click', function() {
             activeType = $(this).data('type');
             $('.pd-type-btn').removeClass('active');
             $(this).addClass('active');
-            $('#btnGeneratePremiDokter').html(`<i class="mdi mdi-play-circle-outline"></i> Generate ${activeTypeLabel()}`);
+            $('#btnGeneratePremiDokter').html(`<i class="mdi mdi-play-circle-outline"></i> ${generateButtonLabel()}`);
+            refreshSummary();
+            table.ajax.reload();
+        });
+
+        $('#premiDokterTypeGrid').on('click', '.pd-type-card[data-premi-type]', function() {
+            activePremiumType = $(this).data('premi-type');
+            updatePremiumUi();
             refreshSummary();
             table.ajax.reload();
         });
@@ -839,6 +911,7 @@
         $('#btnResetRawatFilter').on('click', () => resetRawatFilterControls(true));
 
         initSelect2();
+        updatePremiumUi();
         loadConfig(false).always(refreshSummary);
     });
 </script>
