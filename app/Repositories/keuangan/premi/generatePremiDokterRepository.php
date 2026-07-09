@@ -7,6 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class generatePremiDokterRepository
@@ -15,7 +16,25 @@ class generatePremiDokterRepository
 
     public const TYPE_KEBERSAMAAN = 'kebersamaan';
 
+    public const TYPE_OPERASI = 'jasa_operasi';
+
+    public const TYPE_RAWAT_JALAN = 'jasa_rawat_jalan';
+
+    public const TYPE_POLI = 'jasa_poli';
+
+    public const TYPE_ECG = 'jasa_ecg';
+
+    public const TYPE_KONSUL_WA = 'konsul_wa';
+
+    public const ECG_DISTRIBUTION_SPLIT_EVENLY = 'split_evenly';
+
+    public const ECG_DISTRIBUTION_FULL_AMOUNT = 'full_amount';
+
     public const SERVICE_KEBERSAMAAN = 'all';
+
+    public const SERVICE_MANUAL = 'manual';
+
+    public const SERVICE_ALL = 'all';
 
     public const CATEGORY_UMUM = 'umum';
 
@@ -24,6 +43,24 @@ class generatePremiDokterRepository
     public const CATEGORY_SPESIALIS_80 = 'spesialis_80';
 
     public const CATEGORY_KEBERSAMAAN = 'kebersamaan';
+
+    public const CATEGORY_OPERASI = 'jasa_operasi';
+
+    public const CATEGORY_RAWAT_JALAN = 'jasa_rawat_jalan';
+
+    public const CATEGORY_POLI = 'jasa_poli';
+
+    public const CATEGORY_ECG = 'jasa_ecg';
+
+    public const CATEGORY_KONSUL_WA = 'konsul_wa';
+
+    public const CATEGORY_RAWAT_JALAN_SPECIAL_45000 = 'rawat_jalan_khusus_45000';
+
+    public const CATEGORY_RAWAT_JALAN_SPECIAL_72000 = 'rawat_jalan_khusus_72000';
+
+    public const MULTIPLIER_NOMINAL = 'nominal';
+
+    public const MULTIPLIER_PERCENT = 'percent';
 
     public const SOURCE_PERIOD_CURRENT = 'current';
 
@@ -105,7 +142,7 @@ class generatePremiDokterRepository
             return $config;
         }
 
-        $id = DB::table('generate_premi_dokter_configs')->insertGetId([
+        $payload = [
             'visite_umum_percent' => 50,
             'visite_bpjs_percent' => 50,
             'visite_bpjs_nominal' => 0,
@@ -116,9 +153,68 @@ class generatePremiDokterRepository
             'kebersamaan_divider' => 4,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_nominal')) {
+            $payload['ecg_nominal'] = 5000;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_divider')) {
+            $payload['ecg_divider'] = 3;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_distribution_mode')) {
+            $payload['ecg_distribution_mode'] = self::ECG_DISTRIBUTION_SPLIT_EVENLY;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'poli_percent')) {
+            $payload['poli_percent'] = 30;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'poli_distribution_mode')) {
+            $payload['poli_distribution_mode'] = self::ECG_DISTRIBUTION_SPLIT_EVENLY;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'konsul_wa_nominal')) {
+            $payload['konsul_wa_nominal'] = 0;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'kebersamaan_only_umum')) {
+            $payload['kebersamaan_only_umum'] = false;
+        }
+
+        $id = DB::table('generate_premi_dokter_configs')->insertGetId($payload);
+
+        if (Schema::hasTable('generate_premi_dokter_poli_filter_source')) {
+            $now = now();
+            $sourceRows = $this->poliSourceTableOptions()
+                ->map(fn ($source) => [
+                    'config_id' => $id,
+                    'source_table' => $source->source_table,
+                    'source_label' => $source->source_label,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+
+            if ($sourceRows->isNotEmpty()) {
+                DB::table('generate_premi_dokter_poli_filter_source')->insert($sourceRows->all());
+            }
+        }
 
         return DB::table('generate_premi_dokter_configs')->where('id', $id)->first();
+    }
+
+    public function poliSourceTableOptions(): Collection
+    {
+        return collect(self::SOURCE_TABLES)
+            ->map(fn (array $row) => (object) [
+                'id' => $row['table'],
+                'source_table' => $row['table'],
+                'source_label' => $row['label'],
+                'sumber_tindakan' => $row['source'],
+                'provider' => $row['provider'],
+            ])
+            ->values();
     }
 
     public function saveConfig(
@@ -130,8 +226,23 @@ class generatePremiDokterRepository
         int $kebersamaanBpjsNominal,
         float $kebersamaanBpjsPercent,
         int $kebersamaanDivider,
+        bool $kebersamaanOnlyUmum,
+        int $ecgNominal,
+        int $ecgDivider,
+        string $ecgDistributionMode,
+        float $poliPercent,
+        string $poliDistributionMode,
+        int $konsulWaNominal,
         array $jnsTindakanIds,
-        array $doctorRows
+        array $doctorRows,
+        array $ecgJnsTindakanIds = [],
+        array $poliJnsTindakanIds = [],
+        array $poliFilterDoctorRows = [],
+        array $poliFilterSourceRows = [],
+        array $poliFilterJnsTindakanIds = [],
+        array $konsulWaJnsTindakanIds = [],
+        array $rawatJalanMappingRows = [],
+        array $rawatJalanSpecialDoctorRows = []
     ): object {
         return DB::transaction(function () use (
             $visiteUmumPercent,
@@ -142,26 +253,70 @@ class generatePremiDokterRepository
             $kebersamaanBpjsNominal,
             $kebersamaanBpjsPercent,
             $kebersamaanDivider,
+            $kebersamaanOnlyUmum,
+            $ecgNominal,
+            $ecgDivider,
+            $ecgDistributionMode,
+            $poliPercent,
+            $poliDistributionMode,
+            $konsulWaNominal,
             $jnsTindakanIds,
-            $doctorRows
+            $doctorRows,
+            $ecgJnsTindakanIds,
+            $poliJnsTindakanIds,
+            $poliFilterDoctorRows,
+            $poliFilterSourceRows,
+            $poliFilterJnsTindakanIds,
+            $konsulWaJnsTindakanIds,
+            $rawatJalanMappingRows,
+            $rawatJalanSpecialDoctorRows
         ) {
             $config = $this->getConfig();
             $now = now();
             $sourcePeriodMode = $this->normalizeSourcePeriodMode($sourcePeriodMode);
+            $configPayload = [
+                'visite_umum_percent' => $visiteUmumPercent,
+                'visite_bpjs_percent' => $visiteBpjsPercent,
+                'visite_bpjs_nominal' => $visiteBpjsNominal,
+                'source_period_mode' => $sourcePeriodMode,
+                'kebersamaan_umum_percent' => $kebersamaanUmumPercent,
+                'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
+                'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
+                'kebersamaan_divider' => max(1, $kebersamaanDivider),
+                'updated_at' => $now,
+            ];
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'kebersamaan_only_umum')) {
+                $configPayload['kebersamaan_only_umum'] = $kebersamaanOnlyUmum;
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_nominal')) {
+                $configPayload['ecg_nominal'] = max(0, $ecgNominal);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_divider')) {
+                $configPayload['ecg_divider'] = max(1, $ecgDivider);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'ecg_distribution_mode')) {
+                $configPayload['ecg_distribution_mode'] = $this->normalizeEcgDistributionMode($ecgDistributionMode);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'poli_percent')) {
+                $configPayload['poli_percent'] = max(0, $poliPercent);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'poli_distribution_mode')) {
+                $configPayload['poli_distribution_mode'] = $this->normalizeEcgDistributionMode($poliDistributionMode);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'konsul_wa_nominal')) {
+                $configPayload['konsul_wa_nominal'] = max(0, $konsulWaNominal);
+            }
 
             DB::table('generate_premi_dokter_configs')
                 ->where('id', $config->id)
-                ->update([
-                    'visite_umum_percent' => $visiteUmumPercent,
-                    'visite_bpjs_percent' => $visiteBpjsPercent,
-                    'visite_bpjs_nominal' => $visiteBpjsNominal,
-                    'source_period_mode' => $sourcePeriodMode,
-                    'kebersamaan_umum_percent' => $kebersamaanUmumPercent,
-                    'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
-                    'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
-                    'kebersamaan_divider' => max(1, $kebersamaanDivider),
-                    'updated_at' => $now,
-                ]);
+                ->update($configPayload);
 
             DB::table('generate_premi_dokter_config_tindakan')
                 ->where('config_id', $config->id)
@@ -181,6 +336,163 @@ class generatePremiDokterRepository
 
             if ($mappingRows->isNotEmpty()) {
                 DB::table('generate_premi_dokter_config_tindakan')->insert($mappingRows->all());
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_rawat_jalan_config_tindakan')) {
+                DB::table('generate_premi_dokter_rawat_jalan_config_tindakan')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $rawatJalanMappingRows = collect($rawatJalanMappingRows)
+                    ->map(fn (array $row) => [
+                        'config_id' => $config->id,
+                        'jnsTindakan_id' => (int) $row['jnsTindakan_id'],
+                        'multiplier_type' => (string) $row['multiplier_type'],
+                        'multiplier_value' => (float) $row['multiplier_value'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->filter(fn (array $row) => $row['jnsTindakan_id'] > 0)
+                    ->unique(fn (array $row) => $row['jnsTindakan_id'])
+                    ->values();
+
+                if ($rawatJalanMappingRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_rawat_jalan_config_tindakan')->insert($rawatJalanMappingRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_ecg_config_tindakan')) {
+                DB::table('generate_premi_dokter_ecg_config_tindakan')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $ecgMappingRows = collect($ecgJnsTindakanIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->map(fn (int $id) => [
+                        'config_id' => $config->id,
+                        'jnsTindakan_id' => $id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->values();
+
+                if ($ecgMappingRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_ecg_config_tindakan')->insert($ecgMappingRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_poli_config_tindakan')) {
+                DB::table('generate_premi_dokter_poli_config_tindakan')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $poliMappingRows = collect($poliJnsTindakanIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->map(fn (int $id) => [
+                        'config_id' => $config->id,
+                        'jnsTindakan_id' => $id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->values();
+
+                if ($poliMappingRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_poli_config_tindakan')->insert($poliMappingRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_poli_filter_doctor')) {
+                DB::table('generate_premi_dokter_poli_filter_doctor')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $poliFilterDoctorRows = collect($poliFilterDoctorRows)
+                    ->map(fn (array $row) => [
+                        'config_id' => $config->id,
+                        'kd_dokter' => (string) $row['kd_dokter'],
+                        'nm_dokter' => (string) $row['nm_dokter'],
+                        'kd_sps' => $row['kd_sps'] ?? null,
+                        'nm_sps' => $row['nm_sps'] ?? null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->filter(fn (array $row) => filled($row['kd_dokter']))
+                    ->unique(fn (array $row) => $row['kd_dokter'])
+                    ->values();
+
+                if ($poliFilterDoctorRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_poli_filter_doctor')->insert($poliFilterDoctorRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_poli_filter_source')) {
+                DB::table('generate_premi_dokter_poli_filter_source')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $poliFilterSourceRows = collect($poliFilterSourceRows)
+                    ->map(fn (array $row) => [
+                        'config_id' => $config->id,
+                        'source_table' => (string) $row['source_table'],
+                        'source_label' => (string) $row['source_label'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->filter(fn (array $row) => filled($row['source_table']))
+                    ->unique(fn (array $row) => $row['source_table'])
+                    ->values();
+
+                if ($poliFilterSourceRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_poli_filter_source')->insert($poliFilterSourceRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_poli_filter_tindakan')) {
+                DB::table('generate_premi_dokter_poli_filter_tindakan')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $poliFilterMappingRows = collect($poliFilterJnsTindakanIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->map(fn (int $id) => [
+                        'config_id' => $config->id,
+                        'jnsTindakan_id' => $id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->values();
+
+                if ($poliFilterMappingRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_poli_filter_tindakan')->insert($poliFilterMappingRows->all());
+                }
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_konsul_wa_config_tindakan')) {
+                DB::table('generate_premi_dokter_konsul_wa_config_tindakan')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $konsulWaMappingRows = collect($konsulWaJnsTindakanIds)
+                    ->map(fn ($id) => (int) $id)
+                    ->filter()
+                    ->unique()
+                    ->map(fn (int $id) => [
+                        'config_id' => $config->id,
+                        'jnsTindakan_id' => $id,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->values();
+
+                if ($konsulWaMappingRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_konsul_wa_config_tindakan')->insert($konsulWaMappingRows->all());
+                }
             }
 
             DB::table('generate_premi_dokter_config_doctor')
@@ -204,6 +516,32 @@ class generatePremiDokterRepository
 
             if ($doctorRows->isNotEmpty()) {
                 DB::table('generate_premi_dokter_config_doctor')->insert($doctorRows->all());
+            }
+
+            if (Schema::hasTable('generate_premi_dokter_rawat_jalan_special_doctor')) {
+                DB::table('generate_premi_dokter_rawat_jalan_special_doctor')
+                    ->where('config_id', $config->id)
+                    ->delete();
+
+                $rawatJalanSpecialDoctorRows = collect($rawatJalanSpecialDoctorRows)
+                    ->map(fn (array $row) => [
+                        'config_id' => $config->id,
+                        'group_key' => (string) $row['group_key'],
+                        'kd_dokter' => (string) $row['kd_dokter'],
+                        'nm_dokter' => (string) $row['nm_dokter'],
+                        'kd_sps' => $row['kd_sps'] ?? null,
+                        'nm_sps' => $row['nm_sps'] ?? null,
+                        'nominal' => (int) $row['nominal'],
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->filter(fn (array $row) => filled($row['kd_dokter']) && $row['nominal'] > 0)
+                    ->unique(fn (array $row) => $row['group_key'].'|'.$row['kd_dokter'])
+                    ->values();
+
+                if ($rawatJalanSpecialDoctorRows->isNotEmpty()) {
+                    DB::table('generate_premi_dokter_rawat_jalan_special_doctor')->insert($rawatJalanSpecialDoctorRows->all());
+                }
             }
 
             return DB::table('generate_premi_dokter_configs')
@@ -263,13 +601,347 @@ class generatePremiDokterRepository
             ->get();
     }
 
+    public function getRawatJalanConfigTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_rawat_jalan_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_rawat_jalan_config_tindakan as ct')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'ct.jnsTindakan_id')
+            ->leftJoin('mapping_tindakan as mt', function ($join) {
+                $join
+                    ->on('mt.jnsTindakan_id', '=', 'jt.id')
+                    ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP']);
+            })
+            ->where('ct.config_id', $configId)
+            ->select([
+                'ct.jnsTindakan_id',
+                'ct.multiplier_type',
+                'ct.multiplier_value',
+                'jt.id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+                DB::raw('COUNT(mt.id) as jumlah_mapping'),
+            ])
+            ->groupBy(
+                'ct.jnsTindakan_id',
+                'ct.multiplier_type',
+                'ct.multiplier_value',
+                'jt.id',
+                'jt.kode',
+                'jt.jenis'
+            )
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getConfiguredRawatJalanMappingTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_rawat_jalan_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_rawat_jalan_config_tindakan as ct')
+            ->join('mapping_tindakan as mt', 'mt.jnsTindakan_id', '=', 'ct.jnsTindakan_id')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
+            ->where('ct.config_id', $configId)
+            ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP'])
+            ->select([
+                'mt.id as mapping_tindakan_id',
+                'mt.id',
+                'mt.sumber_tindakan',
+                'mt.kd_tindakan',
+                'mt.nm_tindakan',
+                'mt.jnsTindakan_id',
+                'ct.multiplier_type',
+                'ct.multiplier_value',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+            ])
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->orderBy('mt.sumber_tindakan')
+            ->orderBy('mt.nm_tindakan')
+            ->get();
+    }
+
+    public function getRawatJalanSpecialDoctors(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_rawat_jalan_special_doctor')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_rawat_jalan_special_doctor')
+            ->where('config_id', $configId)
+            ->orderByRaw("case group_key when 'rawat_jalan_khusus_45000' then 0 when 'rawat_jalan_khusus_72000' then 1 else 2 end")
+            ->orderBy('nm_dokter')
+            ->get();
+    }
+
+    public function getEcgConfigTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_ecg_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_ecg_config_tindakan as ct')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'ct.jnsTindakan_id')
+            ->leftJoin('mapping_tindakan as mt', function ($join) {
+                $join
+                    ->on('mt.jnsTindakan_id', '=', 'jt.id')
+                    ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP']);
+            })
+            ->where('ct.config_id', $configId)
+            ->select([
+                'ct.jnsTindakan_id',
+                'jt.id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+                DB::raw('COUNT(mt.id) as jumlah_mapping'),
+            ])
+            ->groupBy('ct.jnsTindakan_id', 'jt.id', 'jt.kode', 'jt.jenis')
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getConfiguredEcgMappingTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_ecg_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_ecg_config_tindakan as ct')
+            ->join('mapping_tindakan as mt', 'mt.jnsTindakan_id', '=', 'ct.jnsTindakan_id')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
+            ->where('ct.config_id', $configId)
+            ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP'])
+            ->select([
+                'mt.id as mapping_tindakan_id',
+                'mt.id',
+                'mt.sumber_tindakan',
+                'mt.kd_tindakan',
+                'mt.nm_tindakan',
+                'mt.jnsTindakan_id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+            ])
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->orderBy('mt.sumber_tindakan')
+            ->orderBy('mt.nm_tindakan')
+            ->get();
+    }
+
+    public function getPoliConfigTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_poli_config_tindakan as ct')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'ct.jnsTindakan_id')
+            ->leftJoin('mapping_tindakan as mt', function ($join) {
+                $join
+                    ->on('mt.jnsTindakan_id', '=', 'jt.id')
+                    ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP']);
+            })
+            ->where('ct.config_id', $configId)
+            ->select([
+                'ct.jnsTindakan_id',
+                'jt.id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+                DB::raw('COUNT(mt.id) as jumlah_mapping'),
+            ])
+            ->groupBy('ct.jnsTindakan_id', 'jt.id', 'jt.kode', 'jt.jenis')
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getConfiguredPoliMappingTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_poli_config_tindakan as ct')
+            ->join('mapping_tindakan as mt', 'mt.jnsTindakan_id', '=', 'ct.jnsTindakan_id')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
+            ->where('ct.config_id', $configId)
+            ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP'])
+            ->select([
+                'mt.id as mapping_tindakan_id',
+                'mt.id',
+                'mt.sumber_tindakan',
+                'mt.kd_tindakan',
+                'mt.nm_tindakan',
+                'mt.jnsTindakan_id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+            ])
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->orderBy('mt.sumber_tindakan')
+            ->orderBy('mt.nm_tindakan')
+            ->get();
+    }
+
+    public function getPoliFilterDoctors(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_filter_doctor')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_poli_filter_doctor')
+            ->where('config_id', $configId)
+            ->orderBy('nm_dokter')
+            ->get();
+    }
+
+    public function getPoliFilterSources(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_filter_source')) {
+            return $this->poliSourceTableOptions();
+        }
+
+        return DB::table('generate_premi_dokter_poli_filter_source')
+            ->where('config_id', $configId)
+            ->orderBy('source_table')
+            ->get();
+    }
+
+    public function getPoliFilterTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_filter_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_poli_filter_tindakan as ft')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'ft.jnsTindakan_id')
+            ->leftJoin('mapping_tindakan as mt', function ($join) {
+                $join
+                    ->on('mt.jnsTindakan_id', '=', 'jt.id')
+                    ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP']);
+            })
+            ->where('ft.config_id', $configId)
+            ->select([
+                'ft.jnsTindakan_id',
+                'jt.id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+                DB::raw('COUNT(mt.id) as jumlah_mapping'),
+            ])
+            ->groupBy('ft.jnsTindakan_id', 'jt.id', 'jt.kode', 'jt.jenis')
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getPoliFilterTindakanIds(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_poli_filter_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_poli_filter_tindakan')
+            ->where('config_id', $configId)
+            ->pluck('jnsTindakan_id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
+    public function getKonsulWaConfigTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_konsul_wa_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_konsul_wa_config_tindakan as ct')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'ct.jnsTindakan_id')
+            ->leftJoin('mapping_tindakan as mt', function ($join) {
+                $join
+                    ->on('mt.jnsTindakan_id', '=', 'jt.id')
+                    ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP']);
+            })
+            ->where('ct.config_id', $configId)
+            ->select([
+                'ct.jnsTindakan_id',
+                'jt.id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+                DB::raw('COUNT(mt.id) as jumlah_mapping'),
+            ])
+            ->groupBy('ct.jnsTindakan_id', 'jt.id', 'jt.kode', 'jt.jenis')
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->get();
+    }
+
+    public function getConfiguredKonsulWaMappingTindakan(?int $configId = null): Collection
+    {
+        $configId ??= (int) $this->getConfig()->id;
+
+        if (! Schema::hasTable('generate_premi_dokter_konsul_wa_config_tindakan')) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_konsul_wa_config_tindakan as ct')
+            ->join('mapping_tindakan as mt', 'mt.jnsTindakan_id', '=', 'ct.jnsTindakan_id')
+            ->join('master_jenis_tindakan as jt', 'jt.id', '=', 'mt.jnsTindakan_id')
+            ->where('ct.config_id', $configId)
+            ->whereIn('mt.sumber_tindakan', ['RAJAL', 'RANAP'])
+            ->select([
+                'mt.id as mapping_tindakan_id',
+                'mt.id',
+                'mt.sumber_tindakan',
+                'mt.kd_tindakan',
+                'mt.nm_tindakan',
+                'mt.jnsTindakan_id',
+                'jt.kode as kode_jenis_tindakan',
+                'jt.jenis as nama_jenis_tindakan',
+            ])
+            ->orderBy('jt.kode')
+            ->orderBy('jt.jenis')
+            ->orderBy('mt.sumber_tindakan')
+            ->orderBy('mt.nm_tindakan')
+            ->get();
+    }
+
     public function getConfigDoctors(?int $configId = null): Collection
     {
         $configId ??= (int) $this->getConfig()->id;
 
         return DB::table('generate_premi_dokter_config_doctor')
             ->where('config_id', $configId)
-            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 when 'kebersamaan' then 3 else 4 end")
+            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 when 'kebersamaan' then 3 when 'jasa_operasi' then 4 when 'jasa_rawat_jalan' then 5 when 'jasa_poli' then 6 when 'jasa_ecg' then 7 when 'konsul_wa' then 8 else 9 end")
             ->orderBy('nm_dokter')
             ->get();
     }
@@ -365,7 +1037,7 @@ class generatePremiDokterRepository
         return $rows;
     }
 
-    public function calculate(string $periode, string $jenisPelayanan, object $config): array
+    public function calculate(string $periode, string $jenisPelayanan, object $config, bool $onlyDoctorUmum = false): array
     {
         $sourcePeriodMode = $jenisPelayanan === 'bpjs'
             ? $this->normalizeSourcePeriodMode($config->source_period_mode ?? null)
@@ -378,11 +1050,11 @@ class generatePremiDokterRepository
         $visiteDoctorConfig = $allDoctorConfig
             ->whereIn('kategori', self::VISITE_CATEGORIES)
             ->values();
-        $doctorConfig = $jenisPelayanan === 'bpjs'
+        $doctorConfig = $jenisPelayanan === 'bpjs' || $onlyDoctorUmum
             ? $visiteDoctorConfig->where('kategori', self::CATEGORY_UMUM)->values()
             : $visiteDoctorConfig;
         $doctorByCode = $doctorConfig->keyBy('kd_dokter');
-        $specialistCodes = $jenisPelayanan === 'bpjs'
+        $specialistCodes = $jenisPelayanan === 'bpjs' || $onlyDoctorUmum
             ? $visiteDoctorConfig
                 ->whereIn('kategori', [self::CATEGORY_SPESIALIS_65, self::CATEGORY_SPESIALIS_80])
                 ->pluck('kd_dokter')
@@ -393,7 +1065,8 @@ class generatePremiDokterRepository
             $jenisPelayanan,
             $range['start'],
             $range['end'],
-            $mappingTindakan
+            $mappingTindakan,
+            false
         );
         $ignoredSpecialistRows = $specialistCodes->isEmpty()
             ? collect()
@@ -500,8 +1173,9 @@ class generatePremiDokterRepository
 
     public function calculateKebersamaan(string $periode, object $config): array
     {
-        $umumCalculation = $this->calculate($periode, 'umum', $config);
-        $bpjsCalculation = $this->calculate($periode, 'bpjs', $config);
+        $kebersamaanOnlyUmum = (bool) ($config->kebersamaan_only_umum ?? false);
+        $umumCalculation = $this->calculate($periode, 'umum', $config, $kebersamaanOnlyUmum);
+        $bpjsCalculation = $this->calculate($periode, 'bpjs', $config, $kebersamaanOnlyUmum);
         $bpjsSourcePeriodMode = $this->normalizeSourcePeriodMode($config->source_period_mode ?? null);
         $bpjsSourcePeriode = $bpjsCalculation['source_periode'];
         $bpjsRange = $this->periodRange($bpjsSourcePeriode);
@@ -516,6 +1190,7 @@ class generatePremiDokterRepository
         $kebersamaanBpjsNominal = (int) ($config->kebersamaan_bpjs_nominal ?? 40000);
         $kebersamaanBpjsPercent = (float) ($config->kebersamaan_bpjs_percent ?? 30);
         $kebersamaanDivider = max(1, (int) ($config->kebersamaan_divider ?? 4));
+        $sumberDokterLabel = $kebersamaanOnlyUmum ? 'Dokter Umum' : 'Dokter Umum & Spesialis';
         $visiteUmumTotalPremi = round((float) $umumCalculation['total_premi'], 2);
         $kebersamaanVisiteUmum = round($visiteUmumTotalPremi * ($kebersamaanUmumPercent / 100), 2);
         $bpjsJumlahTransaksi = (int) $bpjsCalculation['jumlah_transaksi'];
@@ -528,17 +1203,22 @@ class generatePremiDokterRepository
         $allocationPerDoctor = round($grandTotalKebersamaan / $kebersamaanDivider, 2);
         $jumlahTransaksi = (int) $umumCalculation['jumlah_transaksi'] + $bpjsJumlahTransaksi;
         $jumlahPasien = (int) $umumCalculation['jumlah_pasien'] + $bpjsJumlahPasien;
+        $ignoredSpecialistRows = collect($umumCalculation['ignored_specialists'] ?? [])
+            ->merge($bpjsCalculation['ignored_specialists'] ?? [])
+            ->values();
+        $ignoredSpecialistCount = (int) ($umumCalculation['jumlah_spesialis_diabaikan'] ?? 0)
+            + (int) ($bpjsCalculation['jumlah_spesialis_diabaikan'] ?? 0);
         $sourceBreakdown = [
             [
                 'key' => 'visite_umum',
-                'label' => 'Kebersamaan Visite UMUM',
+                'label' => 'Kebersamaan Visite UMUM - '.$sumberDokterLabel,
                 'jumlah_data' => (int) $umumCalculation['jumlah_transaksi'],
                 'jumlah_pasien' => (int) $umumCalculation['jumlah_pasien'],
                 'total_biaya_rawat' => $kebersamaanVisiteUmum,
             ],
             [
                 'key' => 'visite_bpjs',
-                'label' => 'Kebersamaan Visite BPJS',
+                'label' => 'Kebersamaan Visite BPJS - '.$sumberDokterLabel,
                 'jumlah_data' => $bpjsJumlahTransaksi,
                 'jumlah_pasien' => $bpjsJumlahPasien,
                 'total_biaya_rawat' => $kebersamaanVisiteBpjs,
@@ -547,7 +1227,7 @@ class generatePremiDokterRepository
         $actionBreakdown = [
             [
                 'key' => 'formula_visite_umum',
-                'label' => 'Total premi Jasa Visite UMUM x '.$kebersamaanUmumPercent.'%',
+                'label' => 'Total premi Jasa Visite UMUM '.$sumberDokterLabel.' x '.$kebersamaanUmumPercent.'%',
                 'jumlah_data' => (int) $umumCalculation['jumlah_transaksi'],
                 'jumlah_pasien' => (int) $umumCalculation['jumlah_pasien'],
                 'total_biaya_rawat' => $kebersamaanVisiteUmum,
@@ -564,7 +1244,7 @@ class generatePremiDokterRepository
             [
                 'source_table' => 'kebersamaan_visite_umum',
                 'sumber_tindakan' => 'VISITE_UMUM',
-                'source_label' => 'Kebersamaan Visite UMUM',
+                'source_label' => 'Kebersamaan Visite UMUM - '.$sumberDokterLabel,
                 'mapping_tindakan_id' => null,
                 'jnsTindakan_id' => null,
                 'kode_jenis_tindakan' => 'VISITE_UMUM',
@@ -577,7 +1257,7 @@ class generatePremiDokterRepository
                 'tanggal' => $umumCalculation['source_tgl_akhir'],
                 'jam' => null,
                 'kd_tindakan' => 'VISITE_UMUM',
-                'nm_tindakan' => 'Total premi Jasa Visite UMUM x '.$kebersamaanUmumPercent.'%',
+                'nm_tindakan' => 'Total premi Jasa Visite UMUM '.$sumberDokterLabel.' x '.$kebersamaanUmumPercent.'%',
                 'kd_dokter' => null,
                 'nm_dokter' => null,
                 'kd_sps' => null,
@@ -590,7 +1270,7 @@ class generatePremiDokterRepository
             [
                 'source_table' => 'kebersamaan_visite_bpjs',
                 'sumber_tindakan' => 'VISITE_BPJS',
-                'source_label' => 'Kebersamaan Visite BPJS',
+                'source_label' => 'Kebersamaan Visite BPJS - '.$sumberDokterLabel,
                 'mapping_tindakan_id' => null,
                 'jnsTindakan_id' => null,
                 'kode_jenis_tindakan' => 'VISITE_BPJS',
@@ -639,7 +1319,7 @@ class generatePremiDokterRepository
             'source_periode' => $periode,
             'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
             'source_period_mode_label' => 'Periode Berjalan',
-            'source_period_text' => 'UMUM '.$umumCalculation['source_periode'].' / BPJS '.$bpjsSourcePeriode.' ('.$this->sourcePeriodModeLabel($bpjsSourcePeriodMode).')',
+            'source_period_text' => 'UMUM '.$umumCalculation['source_periode'].' / BPJS '.$bpjsSourcePeriode.' ('.$this->sourcePeriodModeLabel($bpjsSourcePeriodMode).') / '.$sumberDokterLabel,
             'source_tgl_awal' => $periodeRange['start']->toDateString(),
             'source_tgl_akhir' => $periodeRange['end']->copy()->subDay()->toDateString(),
             'jenis_premi_dokter' => self::TYPE_KEBERSAMAAN,
@@ -651,6 +1331,8 @@ class generatePremiDokterRepository
             'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
             'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
             'kebersamaan_divider' => $kebersamaanDivider,
+            'kebersamaan_only_umum' => $kebersamaanOnlyUmum,
+            'kebersamaan_sumber_dokter_label' => $sumberDokterLabel,
             'kebersamaan_allocation_percent' => $allocationPercent,
             'kebersamaan_allocation_per_doctor' => $allocationPerDoctor,
             'kebersamaan_visite_umum_total_premi' => $visiteUmumTotalPremi,
@@ -666,14 +1348,14 @@ class generatePremiDokterRepository
             'jumlah_jenis_tindakan' => $jenisTindakan->count(),
             'jumlah_mapping_tindakan' => $mappingTindakan->count(),
             'jumlah_tidak_terkonfigurasi' => 0,
-            'jumlah_spesialis_diabaikan' => 0,
+            'jumlah_spesialis_diabaikan' => $ignoredSpecialistCount,
             'total_biaya_rawat' => round($visiteUmumTotalPremi + $bpjsDasarHitung, 2),
             'total_grand' => $grandTotalKebersamaan,
             'total_premi' => round((float) $details->sum('total_premi'), 2),
             'details' => $details,
             'all_rows_count' => $jumlahTransaksi,
             'unconfigured_doctors' => [],
-            'ignored_specialists' => [],
+            'ignored_specialists' => $ignoredSpecialistRows->all(),
             'config_snapshot' => [
                 'jenis_tindakan' => $jenisTindakan->values()->all(),
                 'mapping_tindakan' => $mappingTindakan->values()->all(),
@@ -690,6 +1372,8 @@ class generatePremiDokterRepository
                 'kebersamaan_bpjs_nominal' => $kebersamaanBpjsNominal,
                 'kebersamaan_bpjs_percent' => $kebersamaanBpjsPercent,
                 'kebersamaan_divider' => $kebersamaanDivider,
+                'kebersamaan_only_umum' => $kebersamaanOnlyUmum,
+                'kebersamaan_sumber_dokter_label' => $sumberDokterLabel,
                 'kebersamaan_allocation_percent' => $allocationPercent,
                 'kebersamaan_allocation_per_doctor' => $allocationPerDoctor,
                 'kebersamaan_visite_umum_total_premi' => $visiteUmumTotalPremi,
@@ -700,6 +1384,775 @@ class generatePremiDokterRepository
                 'kebersamaan_visite_bpjs_total' => $kebersamaanVisiteBpjs,
                 'kebersamaan_grand_total' => $grandTotalKebersamaan,
                 'kebersamaan_formula_rows' => $formulaRows,
+                'jumlah_spesialis_diabaikan' => $ignoredSpecialistCount,
+                'ignored_specialists' => $ignoredSpecialistRows->all(),
+            ],
+        ];
+    }
+
+    public function calculateOperasi(string $periode, object $config, int $nominalOperasi): array
+    {
+        $nominalOperasi = max(0, $nominalOperasi);
+        $range = $this->periodRange($periode);
+        $doctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_OPERASI)
+            ->values();
+        $sourceBreakdown = [
+            [
+                'key' => 'manual_jasa_operasi',
+                'label' => 'Input Manual Jasa Operasi',
+                'jumlah_data' => 1,
+                'jumlah_pasien' => 0,
+                'total_biaya_rawat' => $nominalOperasi,
+            ],
+        ];
+        $totalPercent = round((float) $doctorConfig->sum('percent'), 4);
+
+        $details = $doctorConfig
+            ->map(function ($doctor) use ($periode, $nominalOperasi, $sourceBreakdown) {
+                $percent = (float) $doctor->percent;
+                $totalPremi = round($nominalOperasi * ($percent / 100), 2);
+                $formulaLabel = 'Nominal operasi x '.$percent.'%';
+                $manualRows = [
+                    [
+                        'source_table' => 'manual_jasa_operasi',
+                        'sumber_tindakan' => 'MANUAL',
+                        'source_label' => 'Input Manual Jasa Operasi',
+                        'mapping_tindakan_id' => null,
+                        'jnsTindakan_id' => null,
+                        'kode_jenis_tindakan' => 'JASA_OPERASI',
+                        'nama_jenis_tindakan' => 'Jasa Operasi',
+                        'no_rawat' => 'OPERASI-'.$periode.'-'.$doctor->kd_dokter,
+                        'no_rkm_medis' => null,
+                        'nm_pasien' => 'Input manual jasa operasi',
+                        'kd_pj' => 'MANUAL',
+                        'nama_penjamin' => 'Manual',
+                        'tanggal' => Carbon::createFromFormat('Y-m-d', $periode.'-01')->endOfMonth()->toDateString(),
+                        'jam' => null,
+                        'kd_tindakan' => 'JASA_OPERASI',
+                        'nm_tindakan' => $formulaLabel,
+                        'kd_dokter' => $doctor->kd_dokter,
+                        'nm_dokter' => $doctor->nm_dokter,
+                        'kd_sps' => $doctor->kd_sps,
+                        'nm_sps' => $doctor->nm_sps,
+                        'doctor_source' => 'config',
+                        'nip' => null,
+                        'nama_petugas' => null,
+                        'biaya_rawat' => $nominalOperasi,
+                    ],
+                ];
+
+                return [
+                    'kd_dokter' => $doctor->kd_dokter,
+                    'nm_dokter' => $doctor->nm_dokter,
+                    'kd_sps' => $doctor->kd_sps,
+                    'nm_sps' => $doctor->nm_sps,
+                    'kategori' => self::CATEGORY_OPERASI,
+                    'percent' => round($percent, 4),
+                    'jumlah_data' => 1,
+                    'jumlah_pasien' => 0,
+                    'total_biaya_rawat' => $nominalOperasi,
+                    'grand_total' => $nominalOperasi,
+                    'total_premi' => $totalPremi,
+                    'source_breakdown' => $sourceBreakdown,
+                    'action_breakdown' => [
+                        [
+                            'key' => 'formula_jasa_operasi',
+                            'label' => $formulaLabel,
+                            'jumlah_data' => 1,
+                            'jumlah_pasien' => 0,
+                            'total_biaya_rawat' => $totalPremi,
+                        ],
+                    ],
+                    'data_rawat' => $manualRows,
+                ];
+            })
+            ->sortByDesc('total_premi')
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $periode,
+            'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+            'source_period_mode_label' => 'Input Manual',
+            'source_period_text' => 'Input manual periode '.$periode,
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_OPERASI,
+            'jenis_pelayanan' => self::SERVICE_MANUAL,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'nominal_operasi' => $nominalOperasi,
+            'operasi_total_percent' => $totalPercent,
+            'jumlah_transaksi' => $nominalOperasi > 0 ? 1 : 0,
+            'jumlah_pasien' => 0,
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => 1,
+            'jumlah_jenis_tindakan' => 0,
+            'jumlah_mapping_tindakan' => 0,
+            'jumlah_tidak_terkonfigurasi' => 0,
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => $nominalOperasi,
+            'total_grand' => $nominalOperasi,
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $nominalOperasi > 0 ? 1 : 0,
+            'unconfigured_doctors' => [],
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => [],
+                'mapping_tindakan' => [],
+                'doctor_config' => $doctorConfig->values()->all(),
+                'source_tables' => ['manual_jasa_operasi'],
+                'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+                'source_period_mode_label' => 'Input Manual',
+                'source_periode' => $periode,
+                'source_period_text' => 'Input manual periode '.$periode,
+                'nominal_operasi' => $nominalOperasi,
+                'operasi_total_percent' => $totalPercent,
+            ],
+        ];
+    }
+
+    public function calculateRawatJalan(string $periode, string $jenisPelayanan, object $config): array
+    {
+        $jenisPelayanan = $jenisPelayanan === 'bpjs' ? 'bpjs' : 'umum';
+        $sourcePeriodMode = $jenisPelayanan === 'bpjs'
+            ? $this->normalizeSourcePeriodMode($config->source_period_mode ?? null)
+            : self::SOURCE_PERIOD_CURRENT;
+        $sourcePeriode = $this->sourcePeriod($periode, $sourcePeriodMode);
+        $range = $this->periodRange($sourcePeriode);
+        $jenisTindakan = $this->getRawatJalanConfigTindakan((int) $config->id);
+        $mappingTindakan = $this->getConfiguredRawatJalanMappingTindakan((int) $config->id);
+        $normalDoctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_RAWAT_JALAN)
+            ->values();
+        $specialDoctorConfig = $this->getRawatJalanSpecialDoctors((int) $config->id)
+            ->values();
+        $specialDoctorByCode = $specialDoctorConfig
+            ->groupBy('kd_dokter')
+            ->map(fn (Collection $rows) => $rows->first());
+        $normalDoctorByCode = $normalDoctorConfig
+            ->reject(fn ($doctor) => $specialDoctorByCode->has((string) $doctor->kd_dokter))
+            ->keyBy('kd_dokter');
+        $rows = $this->collectVisiteRows(
+            $jenisPelayanan,
+            $range['start'],
+            $range['end'],
+            $mappingTindakan,
+            false
+        );
+
+        $normalTransactions = $rows
+            ->filter(fn (array $row) => $normalDoctorByCode->has((string) $row['kd_dokter']))
+            ->map(function (array $row) {
+                $row['biaya_rawat_asli'] = $row['biaya_rawat'];
+                $row['premi_rawat_jalan'] = $this->rawatJalanPremiumValue($row);
+                $row['multiplier_label'] = $this->rawatJalanMultiplierLabel($row);
+
+                return $row;
+            })
+            ->values();
+        $specialTransactions = $rows
+            ->filter(fn (array $row) => $specialDoctorByCode->has((string) $row['kd_dokter']))
+            ->map(function (array $row) use ($specialDoctorByCode) {
+                $doctor = $specialDoctorByCode->get((string) $row['kd_dokter']);
+                $nominal = max(0, (int) ($doctor->nominal ?? 0));
+
+                $row['biaya_rawat_asli'] = $row['biaya_rawat'];
+                $row['premi_rawat_jalan'] = $nominal;
+                $row['multiplier_type'] = self::MULTIPLIER_NOMINAL;
+                $row['multiplier_value'] = $nominal;
+                $row['multiplier_label'] = 'Khusus '.$this->rupiahText($nominal).' per data';
+
+                return $row;
+            })
+            ->values();
+        $configuredDoctorCodes = $normalDoctorByCode
+            ->keys()
+            ->merge($specialDoctorByCode->keys())
+            ->map(fn ($code) => (string) $code)
+            ->unique()
+            ->values();
+        $unconfiguredRows = $rows
+            ->reject(fn (array $row) => $configuredDoctorCodes->contains((string) $row['kd_dokter']))
+            ->values();
+
+        $normalDetails = $normalTransactions
+            ->groupBy('kd_dokter')
+            ->map(function (Collection $items, string $doctorCode) use ($normalDoctorByCode) {
+                $doctor = $normalDoctorByCode->get($doctorCode);
+                $first = $items->first();
+                $grandTotal = round((float) $items->sum('premi_rawat_jalan'), 2);
+
+                return [
+                    'kd_dokter' => $doctorCode,
+                    'nm_dokter' => $doctor->nm_dokter ?? data_get($first, 'nm_dokter') ?? '-',
+                    'kd_sps' => $doctor->kd_sps ?? data_get($first, 'kd_sps'),
+                    'nm_sps' => $doctor->nm_sps ?? data_get($first, 'nm_sps'),
+                    'kategori' => self::CATEGORY_RAWAT_JALAN,
+                    'percent' => 100,
+                    'jumlah_data' => $items->count(),
+                    'jumlah_pasien' => $items->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round((float) $items->sum('biaya_rawat_asli'), 2),
+                    'grand_total' => $grandTotal,
+                    'total_premi' => $grandTotal,
+                    'source_breakdown' => $this->rawatJalanBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'source_table'),
+                        fn ($row, $key) => data_get($row, 'source_label') ?: $key
+                    ),
+                    'action_breakdown' => $this->rawatJalanBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'jnsTindakan_id'),
+                        fn ($row, $key) => trim(
+                            data_get($row, 'kode_jenis_tindakan').' - '
+                            .data_get($row, 'nama_jenis_tindakan').' ('
+                            .data_get($row, 'multiplier_label').')'
+                        )
+                    ),
+                    'data_rawat' => $items->values()->all(),
+                ];
+            })
+            ->values();
+        $specialDetails = $specialTransactions
+            ->groupBy('kd_dokter')
+            ->map(function (Collection $items, string $doctorCode) use ($specialDoctorByCode) {
+                $doctor = $specialDoctorByCode->get($doctorCode);
+                $nominal = max(0, (int) ($doctor->nominal ?? 0));
+                $grandTotal = round($items->count() * $nominal, 2);
+
+                return [
+                    'kd_dokter' => $doctorCode,
+                    'nm_dokter' => $doctor->nm_dokter ?? data_get($items->first(), 'nm_dokter') ?? '-',
+                    'kd_sps' => $doctor->kd_sps ?? data_get($items->first(), 'kd_sps'),
+                    'nm_sps' => $doctor->nm_sps ?? data_get($items->first(), 'nm_sps'),
+                    'kategori' => $doctor->group_key ?? self::CATEGORY_RAWAT_JALAN_SPECIAL_45000,
+                    'percent' => 100,
+                    'jumlah_data' => $items->count(),
+                    'jumlah_pasien' => $items->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round((float) $items->sum('biaya_rawat_asli'), 2),
+                    'grand_total' => $grandTotal,
+                    'total_premi' => $grandTotal,
+                    'source_breakdown' => $this->rawatJalanBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'source_table'),
+                        fn ($row, $key) => data_get($row, 'source_label') ?: $key
+                    ),
+                    'action_breakdown' => $this->rawatJalanBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'jnsTindakan_id'),
+                        fn ($row, $key) => trim(data_get($row, 'kode_jenis_tindakan').' - '.data_get($row, 'nama_jenis_tindakan'))
+                            .' (khusus '.$this->rupiahText($nominal).' per data)'
+                    ),
+                    'data_rawat' => $items->values()->all(),
+                ];
+            })
+            ->values();
+        $details = $normalDetails
+            ->merge($specialDetails)
+            ->sortByDesc('total_premi')
+            ->values();
+        $transactions = $normalTransactions
+            ->merge($specialTransactions)
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $sourcePeriode,
+            'source_period_mode' => $sourcePeriodMode,
+            'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+            'source_period_text' => 'Sumber rawat '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_RAWAT_JALAN,
+            'jenis_pelayanan' => $jenisPelayanan,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'rawat_jalan_mapping_config_count' => $jenisTindakan->count(),
+            'rawat_jalan_special_doctor_count' => $specialDoctorConfig->count(),
+            'rawat_jalan_doctor_config_count' => $normalDoctorConfig->count(),
+            'jumlah_transaksi' => $transactions->count(),
+            'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => $transactions->pluck('kd_tindakan')->unique()->count(),
+            'jumlah_jenis_tindakan' => $jenisTindakan->count(),
+            'jumlah_mapping_tindakan' => $mappingTindakan->count(),
+            'jumlah_tidak_terkonfigurasi' => $unconfiguredRows->count(),
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => round((float) $transactions->sum('biaya_rawat_asli'), 2),
+            'total_grand' => round((float) $details->sum('grand_total'), 2),
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $rows->count(),
+            'unconfigured_doctors' => $this->unconfiguredDoctorPayload($unconfiguredRows),
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => $jenisTindakan->values()->all(),
+                'mapping_tindakan' => $mappingTindakan->values()->all(),
+                'rawat_jalan_mapping_config' => $jenisTindakan->values()->all(),
+                'doctor_config' => $normalDoctorConfig->values()->all(),
+                'rawat_jalan_special_doctors' => $specialDoctorConfig->values()->all(),
+                'source_tables' => collect(self::SOURCE_TABLES)->pluck('table')->values()->all(),
+                'source_period_mode' => $sourcePeriodMode,
+                'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+                'source_periode' => $sourcePeriode,
+                'source_period_text' => 'Sumber rawat '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+                'jenis_pelayanan' => $jenisPelayanan,
+                'rawat_jalan_mapping_config_count' => $jenisTindakan->count(),
+                'rawat_jalan_special_doctor_count' => $specialDoctorConfig->count(),
+                'rawat_jalan_doctor_config_count' => $normalDoctorConfig->count(),
+            ],
+        ];
+    }
+
+    public function calculateEcg(string $periode, string $jenisPelayanan, object $config): array
+    {
+        $jenisPelayanan = $jenisPelayanan === 'bpjs' ? 'bpjs' : 'umum';
+        $sourcePeriodMode = $jenisPelayanan === 'bpjs'
+            ? $this->normalizeSourcePeriodMode($config->source_period_mode ?? null)
+            : self::SOURCE_PERIOD_CURRENT;
+        $sourcePeriode = $this->sourcePeriod($periode, $sourcePeriodMode);
+        $range = $this->periodRange($sourcePeriode);
+        $jenisTindakan = $this->getEcgConfigTindakan((int) $config->id);
+        $mappingTindakan = $this->getConfiguredEcgMappingTindakan((int) $config->id);
+        $doctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_ECG)
+            ->values();
+        $ecgNominal = max(0, (int) ($config->ecg_nominal ?? 5000));
+        $ecgDivider = max(1, (int) ($config->ecg_divider ?? 3));
+        $ecgDistributionMode = $this->normalizeEcgDistributionMode($config->ecg_distribution_mode ?? null);
+        $isFullAmount = $ecgDistributionMode === self::ECG_DISTRIBUTION_FULL_AMOUNT;
+        $rows = $this->collectVisiteRows(
+            $jenisPelayanan,
+            $range['start'],
+            $range['end'],
+            $mappingTindakan,
+            false
+        );
+        $transactions = $rows
+            ->map(function (array $row) use ($ecgNominal, $ecgDivider) {
+                $row['biaya_rawat_asli'] = $row['biaya_rawat'];
+                $row['premi_ecg'] = round($ecgNominal / $ecgDivider, 2);
+                $row['multiplier_label'] = $this->rupiahText($ecgNominal).' / '.$ecgDivider.' per data';
+
+                return $row;
+            })
+            ->values();
+        $jumlahData = $transactions->count();
+        $grandTotal = round(($jumlahData * $ecgNominal) / $ecgDivider, 2);
+        $doctorCount = $doctorConfig->count();
+        $allocationPercent = $doctorCount > 0
+            ? ($isFullAmount ? 100 : round(100 / $doctorCount, 4))
+            : 0;
+        $allocationPerDoctor = $doctorCount > 0
+            ? ($isFullAmount ? $grandTotal : round($grandTotal / $doctorCount, 2))
+            : 0;
+        $sourceBreakdown = $this->ecgBreakdown(
+            $transactions,
+            fn ($row) => data_get($row, 'source_table'),
+            fn ($row, $key) => data_get($row, 'source_label') ?: $key,
+            $ecgNominal,
+            $ecgDivider
+        );
+        $actionBreakdown = $this->ecgBreakdown(
+            $transactions,
+            fn ($row) => data_get($row, 'jnsTindakan_id'),
+            fn ($row, $key) => trim(
+                data_get($row, 'kode_jenis_tindakan').' - '
+                .data_get($row, 'nama_jenis_tindakan').' ('
+                .data_get($row, 'multiplier_label').')'
+            ),
+            $ecgNominal,
+            $ecgDivider
+        );
+
+        $details = $doctorConfig
+            ->map(function ($doctor) use (
+                $transactions,
+                $grandTotal,
+                $allocationPercent,
+                $allocationPerDoctor,
+                $sourceBreakdown,
+                $actionBreakdown
+            ) {
+                return [
+                    'kd_dokter' => $doctor->kd_dokter,
+                    'nm_dokter' => $doctor->nm_dokter,
+                    'kd_sps' => $doctor->kd_sps,
+                    'nm_sps' => $doctor->nm_sps,
+                    'kategori' => self::CATEGORY_ECG,
+                    'percent' => $allocationPercent,
+                    'jumlah_data' => $transactions->count(),
+                    'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round((float) $transactions->sum('biaya_rawat_asli'), 2),
+                    'grand_total' => $grandTotal,
+                    'total_premi' => $allocationPerDoctor,
+                    'source_breakdown' => $sourceBreakdown,
+                    'action_breakdown' => $actionBreakdown,
+                    'data_rawat' => $transactions->all(),
+                ];
+            })
+            ->sortBy('nm_dokter')
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $sourcePeriode,
+            'source_period_mode' => $sourcePeriodMode,
+            'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+            'source_period_text' => 'Sumber ECG '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_ECG,
+            'jenis_pelayanan' => $jenisPelayanan,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'ecg_nominal' => $ecgNominal,
+            'ecg_divider' => $ecgDivider,
+            'ecg_distribution_mode' => $ecgDistributionMode,
+            'ecg_distribution_mode_label' => $this->ecgDistributionModeLabel($ecgDistributionMode),
+            'ecg_doctor_config_count' => $doctorCount,
+            'ecg_allocation_percent' => $allocationPercent,
+            'ecg_allocation_per_doctor' => $allocationPerDoctor,
+            'jumlah_transaksi' => $transactions->count(),
+            'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => $transactions->pluck('kd_tindakan')->unique()->count(),
+            'jumlah_jenis_tindakan' => $jenisTindakan->count(),
+            'jumlah_mapping_tindakan' => $mappingTindakan->count(),
+            'jumlah_tidak_terkonfigurasi' => 0,
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => round((float) $transactions->sum('biaya_rawat_asli'), 2),
+            'total_grand' => $grandTotal,
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $rows->count(),
+            'unconfigured_doctors' => [],
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => $jenisTindakan->values()->all(),
+                'mapping_tindakan' => $mappingTindakan->values()->all(),
+                'doctor_config' => $doctorConfig->values()->all(),
+                'source_tables' => collect(self::SOURCE_TABLES)->pluck('table')->values()->all(),
+                'source_period_mode' => $sourcePeriodMode,
+                'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+                'source_periode' => $sourcePeriode,
+                'source_period_text' => 'Sumber ECG '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+                'jenis_pelayanan' => $jenisPelayanan,
+                'ecg_nominal' => $ecgNominal,
+                'ecg_divider' => $ecgDivider,
+                'ecg_distribution_mode' => $ecgDistributionMode,
+                'ecg_distribution_mode_label' => $this->ecgDistributionModeLabel($ecgDistributionMode),
+                'ecg_doctor_config_count' => $doctorCount,
+                'ecg_allocation_percent' => $allocationPercent,
+                'ecg_allocation_per_doctor' => $allocationPerDoctor,
+            ],
+        ];
+    }
+
+    public function calculatePoli(string $periode, string $jenisPelayanan, object $config): array
+    {
+        $jenisPelayanan = $jenisPelayanan === 'bpjs' ? 'bpjs' : 'umum';
+        $sourcePeriodMode = $jenisPelayanan === 'bpjs'
+            ? $this->normalizeSourcePeriodMode($config->source_period_mode ?? null)
+            : self::SOURCE_PERIOD_CURRENT;
+        $sourcePeriode = $this->sourcePeriod($periode, $sourcePeriodMode);
+        $range = $this->periodRange($sourcePeriode);
+        $jenisTindakan = $this->getPoliConfigTindakan((int) $config->id);
+        $mappingTindakan = $this->getConfiguredPoliMappingTindakan((int) $config->id);
+        $doctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_POLI)
+            ->values();
+        $filterDoctors = $this->getPoliFilterDoctors((int) $config->id)->values();
+        $filterDoctorCodes = $filterDoctors
+            ->pluck('kd_dokter')
+            ->map(fn ($code) => (string) $code)
+            ->unique()
+            ->values();
+        $filterSources = $this->getPoliFilterSources((int) $config->id)->values();
+        $filterSourceTables = $filterSources
+            ->pluck('source_table')
+            ->map(fn ($table) => (string) $table)
+            ->unique()
+            ->values();
+        $filterTindakan = $this->getPoliFilterTindakan((int) $config->id);
+        $filterTindakanIds = $filterTindakan
+            ->pluck('jnsTindakan_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $filteredMappingTindakan = $filterTindakanIds->isEmpty()
+            ? collect()
+            : $mappingTindakan
+                ->filter(fn ($mapping) => $filterTindakanIds->contains((int) $mapping->jnsTindakan_id))
+                ->values();
+        $poliPercent = max(0, (float) ($config->poli_percent ?? 30));
+        $poliDistributionMode = $this->normalizeEcgDistributionMode($config->poli_distribution_mode ?? null);
+        $isFullAmount = $poliDistributionMode === self::ECG_DISTRIBUTION_FULL_AMOUNT;
+        $rows = $filterDoctorCodes->isEmpty() || $filterSourceTables->isEmpty() || $filteredMappingTindakan->isEmpty()
+            ? collect()
+            : $this->collectVisiteRows(
+                $jenisPelayanan,
+                $range['start'],
+                $range['end'],
+                $filteredMappingTindakan,
+                true,
+                $filterDoctorCodes,
+                $filterSourceTables
+            );
+        $transactions = $rows
+            ->map(function (array $row) use ($poliPercent) {
+                $row['biaya_rawat_asli'] = $row['biaya_rawat'];
+                $row['premi_poli'] = round((float) $row['biaya_rawat'] * ($poliPercent / 100), 2);
+                $row['multiplier_label'] = number_format($poliPercent, 2, ',', '.').'% dari biaya rawat';
+
+                return $row;
+            })
+            ->values();
+        $totalBiayaRawat = round((float) $transactions->sum('biaya_rawat_asli'), 2);
+        $grandTotal = round($totalBiayaRawat * ($poliPercent / 100), 2);
+        $doctorCount = $doctorConfig->count();
+        $allocationPercent = $doctorCount > 0
+            ? ($isFullAmount ? 100 : round(100 / $doctorCount, 4))
+            : 0;
+        $allocationPerDoctor = $doctorCount > 0
+            ? ($isFullAmount ? $grandTotal : round($grandTotal / $doctorCount, 2))
+            : 0;
+
+        $details = $doctorConfig
+            ->map(function ($doctor) use (
+                $transactions,
+                $totalBiayaRawat,
+                $grandTotal,
+                $allocationPercent,
+                $allocationPerDoctor
+            ) {
+                return [
+                    'kd_dokter' => $doctor->kd_dokter,
+                    'nm_dokter' => $doctor->nm_dokter,
+                    'kd_sps' => $doctor->kd_sps,
+                    'nm_sps' => $doctor->nm_sps,
+                    'kategori' => self::CATEGORY_POLI,
+                    'percent' => $allocationPercent,
+                    'jumlah_data' => $transactions->count(),
+                    'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => $totalBiayaRawat,
+                    'grand_total' => $grandTotal,
+                    'total_premi' => $allocationPerDoctor,
+                    'source_breakdown' => $this->breakdown(
+                        $transactions,
+                        fn ($row) => data_get($row, 'source_table'),
+                        fn ($row, $key) => data_get($row, 'source_label') ?: $key
+                    ),
+                    'action_breakdown' => $this->breakdown(
+                        $transactions,
+                        fn ($row) => data_get($row, 'jnsTindakan_id'),
+                        fn ($row, $key) => trim(
+                            data_get($row, 'kode_jenis_tindakan').' - '
+                            .data_get($row, 'nama_jenis_tindakan').' ('
+                            .data_get($row, 'multiplier_label').')'
+                        )
+                    ),
+                    'data_rawat' => $transactions->all(),
+                ];
+            })
+            ->sortBy('nm_dokter')
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $sourcePeriode,
+            'source_period_mode' => $sourcePeriodMode,
+            'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+            'source_period_text' => 'Sumber Poli '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_POLI,
+            'jenis_pelayanan' => $jenisPelayanan,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'poli_percent' => $poliPercent,
+            'poli_distribution_mode' => $poliDistributionMode,
+            'poli_distribution_mode_label' => $this->ecgDistributionModeLabel($poliDistributionMode),
+            'poli_doctor_config_count' => $doctorCount,
+            'poli_filter_doctor_count' => $filterDoctors->count(),
+            'poli_filter_source_count' => $filterSources->count(),
+            'poli_filter_tindakan_count' => $filterTindakan->count(),
+            'poli_allocation_percent' => $allocationPercent,
+            'poli_allocation_per_doctor' => $allocationPerDoctor,
+            'jumlah_transaksi' => $transactions->count(),
+            'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => $transactions->pluck('kd_tindakan')->unique()->count(),
+            'jumlah_jenis_tindakan' => $jenisTindakan->count(),
+            'jumlah_mapping_tindakan' => $mappingTindakan->count(),
+            'jumlah_tidak_terkonfigurasi' => 0,
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => $totalBiayaRawat,
+            'total_grand' => $grandTotal,
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $rows->count(),
+            'unconfigured_doctors' => [],
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => $jenisTindakan->values()->all(),
+                'mapping_tindakan' => $mappingTindakan->values()->all(),
+                'doctor_config' => $doctorConfig->values()->all(),
+                'poli_filter_doctors' => $filterDoctors->values()->all(),
+                'poli_filter_sources' => $filterSources->values()->all(),
+                'poli_filter_tindakan' => $filterTindakan->values()->all(),
+                'source_tables' => $filterSourceTables->values()->all(),
+                'source_period_mode' => $sourcePeriodMode,
+                'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+                'source_periode' => $sourcePeriode,
+                'source_period_text' => 'Sumber Poli '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+                'jenis_pelayanan' => $jenisPelayanan,
+                'poli_percent' => $poliPercent,
+                'poli_distribution_mode' => $poliDistributionMode,
+                'poli_distribution_mode_label' => $this->ecgDistributionModeLabel($poliDistributionMode),
+                'poli_doctor_config_count' => $doctorCount,
+                'poli_filter_doctor_count' => $filterDoctors->count(),
+                'poli_filter_source_count' => $filterSources->count(),
+                'poli_filter_tindakan_count' => $filterTindakan->count(),
+                'poli_allocation_percent' => $allocationPercent,
+                'poli_allocation_per_doctor' => $allocationPerDoctor,
+            ],
+        ];
+    }
+
+    public function calculateKonsulWa(string $periode, string $jenisPelayanan, object $config): array
+    {
+        $jenisPelayanan = $jenisPelayanan === 'bpjs' ? 'bpjs' : 'umum';
+        $sourcePeriodMode = $jenisPelayanan === 'bpjs'
+            ? $this->normalizeSourcePeriodMode($config->source_period_mode ?? null)
+            : self::SOURCE_PERIOD_CURRENT;
+        $sourcePeriode = $this->sourcePeriod($periode, $sourcePeriodMode);
+        $range = $this->periodRange($sourcePeriode);
+        $jenisTindakan = $this->getKonsulWaConfigTindakan((int) $config->id);
+        $mappingTindakan = $this->getConfiguredKonsulWaMappingTindakan((int) $config->id);
+        $doctorConfig = $this->getConfigDoctors((int) $config->id)
+            ->where('kategori', self::CATEGORY_KONSUL_WA)
+            ->values();
+        $doctorByCode = $doctorConfig->keyBy('kd_dokter');
+        $konsulWaNominal = max(0, (int) ($config->konsul_wa_nominal ?? 0));
+        $selectedDoctorCodes = $doctorByCode
+            ->keys()
+            ->map(fn ($code) => (string) $code)
+            ->values();
+        $rows = $selectedDoctorCodes->isEmpty()
+            ? collect()
+            : $this->collectVisiteRows(
+                $jenisPelayanan,
+                $range['start'],
+                $range['end'],
+                $mappingTindakan,
+                true,
+                $selectedDoctorCodes
+            );
+        $transactions = $rows
+            ->filter(fn (array $row) => $doctorByCode->has((string) $row['kd_dokter']))
+            ->map(function (array $row) use ($konsulWaNominal) {
+                $row['biaya_rawat_asli'] = $row['biaya_rawat'];
+                $row['premi_konsul_wa'] = $konsulWaNominal;
+                $row['multiplier_label'] = $this->rupiahText($konsulWaNominal).' per data';
+
+                return $row;
+            })
+            ->values();
+        $unconfiguredRows = $rows
+            ->reject(fn (array $row) => $doctorByCode->has((string) $row['kd_dokter']))
+            ->values();
+
+        $details = $transactions
+            ->groupBy('kd_dokter')
+            ->map(function (Collection $items, string $doctorCode) use ($doctorByCode, $konsulWaNominal) {
+                $doctor = $doctorByCode->get($doctorCode);
+                $grandTotal = round($items->count() * $konsulWaNominal, 2);
+
+                return [
+                    'kd_dokter' => $doctorCode,
+                    'nm_dokter' => $doctor->nm_dokter ?? data_get($items->first(), 'nm_dokter') ?? '-',
+                    'kd_sps' => $doctor->kd_sps ?? data_get($items->first(), 'kd_sps'),
+                    'nm_sps' => $doctor->nm_sps ?? data_get($items->first(), 'nm_sps'),
+                    'kategori' => self::CATEGORY_KONSUL_WA,
+                    'percent' => 100,
+                    'jumlah_data' => $items->count(),
+                    'jumlah_pasien' => $items->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round((float) $items->sum('biaya_rawat_asli'), 2),
+                    'grand_total' => $grandTotal,
+                    'total_premi' => $grandTotal,
+                    'source_breakdown' => $this->ecgBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'source_table'),
+                        fn ($row, $key) => data_get($row, 'source_label') ?: $key,
+                        $konsulWaNominal,
+                        1
+                    ),
+                    'action_breakdown' => $this->ecgBreakdown(
+                        $items,
+                        fn ($row) => data_get($row, 'jnsTindakan_id'),
+                        fn ($row, $key) => trim(
+                            data_get($row, 'kode_jenis_tindakan').' - '
+                            .data_get($row, 'nama_jenis_tindakan').' ('
+                            .data_get($row, 'multiplier_label').')'
+                        ),
+                        $konsulWaNominal,
+                        1
+                    ),
+                    'data_rawat' => $items->values()->all(),
+                ];
+            })
+            ->sortByDesc('total_premi')
+            ->values();
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $sourcePeriode,
+            'source_period_mode' => $sourcePeriodMode,
+            'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+            'source_period_text' => 'Sumber Konsul WA '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => self::TYPE_KONSUL_WA,
+            'jenis_pelayanan' => $jenisPelayanan,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'konsul_wa_nominal' => $konsulWaNominal,
+            'konsul_wa_doctor_config_count' => $doctorConfig->count(),
+            'jumlah_transaksi' => $transactions->count(),
+            'jumlah_pasien' => $transactions->pluck('no_rawat')->unique()->count(),
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => $transactions->pluck('kd_tindakan')->unique()->count(),
+            'jumlah_jenis_tindakan' => $jenisTindakan->count(),
+            'jumlah_mapping_tindakan' => $mappingTindakan->count(),
+            'jumlah_tidak_terkonfigurasi' => $unconfiguredRows->count(),
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => round((float) $transactions->sum('biaya_rawat_asli'), 2),
+            'total_grand' => round((float) $details->sum('grand_total'), 2),
+            'total_premi' => round((float) $details->sum('total_premi'), 2),
+            'details' => $details,
+            'all_rows_count' => $rows->count(),
+            'unconfigured_doctors' => $this->unconfiguredDoctorPayload($unconfiguredRows),
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => $jenisTindakan->values()->all(),
+                'mapping_tindakan' => $mappingTindakan->values()->all(),
+                'doctor_config' => $doctorConfig->values()->all(),
+                'source_tables' => collect(self::SOURCE_TABLES)->pluck('table')->values()->all(),
+                'source_period_mode' => $sourcePeriodMode,
+                'source_period_mode_label' => $this->sourcePeriodModeLabel($sourcePeriodMode),
+                'source_periode' => $sourcePeriode,
+                'source_period_text' => 'Sumber Konsul WA '.$sourcePeriode.' ('.$this->sourcePeriodModeLabel($sourcePeriodMode).')',
+                'jenis_pelayanan' => $jenisPelayanan,
+                'konsul_wa_nominal' => $konsulWaNominal,
+                'konsul_wa_doctor_config_count' => $doctorConfig->count(),
             ],
         ];
     }
@@ -842,12 +2295,25 @@ class generatePremiDokterRepository
         string $jenisPelayanan,
         Carbon $start,
         Carbon $end,
-        Collection $mappingTindakan
+        Collection $mappingTindakan,
+        bool $requireDoctor = true,
+        $doctorCodes = null,
+        $sourceTables = null
     ): Collection {
         if ($mappingTindakan->isEmpty()) {
             return collect();
         }
 
+        $doctorCodes = collect($doctorCodes ?? [])
+            ->map(fn ($code) => (string) $code)
+            ->filter()
+            ->unique()
+            ->values();
+        $sourceTables = collect($sourceTables ?? [])
+            ->map(fn ($table) => (string) $table)
+            ->filter()
+            ->unique()
+            ->values();
         $mappingBySourceCode = $mappingTindakan
             ->groupBy(fn ($item) => $item->sumber_tindakan.'|'.$item->kd_tindakan);
         $codesBySource = $mappingTindakan
@@ -856,20 +2322,24 @@ class generatePremiDokterRepository
         $rows = collect();
 
         foreach (self::SOURCE_TABLES as $definition) {
+            if ($sourceTables->isNotEmpty() && ! $sourceTables->contains($definition['table'])) {
+                continue;
+            }
+
             $codes = $codesBySource->get($definition['source'], collect());
 
             if ($codes->isEmpty()) {
                 continue;
             }
 
-            $rawRows = $this->sourceQuery($definition, $jenisPelayanan, $start, $end, $codes)->get();
+            $rawRows = $this->sourceQuery($definition, $jenisPelayanan, $start, $end, $codes, $doctorCodes)->get();
 
             foreach ($rawRows as $row) {
                 $key = $row->sumber_tindakan.'|'.$row->kd_tindakan;
                 $matches = $mappingBySourceCode->get($key, collect());
 
                 foreach ($matches as $mapping) {
-                    if (! filled($row->kd_dokter)) {
+                    if ($requireDoctor && ! filled($row->kd_dokter)) {
                         continue;
                     }
 
@@ -881,6 +2351,8 @@ class generatePremiDokterRepository
                         'jnsTindakan_id' => (int) $mapping->jnsTindakan_id,
                         'kode_jenis_tindakan' => $mapping->kode_jenis_tindakan,
                         'nama_jenis_tindakan' => $mapping->nama_jenis_tindakan,
+                        'multiplier_type' => $mapping->multiplier_type ?? null,
+                        'multiplier_value' => isset($mapping->multiplier_value) ? (float) $mapping->multiplier_value : null,
                         'no_rawat' => $row->no_rawat,
                         'no_rkm_medis' => $row->no_rkm_medis,
                         'nm_pasien' => $row->nm_pasien,
@@ -930,7 +2402,8 @@ class generatePremiDokterRepository
         string $jenisPelayanan,
         Carbon $start,
         Carbon $end,
-        Collection $codes
+        Collection $codes,
+        Collection $doctorCodes
     ) {
         $hasDoctorColumn = in_array($definition['provider'], ['dr', 'drpr'], true);
         $hasPetugas = in_array($definition['provider'], ['pr', 'drpr'], true);
@@ -970,6 +2443,10 @@ class generatePremiDokterRepository
             ->whereIn('r.kd_jenis_prw', $codes->values()->all())
             ->where('r.biaya_rawat', '>', 0);
 
+        if ($doctorCodes->isNotEmpty()) {
+            $query->whereIn($doctorColumn, $doctorCodes->all());
+        }
+
         if ($hasPetugas) {
             $query->leftJoin('petugas as pt', 'pt.nip', '=', 'r.nip')
                 ->selectRaw('r.nip as nip')
@@ -979,9 +2456,15 @@ class generatePremiDokterRepository
                 ->selectRaw('null as nama_petugas');
         }
 
-        return $jenisPelayanan === 'bpjs'
-            ? $this->applyBpjsFilter($query)
-            : $this->applyUmumFilter($query);
+        if ($jenisPelayanan === 'bpjs') {
+            return $this->applyBpjsFilter($query);
+        }
+
+        if ($jenisPelayanan === 'umum') {
+            return $this->applyUmumFilter($query);
+        }
+
+        return $query;
     }
 
     private function applyUmumFilter($query)
@@ -1042,6 +2525,77 @@ class generatePremiDokterRepository
             ->all();
     }
 
+    private function rawatJalanBreakdown(Collection $items, callable $keyResolver, callable $labelResolver): array
+    {
+        return $items
+            ->groupBy(fn ($row) => $keyResolver($row) ?: '-')
+            ->map(function (Collection $rows, string|int $key) use ($labelResolver) {
+                $first = $rows->first();
+
+                return [
+                    'key' => (string) $key,
+                    'label' => $labelResolver($first, $key) ?: (string) $key,
+                    'jumlah_data' => $rows->count(),
+                    'jumlah_pasien' => $rows->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round((float) $rows->sum('premi_rawat_jalan'), 2),
+                ];
+            })
+            ->sortByDesc('total_biaya_rawat')
+            ->values()
+            ->all();
+    }
+
+    private function ecgBreakdown(Collection $items, callable $keyResolver, callable $labelResolver, int $nominal, int $divider): array
+    {
+        $divider = max(1, $divider);
+
+        return $items
+            ->groupBy(fn ($row) => $keyResolver($row) ?: '-')
+            ->map(function (Collection $rows, string|int $key) use ($labelResolver, $nominal, $divider) {
+                $first = $rows->first();
+
+                return [
+                    'key' => (string) $key,
+                    'label' => $labelResolver($first, $key) ?: (string) $key,
+                    'jumlah_data' => $rows->count(),
+                    'jumlah_pasien' => $rows->pluck('no_rawat')->unique()->count(),
+                    'total_biaya_rawat' => round(($rows->count() * $nominal) / $divider, 2),
+                ];
+            })
+            ->sortByDesc('total_biaya_rawat')
+            ->values()
+            ->all();
+    }
+
+    private function rawatJalanPremiumValue(array $row): float
+    {
+        $type = (string) ($row['multiplier_type'] ?? self::MULTIPLIER_NOMINAL);
+        $value = max(0, (float) ($row['multiplier_value'] ?? 0));
+
+        if ($type === self::MULTIPLIER_PERCENT) {
+            return round((float) $row['biaya_rawat'] * ($value / 100), 2);
+        }
+
+        return round($value, 2);
+    }
+
+    private function rawatJalanMultiplierLabel(array $row): string
+    {
+        $type = (string) ($row['multiplier_type'] ?? self::MULTIPLIER_NOMINAL);
+        $value = max(0, (float) ($row['multiplier_value'] ?? 0));
+
+        if ($type === self::MULTIPLIER_PERCENT) {
+            return number_format($value, 2, ',', '.').'% dari biaya rawat';
+        }
+
+        return $this->rupiahText($value).' per data';
+    }
+
+    private function rupiahText(float|int $value): string
+    {
+        return 'Rp '.number_format((float) $value, 0, ',', '.');
+    }
+
     private function unconfiguredDoctorPayload(Collection $rows): array
     {
         return $rows
@@ -1096,6 +2650,20 @@ class generatePremiDokterRepository
         return $this->normalizeSourcePeriodMode($mode) === self::SOURCE_PERIOD_PREVIOUS
             ? 'Bulan Sebelumnya'
             : 'Periode Berjalan';
+    }
+
+    private function normalizeEcgDistributionMode(?string $mode): string
+    {
+        return $mode === self::ECG_DISTRIBUTION_FULL_AMOUNT
+            ? self::ECG_DISTRIBUTION_FULL_AMOUNT
+            : self::ECG_DISTRIBUTION_SPLIT_EVENLY;
+    }
+
+    private function ecgDistributionModeLabel(?string $mode): string
+    {
+        return $this->normalizeEcgDistributionMode($mode) === self::ECG_DISTRIBUTION_FULL_AMOUNT
+            ? 'Diberikan penuh'
+            : 'Dibagi rata';
     }
 
     private function cleanDate(mixed $value): ?string
