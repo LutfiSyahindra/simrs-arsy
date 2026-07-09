@@ -201,6 +201,8 @@
                 jasa_poli: 'Jasa Poli',
                 jasa_ecg: 'Jasa ECG',
                 konsul_wa: 'Konsul WA',
+                jasa_igd: 'Jasa IGD',
+                kehadiran: 'Kehadiran',
                 visite: 'Jasa Visite',
             };
 
@@ -231,8 +233,20 @@
             return activePremiumType === 'konsul_wa';
         }
 
+        function isIgd() {
+            return activePremiumType === 'jasa_igd';
+        }
+
+        function isKehadiran() {
+            return activePremiumType === 'kehadiran';
+        }
+
+        function isManualVolume() {
+            return isIgd() || isKehadiran();
+        }
+
         function isStandalonePremium() {
-            return isKebersamaan() || isOperasi();
+            return isKebersamaan() || isOperasi() || isManualVolume();
         }
 
         function generateButtonLabel() {
@@ -242,6 +256,14 @@
 
             if (isOperasi()) {
                 return 'Generate Jasa Operasi';
+            }
+
+            if (isIgd()) {
+                return 'Generate Jasa IGD';
+            }
+
+            if (isKehadiran()) {
+                return 'Generate Kehadiran';
             }
 
             if (isRawatJalan()) {
@@ -265,6 +287,53 @@
 
         function ecgDistributionModeLabel(mode) {
             return mode === 'full_amount' ? 'Diberikan penuh' : 'Dibagi rata';
+        }
+
+        function manualVolumeMeta() {
+            if (isKehadiran()) {
+                return {
+                    label: 'Kehadiran',
+                    doctorLabel: 'Dokter Kehadiran',
+                    countLabel: 'kehadiran',
+                    countInputLabel: 'Jumlah Kehadiran',
+                    configSelector: '#configKehadiranNominalPerHadir',
+                    configKey: 'kehadiran_nominal_per_hadir',
+                    defaultNominal: 250000,
+                    note: 'Total Kehadiran dihitung dari jumlah kehadiran per dokter dikali nominal pada konfigurasi.'
+                };
+            }
+
+            return {
+                label: 'Jasa IGD',
+                doctorLabel: 'Dokter Jasa IGD',
+                countLabel: 'pasien',
+                countInputLabel: 'Jumlah Pasien',
+                configSelector: '#configIgdNominalPerPasien',
+                configKey: 'igd_nominal_per_pasien',
+                defaultNominal: 30000,
+                note: 'Total Jasa IGD dihitung dari jumlah pasien per dokter dikali nominal pada konfigurasi.'
+            };
+        }
+
+        function manualVolumeNominal(data = null) {
+            const meta = manualVolumeMeta();
+            const fromData = Number(data?.manual_nominal ?? data?.[meta.configKey]);
+            const fromConfig = Number(configData?.[meta.configKey]);
+            const fromInput = Number($(meta.configSelector).val());
+
+            if (Number.isFinite(fromData)) {
+                return fromData;
+            }
+
+            if (Number.isFinite(fromConfig)) {
+                return fromConfig;
+            }
+
+            if (Number.isFinite(fromInput)) {
+                return fromInput;
+            }
+
+            return meta.defaultNominal;
         }
 
         function sourcePeriodText(data) {
@@ -399,6 +468,10 @@
                 return 'konsul_wa';
             }
 
+            if (isManualVolume()) {
+                return 'formula';
+            }
+
             if (isKebersamaan() || isOperasi()) {
                 return 'penerima_lain';
             }
@@ -452,6 +525,8 @@
             const poliPercent = Number($('#configPoliPercent').val() || 0);
             const poliDistributionMode = $('#configPoliDistributionMode').val() || 'split_evenly';
             const konsulWaNominal = Number($('#configKonsulWaNominal').val() || 0);
+            const igdNominal = Number($('#configIgdNominalPerPasien').val() || 0);
+            const kehadiranNominal = Number($('#configKehadiranNominalPerHadir').val() || 0);
             const bpjsSourceLabel = $('#configSourcePeriodMode option:selected').text() || 'Periode Berjalan';
 
             $('#configSummaryFormula').text(`${formatNumber(visiteUmumPercent, 2)}% UMUM / ${formatRupiah(visiteBpjsNominal)} BPJS`);
@@ -460,12 +535,14 @@
             $('#configSummaryPoli').text(`${formatNumber(poliMapping)} mapping / ${formatNumber(sumberPoliFilter)} sumber / ${formatNumber(dokterPoliFilter)} filter / ${formatNumber(dokterPoli)} penerima`);
             $('#configSummaryEcg').text(`${formatNumber(ecgMapping)} mapping / ${formatNumber(dokterEcg)} dokter`);
             $('#configSummaryKonsulWa').text(`${formatNumber(konsulWaMapping)} mapping / ${formatNumber(dokterKonsulWa)} dokter`);
+            $('#configSummaryManualVolume').text(`IGD ${formatRupiah(igdNominal)} / Kehadiran ${formatRupiah(kehadiranNominal)}`);
             $('#configSummaryPenerima').text(`${formatNumber(dokterTotal)} dokter`);
             $('#configBadgeFormulaVisite').text(`${formatNumber(visiteUmumPercent, 2)}% UMUM / ${formatNumber(visiteBpjsPercent, 2)}% BPJS`);
             $('#configBadgeKebersamaan').text(`${formatNumber(kebersamaanDivider)} pembagi${kebersamaanOnlyUmum ? ' / umum saja' : ''}`);
             $('#configBadgeEcgFormula').text(`${formatRupiah(ecgNominal)} / ${formatNumber(ecgDivider)} - ${ecgDistributionModeLabel(ecgDistributionMode)}`);
             $('#configBadgePoliFormula').text(`${formatNumber(poliPercent, 2)}% - ${ecgDistributionModeLabel(poliDistributionMode)}`);
             $('#configBadgeKonsulWaFormula').text(`${formatRupiah(konsulWaNominal)} / data`);
+            $('#configBadgeManualVolumeFormula').text(`IGD ${formatRupiah(igdNominal)} / Kehadiran ${formatRupiah(kehadiranNominal)}`);
             $('#configScopeBpjsModeText, #rawatJalanBpjsModePreview, #poliBpjsModePreview, #ecgBpjsModePreview, #konsulWaBpjsModePreview').text(bpjsSourceLabel);
             $('#configBadgeMappingVisite').text(`${formatNumber(visiteMapping)} mapping`);
             $('#configBadgeRawatJalanMapping').text(`${formatNumber(rawatJalanMapping)} mapping`);
@@ -567,6 +644,24 @@
                     }
                 });
             });
+
+            $('#manualVolumeDoctorSelect').select2({
+                placeholder: 'Cari dokter',
+                width: '100%',
+                ajax: {
+                    url: routes.dokterOptions,
+                    dataType: 'json',
+                    delay: 250,
+                    data: params => ({ q: params.term || '' }),
+                    processResults: response => ({
+                        results: (response.data || []).map(item => ({
+                            id: item.id,
+                            text: item.text,
+                            item
+                        }))
+                    })
+                }
+            });
         }
 
         function setSelectedOptions(selector, items) {
@@ -579,6 +674,68 @@
             });
 
             select.trigger('change');
+        }
+
+        function manualVolumeSelectedItems() {
+            const select = $('#manualVolumeDoctorSelect');
+
+            return (select.val() || []).map((code) => {
+                const option = select.find('option').filter(function() {
+                    return String(this.value) === String(code);
+                });
+                const existingInput = $('.manual-volume-count').filter(function() {
+                    return String($(this).data('code')) === String(code);
+                });
+                const existingCount = existingInput.length ? Number(existingInput.val()) : 0;
+
+                return {
+                    kd_dokter: code,
+                    text: option.text() || code,
+                    jumlah: Number.isFinite(existingCount) ? existingCount : 0
+                };
+            });
+        }
+
+        function renderManualVolumeRows() {
+            const meta = manualVolumeMeta();
+            const rows = manualVolumeSelectedItems();
+
+            $('#manualVolumeDoctorLabel').text(meta.doctorLabel);
+            $('#manualVolumeNote').text(meta.note);
+
+            if (!rows.length) {
+                $('#manualVolumeRows').html(`
+                    <div class="pd-empty-state">
+                        <i class="mdi mdi-account-search-outline"></i>
+                        <span>Belum ada dokter dipilih.</span>
+                    </div>
+                `);
+                return;
+            }
+
+            $('#manualVolumeRows').html(rows.map((item) => `
+                <div class="pd-manual-volume-row">
+                    <div class="pd-row-icon"><i class="mdi mdi-account-edit-outline"></i></div>
+                    <div>
+                        <div class="pd-doctor-name">${escapeHtml(item.text)}</div>
+                        <div class="pd-doctor-meta">${escapeHtml(meta.label)}</div>
+                    </div>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control text-end manual-volume-count"
+                            data-code="${escapeHtml(item.kd_dokter)}"
+                            min="0" step="1" value="${escapeHtml(item.jumlah)}" inputmode="numeric">
+                        <span class="input-group-text">${escapeHtml(meta.countLabel)}</span>
+                    </div>
+                    <div class="pd-row-chip">${formatRupiah(manualVolumeNominal())} / ${escapeHtml(meta.countLabel)}</div>
+                </div>
+            `).join(''));
+        }
+
+        function collectManualVolumeRows() {
+            return manualVolumeSelectedItems().map((item) => ({
+                kd_dokter: item.kd_dokter,
+                jumlah: Number(item.jumlah || 0)
+            }));
         }
 
         function setPoliFilterSourceOptions(options, selectedItems) {
@@ -911,6 +1068,8 @@
             $('#configPoliPercent').val(data.poli_percent || 30);
             $('#configPoliDistributionMode').val(data.poli_distribution_mode || 'split_evenly');
             $('#configKonsulWaNominal').val(data.konsul_wa_nominal || 0);
+            $('#configIgdNominalPerPasien').val(data.igd_nominal_per_pasien ?? 30000);
+            $('#configKehadiranNominalPerHadir').val(data.kehadiran_nominal_per_hadir ?? 250000);
             setSelectedOptions('#configMappingTindakan', data.mapping_tindakan || []);
             setSelectedOptions('#configEcgMappingTindakan', data.ecg_mapping_tindakan || []);
             setSelectedOptions('#configPoliMappingTindakan', data.poli_mapping_tindakan || []);
@@ -948,6 +1107,7 @@
                 renderRawatJalanSpecialRows(groupKey);
             });
             updateConfigSummary();
+            renderManualVolumeRows();
         }
 
         function loadConfig(openModal = false) {
@@ -1002,6 +1162,8 @@
                 poli_percent: Number($('#configPoliPercent').val() || 30),
                 poli_distribution_mode: $('#configPoliDistributionMode').val() || 'split_evenly',
                 konsul_wa_nominal: Number($('#configKonsulWaNominal').val() || 0),
+                igd_nominal_per_pasien: Number($('#configIgdNominalPerPasien').val() || 30000),
+                kehadiran_nominal_per_hadir: Number($('#configKehadiranNominalPerHadir').val() || 250000),
                 mapping_tindakan_ids: $('#configMappingTindakan').val() || [],
                 ecg_mapping_tindakan_ids: $('#configEcgMappingTindakan').val() || [],
                 poli_mapping_tindakan_ids: $('#configPoliMappingTindakan').val() || [],
@@ -1073,10 +1235,16 @@
             $('#summaryTotalPremi').text(formatRupiah(data.total_premi || 0));
             $('#summaryGrandTotal').text(formatRupiah(data.total_grand || 0));
             $('#summaryTransaksi').text(formatNumber(data.jumlah_transaksi || 0));
-            $('#summaryPasien').text(isOperasi() ? 'input manual' : formatNumber(data.jumlah_pasien || 0) + ' pasien');
+            $('#summaryPasien').text(isOperasi()
+                ? 'input manual'
+                : isManualVolume()
+                ? `${formatNumber(data.jumlah_transaksi || 0)} ${manualVolumeMeta().countLabel}`
+                : formatNumber(data.jumlah_pasien || 0) + ' pasien');
             $('#summaryDokter').text(formatNumber(data.jumlah_dokter || 0));
             $('#summaryDokterFoot').text(isOperasi()
                 ? 'Penerima operasi'
+                : isManualVolume()
+                ? 'Dokter input manual'
                 : isKebersamaan()
                 ? 'Penerima kebersamaan'
                 : isRawatJalan()
@@ -1091,6 +1259,8 @@
             $('#summaryMapping').text(formatNumber(data.jumlah_mapping_tindakan || 0));
             $('#summaryMappingFoot').text(isOperasi()
                 ? 'Input manual'
+                : isManualVolume()
+                ? 'Input manual'
                 : isRawatJalan()
                 ? 'Mapping rawat jalan'
                 : isPoli()
@@ -1102,6 +1272,8 @@
                 : 'Tindakan visite');
             $('#summarySkipped').text(isOperasi()
                 ? `${formatNumber(data.operasi_total_percent || 0, 2)}%`
+                : isManualVolume()
+                ? formatRupiah(data.manual_nominal || manualVolumeNominal(data))
                 : isKebersamaan()
                 ? formatNumber(data.kebersamaan_divider || 0)
                 : isPoli()
@@ -1113,6 +1285,8 @@
                 : formatNumber(data.jumlah_tidak_terkonfigurasi || 0));
             $('#summarySkippedFoot').text(isOperasi()
                 ? 'Total persen penerima'
+                : isManualVolume()
+                ? `Nominal per ${manualVolumeMeta().countLabel}`
                 : isKebersamaan()
                 ? `Pembagi, alokasi ${formatRupiah(data.kebersamaan_allocation_per_doctor || 0)} per dokter`
                 : isRawatJalan()
@@ -1129,6 +1303,8 @@
             $('#summaryMessage').text(data.readiness_message || '-');
             $('#summaryFormula').text(isOperasi()
                 ? `${formatRupiah(data.nominal_operasi || 0)} x persen dokter penerima`
+                : isManualVolume()
+                ? `${formatNumber(data.jumlah_transaksi || 0)} ${manualVolumeMeta().countLabel} x ${formatRupiah(data.manual_nominal || manualVolumeNominal(data))}`
                 : isKebersamaan()
                 ? `${data.kebersamaan_sumber_dokter_label || 'Dokter Umum & Spesialis'} | ${formatRupiah(data.kebersamaan_visite_umum_total_premi || 0)} x ${formatNumber(data.kebersamaan_umum_percent || 0, 2)}% + ${formatNumber(data.kebersamaan_visite_bpjs_jumlah_transaksi || 0)} transaksi x ${formatRupiah(data.kebersamaan_bpjs_nominal || 0)} x ${formatNumber(data.kebersamaan_bpjs_percent || 0, 2)}%`
                 : isRawatJalan()
@@ -1166,6 +1342,8 @@
 
             if (isOperasi()) {
                 payload.nominal_operasi = Number($('#nominalOperasiPremiDokter').val() || 0);
+            } else if (isManualVolume()) {
+                payload.manual_doctor_rows = collectManualVolumeRows();
             } else if (!isStandalonePremium()) {
                 payload.jenis_pelayanan = activeType;
             }
@@ -1197,6 +1375,8 @@
 
                     if (isOperasi()) {
                         payload.nominal_operasi = Number($('#nominalOperasiPremiDokter').val() || 0);
+                    } else if (isManualVolume()) {
+                        payload.manual_doctor_rows = collectManualVolumeRows();
                     } else if (!isStandalonePremium()) {
                         payload.jenis_pelayanan = activeType;
                     }
@@ -1234,7 +1414,7 @@
                 {
                     data: 'jenis_pelayanan_label',
                     render: (value, type, row) => {
-                        const standalone = ['kebersamaan', 'jasa_operasi'].includes(row.jenis_premi_dokter);
+                        const standalone = ['kebersamaan', 'jasa_operasi', 'jasa_igd', 'kehadiran'].includes(row.jenis_premi_dokter);
                         const sourceText = row.source_period_text || 'sumber ' + (row.source_periode || '-');
                         const serviceLabel = String(value || '');
                         const serviceText = standalone || !serviceLabel || sourceText.toLowerCase().startsWith(serviceLabel.toLowerCase())
@@ -1538,7 +1718,7 @@
             $.get(routeWithId(routes.detail, id))
                 .done((response) => {
                     const data = response.data || {};
-                    const serviceLabel = ['kebersamaan', 'jasa_operasi'].includes(data.jenis_premi_dokter)
+                    const serviceLabel = ['kebersamaan', 'jasa_operasi', 'jasa_igd', 'kehadiran'].includes(data.jenis_premi_dokter)
                         ? ''
                         : ` ${data.jenis_pelayanan_label || '-'}`;
                     $('#detailPremiDokterMeta').text(`${data.jenis_premi_dokter_label || 'Jasa Visite'}${serviceLabel} periode ${data.periode || '-'} / ${sourcePeriodText(data)}`);
@@ -1575,6 +1755,8 @@
         function updatePremiumUi() {
             $('#jenisPelayananSwitch').toggle(!isStandalonePremium());
             $('#operasiNominalPanel').toggleClass('d-none', !isOperasi());
+            $('#manualVolumePanel').toggleClass('d-none', !isManualVolume());
+            renderManualVolumeRows();
             $('#premiDokterTypeGrid .pd-type-card').removeClass('active');
             $(`#premiDokterTypeGrid .pd-type-card[data-premi-type="${activePremiumType}"]`).addClass('active');
             $('#btnGeneratePremiDokter').html(`<i class="mdi mdi-play-circle-outline"></i> ${generateButtonLabel()}`);
@@ -1603,6 +1785,11 @@
             table.ajax.reload();
         });
         $('#nominalOperasiPremiDokter').on('input', refreshSummary);
+        $('#manualVolumeDoctorSelect').on('change', function() {
+            renderManualVolumeRows();
+            refreshSummary();
+        });
+        $('#manualVolumeRows').on('input', '.manual-volume-count', refreshSummary);
 
         $('#btnConfigPremiDokter').on('click', () => loadConfig(true));
         $('#btnGeneratePremiDokter').on('click', generatePremiDokter);
@@ -1615,8 +1802,9 @@
         $('.pd-config-tab').on('click', function() {
             showConfigPane($(this).data('config-pane-target'));
         });
-        $('#configVisiteUmumPercent, #configVisiteBpjsNominal, #configVisiteBpjsPercent, #configSourcePeriodMode, #configKebersamaanUmumPercent, #configKebersamaanBpjsNominal, #configKebersamaanBpjsPercent, #configKebersamaanDivider, #configKebersamaanOnlyUmum, #configEcgNominal, #configEcgDivider, #configEcgDistributionMode, #configPoliPercent, #configPoliDistributionMode, #configKonsulWaNominal')
+        $('#configVisiteUmumPercent, #configVisiteBpjsNominal, #configVisiteBpjsPercent, #configSourcePeriodMode, #configKebersamaanUmumPercent, #configKebersamaanBpjsNominal, #configKebersamaanBpjsPercent, #configKebersamaanDivider, #configKebersamaanOnlyUmum, #configEcgNominal, #configEcgDivider, #configEcgDistributionMode, #configPoliPercent, #configPoliDistributionMode, #configKonsulWaNominal, #configIgdNominalPerPasien, #configKehadiranNominalPerHadir')
             .on('input change', updateConfigSummary);
+        $('#configIgdNominalPerPasien, #configKehadiranNominalPerHadir').on('input', renderManualVolumeRows);
         $('#configMappingTindakan').on('change', updateConfigSummary);
         $('#configPoliMappingTindakan').on('change', function() {
             syncPoliFilterTindakanOptions();

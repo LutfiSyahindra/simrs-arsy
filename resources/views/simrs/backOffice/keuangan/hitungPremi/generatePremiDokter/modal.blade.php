@@ -69,6 +69,10 @@
                         <div class="pd-config-summary-value" id="configSummaryKonsulWa">0 mapping / 0 dokter</div>
                     </div>
                     <div class="pd-config-summary-card">
+                        <div class="pd-config-summary-label">IGD & Kehadiran</div>
+                        <div class="pd-config-summary-value" id="configSummaryManualVolume">Rp 30.000 / Rp 250.000</div>
+                    </div>
+                    <div class="pd-config-summary-card">
                         <div class="pd-config-summary-label">Total Penerima</div>
                         <div class="pd-config-summary-value" id="configSummaryPenerima">0 dokter</div>
                     </div>
@@ -139,7 +143,7 @@
                             </div>
                         </section>
 
-                        <section class="pd-config-section mb-0">
+                        <section class="pd-config-section">
                             <div class="pd-config-section-head">
                                 <div>
                                     <div class="pd-config-title">
@@ -183,6 +187,35 @@
                                         <label class="form-check-label" for="configKebersamaanOnlyUmum">
                                             Hanya hitung dokter umum
                                         </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="pd-config-section mb-0">
+                            <div class="pd-config-section-head">
+                                <div>
+                                    <div class="pd-config-title">
+                                        <i class="mdi mdi-clipboard-edit-outline"></i>
+                                        Formula IGD & Kehadiran
+                                    </div>
+                                    <div class="pd-config-subtitle">Nominal dipakai untuk input manual dokter saat generate.</div>
+                                </div>
+                                <span class="pd-config-badge" id="configBadgeManualVolumeFormula">IGD Rp 30.000 / Kehadiran Rp 250.000</span>
+                            </div>
+                            <div class="pd-config-field-grid">
+                                <div class="pd-config-field">
+                                    <label for="configIgdNominalPerPasien">Nominal IGD per Pasien</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="number" class="form-control text-end" id="configIgdNominalPerPasien" min="0" step="1" value="30000">
+                                    </div>
+                                </div>
+                                <div class="pd-config-field">
+                                    <label for="configKehadiranNominalPerHadir">Nominal Kehadiran per Hadir</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">Rp</span>
+                                        <input type="number" class="form-control text-end" id="configKehadiranNominalPerHadir" min="0" step="1" value="250000">
                                     </div>
                                 </div>
                             </div>

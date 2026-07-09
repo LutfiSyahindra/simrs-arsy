@@ -139,6 +139,27 @@
             line-height: 1.45;
         }
 
+        .pd-manual-volume-panel {
+            align-items: start;
+        }
+
+        .pd-manual-volume-rows {
+            display: grid;
+            gap: 8px;
+            grid-column: 1 / -1;
+        }
+
+        .pd-manual-volume-row {
+            align-items: center;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: 34px minmax(0, 1fr) 190px 150px;
+            padding: 9px;
+        }
+
         .pd-type-grid {
             display: grid;
             gap: 10px;
@@ -1048,6 +1069,7 @@
 
             .pd-detail-layout,
             .pd-manual-input-panel,
+            .pd-manual-volume-row,
             .pd-rj-mapping-row,
             .pd-rj-special-grid,
             .pd-config-two-column,
@@ -1090,12 +1112,15 @@
                 justify-content: center;
             }
 
-            .pd-doctor-row {
+            .pd-doctor-row,
+            .pd-manual-volume-row {
                 grid-template-columns: 34px minmax(0, 1fr);
             }
 
             .pd-doctor-row .input-group,
+            .pd-manual-volume-row .input-group,
             .pd-doctor-row .pd-row-chip,
+            .pd-manual-volume-row .pd-row-chip,
             .pd-doctor-row > .text-end {
                 grid-column: 1 / -1;
                 justify-self: stretch;
@@ -1123,7 +1148,7 @@
             <div>
                 <h4 class="pd-hero-title">Generate Premi Dokter</h4>
                 <p class="pd-hero-subtitle">
-                    Modul premi dokter dengan konfigurasi penerima, Jasa Visite, Jasa Rawat Jalan, Jasa Poli, Jasa ECG, Konsul WA UMUM/BPJS, Kebersamaan, dan input manual Jasa Operasi.
+                    Modul premi dokter dengan konfigurasi penerima, Jasa Visite, Jasa Rawat Jalan, Jasa Poli, Jasa ECG, Konsul WA UMUM/BPJS, Kebersamaan, dan input manual Jasa Operasi, IGD, serta Kehadiran.
                 </p>
             </div>
             <div class="pd-hero-panel">
@@ -1165,16 +1190,27 @@
             </div>
         </div>
 
+        <div class="pd-manual-input-panel pd-manual-volume-panel d-none" id="manualVolumePanel">
+            <div>
+                <label for="manualVolumeDoctorSelect" id="manualVolumeDoctorLabel">Dokter Jasa IGD</label>
+                <select id="manualVolumeDoctorSelect" class="form-select" multiple></select>
+            </div>
+            <div class="pd-manual-input-note" id="manualVolumeNote">
+                Total Jasa IGD dihitung dari jumlah pasien per dokter dikali nominal pada konfigurasi.
+            </div>
+            <div class="pd-manual-volume-rows" id="manualVolumeRows"></div>
+        </div>
+
         <div class="pd-type-grid" id="premiDokterTypeGrid">
             <div class="pd-type-card" data-premi-type="kebersamaan"><div class="pd-type-label">Kebersamaan</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card" data-premi-type="jasa_operasi"><div class="pd-type-label">Jasa Operasi</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card" data-premi-type="jasa_rawat_jalan"><div class="pd-type-label">Jasa Rawat Jalan</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card active" data-premi-type="visite"><div class="pd-type-label">Jasa Visite</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card" data-premi-type="jasa_poli"><div class="pd-type-label">Jasa Poli</div><div class="pd-type-status">Aktif</div></div>
-            <div class="pd-type-card"><div class="pd-type-label">Jasa IGD</div><div class="pd-type-status">Draft</div></div>
+            <div class="pd-type-card" data-premi-type="jasa_igd"><div class="pd-type-label">Jasa IGD</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card" data-premi-type="jasa_ecg"><div class="pd-type-label">Jasa ECG</div><div class="pd-type-status">Aktif</div></div>
             <div class="pd-type-card" data-premi-type="konsul_wa"><div class="pd-type-label">Konsul WA</div><div class="pd-type-status">Aktif</div></div>
-            <div class="pd-type-card"><div class="pd-type-label">Kehadiran</div><div class="pd-type-status">Draft</div></div>
+            <div class="pd-type-card" data-premi-type="kehadiran"><div class="pd-type-label">Kehadiran</div><div class="pd-type-status">Aktif</div></div>
         </div>
 
         <div class="pd-summary-grid">

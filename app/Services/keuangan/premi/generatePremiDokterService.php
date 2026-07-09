@@ -48,6 +48,14 @@ class generatePremiDokterService
             'label' => 'Dokter Konsul WA',
             'percent' => 0,
         ],
+        generatePremiDokterRepository::CATEGORY_IGD => [
+            'label' => 'Dokter IGD',
+            'percent' => 100,
+        ],
+        generatePremiDokterRepository::CATEGORY_KEHADIRAN => [
+            'label' => 'Dokter Kehadiran',
+            'percent' => 100,
+        ],
     ];
 
     private const RAWAT_JALAN_SPECIAL_GROUPS = [
@@ -116,6 +124,8 @@ class generatePremiDokterService
         float $poliPercent,
         string $poliDistributionMode,
         int $konsulWaNominal,
+        int $igdNominalPerPasien,
+        int $kehadiranNominalPerHadir,
         array $jnsTindakanIds,
         array $doctorConfigs,
         array $ecgJnsTindakanIds = [],
@@ -199,6 +209,8 @@ class generatePremiDokterService
                 $poliPercent,
                 $this->normalizeEcgDistributionMode($poliDistributionMode),
                 $konsulWaNominal,
+                $igdNominalPerPasien,
+                $kehadiranNominalPerHadir,
                 $jnsTindakanIds,
                 $doctorRows,
                 $ecgJnsTindakanIds,
@@ -233,11 +245,13 @@ class generatePremiDokterService
         string $periode,
         ?string $jenisPelayanan,
         ?string $jenisPremiDokter = generatePremiDokterRepository::TYPE_VISITE,
-        ?int $nominalOperasi = null
+        ?int $nominalOperasi = null,
+        array $manualDoctorRows = []
     ): array {
         $config = $this->repository->getConfig();
         $jenisPremiDokter = $this->normalizePremiumType($jenisPremiDokter);
         $jenisPelayanan = $this->normalizeServiceType($jenisPremiDokter, $jenisPelayanan);
+        $manualVolumeRows = $this->normalizeManualVolumeRows($manualDoctorRows, $jenisPremiDokter);
         $existing = $this->repository->findByPeriodAndType(
             $periode,
             $jenisPelayanan,
@@ -264,6 +278,8 @@ class generatePremiDokterService
             generatePremiDokterRepository::TYPE_POLI => $this->repository->calculatePoli($periode, $jenisPelayanan, $config),
             generatePremiDokterRepository::TYPE_ECG => $this->repository->calculateEcg($periode, $jenisPelayanan, $config),
             generatePremiDokterRepository::TYPE_KONSUL_WA => $this->repository->calculateKonsulWa($periode, $jenisPelayanan, $config),
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN => $this->repository->calculateManualVolume($periode, $config, $jenisPremiDokter, $manualVolumeRows),
             default => $this->repository->calculate($periode, $jenisPelayanan, $config),
         };
         $ready = $this->isReady($jenisPremiDokter, $jenisPelayanan, $calculation);
@@ -285,11 +301,13 @@ class generatePremiDokterService
         string $periode,
         ?string $jenisPelayanan,
         ?string $jenisPremiDokter = generatePremiDokterRepository::TYPE_VISITE,
-        ?int $nominalOperasi = null
+        ?int $nominalOperasi = null,
+        array $manualDoctorRows = []
     ): array {
         $config = $this->repository->getConfig();
         $jenisPremiDokter = $this->normalizePremiumType($jenisPremiDokter);
         $jenisPelayanan = $this->normalizeServiceType($jenisPremiDokter, $jenisPelayanan);
+        $manualVolumeRows = $this->normalizeManualVolumeRows($manualDoctorRows, $jenisPremiDokter);
         $calculation = match ($jenisPremiDokter) {
             generatePremiDokterRepository::TYPE_KEBERSAMAAN => $this->repository->calculateKebersamaan($periode, $config),
             generatePremiDokterRepository::TYPE_OPERASI => $this->repository->calculateOperasi($periode, $config, (int) ($nominalOperasi ?? 0)),
@@ -297,6 +315,8 @@ class generatePremiDokterService
             generatePremiDokterRepository::TYPE_POLI => $this->repository->calculatePoli($periode, $jenisPelayanan, $config),
             generatePremiDokterRepository::TYPE_ECG => $this->repository->calculateEcg($periode, $jenisPelayanan, $config),
             generatePremiDokterRepository::TYPE_KONSUL_WA => $this->repository->calculateKonsulWa($periode, $jenisPelayanan, $config),
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN => $this->repository->calculateManualVolume($periode, $config, $jenisPremiDokter, $manualVolumeRows),
             default => $this->repository->calculate($periode, $jenisPelayanan, $config),
         };
 
@@ -415,6 +435,62 @@ class generatePremiDokterService
                     'kd_sps' => $doctor->kd_sps,
                     'nm_sps' => $doctor->nm_sps,
                     'percent' => $item['percent'],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function normalizeManualVolumeRows(array $manualDoctorRows, string $jenisPremiDokter): array
+    {
+        if (! in_array($jenisPremiDokter, [
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
+            return [];
+        }
+
+        $rows = collect($manualDoctorRows)
+            ->map(fn (array $item) => [
+                'kd_dokter' => trim((string) ($item['kd_dokter'] ?? '')),
+                'jumlah' => max(0, (int) ($item['jumlah'] ?? 0)),
+            ])
+            ->filter(fn (array $item) => filled($item['kd_dokter']) && $item['jumlah'] > 0)
+            ->groupBy('kd_dokter')
+            ->map(fn (Collection $items, string $code) => [
+                'kd_dokter' => $code,
+                'jumlah' => (int) $items->sum('jumlah'),
+            ])
+            ->values();
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $doctorMasters = $this->repository
+            ->getDoctorsByCodes($rows->pluck('kd_dokter')->all())
+            ->keyBy('kd_dokter');
+        $missing = $rows
+            ->pluck('kd_dokter')
+            ->reject(fn ($code) => $doctorMasters->has($code))
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'manual_doctor_rows' => 'Dokter input manual tidak ditemukan: '.$missing->implode(', '),
+            ]);
+        }
+
+        return $rows
+            ->map(function (array $item) use ($doctorMasters) {
+                $doctor = $doctorMasters->get($item['kd_dokter']);
+
+                return [
+                    'kd_dokter' => $doctor->kd_dokter,
+                    'nm_dokter' => $doctor->nm_dokter,
+                    'kd_sps' => $doctor->kd_sps,
+                    'nm_sps' => $doctor->nm_sps,
+                    'jumlah' => (int) $item['jumlah'],
                 ];
             })
             ->values()
@@ -684,6 +760,16 @@ class generatePremiDokterService
                 && (float) $calculation['total_premi'] > 0;
         }
 
+        if (in_array($jenisPremiDokter, [
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
+            return (int) ($calculation['manual_nominal'] ?? 0) > 0
+                && (int) ($calculation['manual_doctor_count'] ?? 0) > 0
+                && (int) ($calculation['jumlah_transaksi'] ?? 0) > 0
+                && (float) ($calculation['total_premi'] ?? 0) > 0;
+        }
+
         if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_RAWAT_JALAN) {
             return (int) ($calculation['jumlah_jenis_tindakan'] ?? 0) > 0
                 && (int) ($calculation['jumlah_mapping_tindakan'] ?? 0) > 0
@@ -765,6 +851,28 @@ class generatePremiDokterService
             }
 
             return 'Siap generate premi dokter Jasa Operasi.';
+        }
+
+        if (in_array($jenisPremiDokter, [
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
+            $label = $calculation['manual_type_label'] ?? $this->premiumTypeLabel($jenisPremiDokter);
+            $countLabel = $calculation['manual_count_label'] ?? 'data';
+
+            if ((int) ($calculation['manual_nominal'] ?? 0) <= 0) {
+                return 'Isi nominal '.$label.' pada konfigurasi.';
+            }
+
+            if ((int) ($calculation['manual_doctor_count'] ?? 0) <= 0) {
+                return 'Pilih dokter dan isi jumlah '.$countLabel.' '.$label.' saat generate.';
+            }
+
+            if ((int) ($calculation['jumlah_transaksi'] ?? 0) <= 0) {
+                return 'Isi jumlah '.$countLabel.' '.$label.' lebih dari 0.';
+            }
+
+            return 'Siap generate premi dokter '.$label.'.';
         }
 
         if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_RAWAT_JALAN) {
@@ -961,6 +1069,37 @@ class generatePremiDokterService
                     'label' => 'Total diterima dokter',
                     'status' => (float) $calculation['total_premi'] > 0 ? 'success' : 'warning',
                     'value' => $this->formatRupiah((float) $calculation['total_premi']),
+                ],
+            ];
+        }
+
+        if (in_array($jenisPremiDokter, [
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
+            $label = $calculation['manual_type_label'] ?? $this->premiumTypeLabel($jenisPremiDokter);
+            $countLabel = $calculation['manual_count_label'] ?? 'data';
+
+            return [
+                [
+                    'label' => 'Nominal',
+                    'status' => (int) ($calculation['manual_nominal'] ?? 0) > 0 ? 'success' : 'danger',
+                    'value' => $this->formatRupiah((int) ($calculation['manual_nominal'] ?? 0)).' / '.$countLabel,
+                ],
+                [
+                    'label' => 'Dokter input',
+                    'status' => (int) ($calculation['manual_doctor_count'] ?? 0) > 0 ? 'success' : 'warning',
+                    'value' => (int) ($calculation['manual_doctor_count'] ?? 0).' dokter',
+                ],
+                [
+                    'label' => 'Jumlah '.$countLabel,
+                    'status' => (int) ($calculation['jumlah_transaksi'] ?? 0) > 0 ? 'success' : 'warning',
+                    'value' => (int) ($calculation['jumlah_transaksi'] ?? 0).' '.$countLabel,
+                ],
+                [
+                    'label' => 'Total '.$label,
+                    'status' => (float) ($calculation['total_premi'] ?? 0) > 0 ? 'success' : 'warning',
+                    'value' => $this->formatRupiah((float) ($calculation['total_premi'] ?? 0)),
                 ],
             ];
         }
@@ -1226,6 +1365,37 @@ class generatePremiDokterService
             ];
         }
 
+        if (in_array($result->jenis_premi_dokter, [
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
+            $countLabel = data_get($result->config_snapshot, 'manual_count_label', 'data');
+            $typeLabel = data_get($result->config_snapshot, 'manual_type_label', $this->premiumTypeLabel($result->jenis_premi_dokter));
+
+            return [
+                [
+                    'label' => 'Nominal',
+                    'status' => 'success',
+                    'value' => $this->formatRupiah((float) data_get($result->config_snapshot, 'manual_nominal', 0)).' / '.$countLabel,
+                ],
+                [
+                    'label' => 'Dokter input',
+                    'status' => 'success',
+                    'value' => (int) $result->jumlah_dokter.' dokter',
+                ],
+                [
+                    'label' => 'Jumlah '.$countLabel,
+                    'status' => 'success',
+                    'value' => (int) $result->jumlah_transaksi.' '.$countLabel,
+                ],
+                [
+                    'label' => 'Total '.$typeLabel,
+                    'status' => 'success',
+                    'value' => $this->formatRupiah((float) $result->total_premi),
+                ],
+            ];
+        }
+
         if ($result->jenis_premi_dokter === generatePremiDokterRepository::TYPE_RAWAT_JALAN) {
             return [
                 [
@@ -1443,6 +1613,12 @@ class generatePremiDokterService
             'poli_allocation_per_doctor' => $calculation['poli_allocation_per_doctor'] ?? 0,
             'konsul_wa_nominal' => $calculation['konsul_wa_nominal'] ?? 0,
             'konsul_wa_doctor_config_count' => $calculation['konsul_wa_doctor_config_count'] ?? 0,
+            'igd_nominal_per_pasien' => $calculation['igd_nominal_per_pasien'] ?? 30000,
+            'kehadiran_nominal_per_hadir' => $calculation['kehadiran_nominal_per_hadir'] ?? 250000,
+            'manual_nominal' => $calculation['manual_nominal'] ?? 0,
+            'manual_doctor_count' => $calculation['manual_doctor_count'] ?? 0,
+            'manual_count_label' => $calculation['manual_count_label'] ?? 'data',
+            'manual_type_label' => $calculation['manual_type_label'] ?? $this->premiumTypeLabel($calculation['jenis_premi_dokter']),
             'rawat_jalan_mapping_config_count' => $calculation['rawat_jalan_mapping_config_count'] ?? 0,
             'rawat_jalan_special_doctor_count' => $calculation['rawat_jalan_special_doctor_count'] ?? 0,
             'rawat_jalan_doctor_config_count' => $calculation['rawat_jalan_doctor_config_count'] ?? 0,
@@ -1525,6 +1701,12 @@ class generatePremiDokterService
             'poli_allocation_per_doctor' => (float) data_get($result->config_snapshot, 'poli_allocation_per_doctor', 0),
             'konsul_wa_nominal' => (int) data_get($result->config_snapshot, 'konsul_wa_nominal', 0),
             'konsul_wa_doctor_config_count' => (int) data_get($result->config_snapshot, 'konsul_wa_doctor_config_count', 0),
+            'igd_nominal_per_pasien' => (int) data_get($result->config_snapshot, 'igd_nominal_per_pasien', 30000),
+            'kehadiran_nominal_per_hadir' => (int) data_get($result->config_snapshot, 'kehadiran_nominal_per_hadir', 250000),
+            'manual_nominal' => (int) data_get($result->config_snapshot, 'manual_nominal', 0),
+            'manual_doctor_count' => (int) data_get($result->config_snapshot, 'manual_doctor_count', $result->jumlah_dokter),
+            'manual_count_label' => data_get($result->config_snapshot, 'manual_count_label', 'data'),
+            'manual_type_label' => data_get($result->config_snapshot, 'manual_type_label', $this->premiumTypeLabel($result->jenis_premi_dokter)),
             'rawat_jalan_mapping_config_count' => (int) data_get($result->config_snapshot, 'rawat_jalan_mapping_config_count', 0),
             'rawat_jalan_special_doctor_count' => (int) data_get($result->config_snapshot, 'rawat_jalan_special_doctor_count', 0),
             'rawat_jalan_doctor_config_count' => (int) data_get($result->config_snapshot, 'rawat_jalan_doctor_config_count', 0),
@@ -1694,6 +1876,8 @@ class generatePremiDokterService
                 ],
             ],
             'konsul_wa_nominal' => (int) ($config->konsul_wa_nominal ?? 0),
+            'igd_nominal_per_pasien' => (int) ($config->igd_nominal_per_pasien ?? 30000),
+            'kehadiran_nominal_per_hadir' => (int) ($config->kehadiran_nominal_per_hadir ?? 250000),
             'source_period_options' => [
                 [
                     'id' => generatePremiDokterRepository::SOURCE_PERIOD_CURRENT,
@@ -1785,10 +1969,10 @@ class generatePremiDokterService
             ['id' => generatePremiDokterRepository::TYPE_RAWAT_JALAN, 'label' => 'Jasa Rawat Jalan', 'status' => 'active'],
             ['id' => generatePremiDokterRepository::TYPE_VISITE, 'label' => 'Jasa Visite', 'status' => 'active'],
             ['id' => generatePremiDokterRepository::TYPE_POLI, 'label' => 'Jasa Poli', 'status' => 'active'],
-            ['id' => 'jasa_igd', 'label' => 'Jasa IGD', 'status' => 'draft'],
+            ['id' => generatePremiDokterRepository::TYPE_IGD, 'label' => 'Jasa IGD', 'status' => 'active'],
             ['id' => generatePremiDokterRepository::TYPE_ECG, 'label' => 'Jasa ECG', 'status' => 'active'],
             ['id' => generatePremiDokterRepository::TYPE_KONSUL_WA, 'label' => 'Konsul WA', 'status' => 'active'],
-            ['id' => 'kehadiran', 'label' => 'Kehadiran', 'status' => 'draft'],
+            ['id' => generatePremiDokterRepository::TYPE_KEHADIRAN, 'label' => 'Kehadiran', 'status' => 'active'],
         ];
     }
 
@@ -1808,6 +1992,8 @@ class generatePremiDokterService
             generatePremiDokterRepository::TYPE_POLI => 'Jasa Poli',
             generatePremiDokterRepository::TYPE_ECG => 'Jasa ECG',
             generatePremiDokterRepository::TYPE_KONSUL_WA => 'Konsul WA',
+            generatePremiDokterRepository::TYPE_IGD => 'Jasa IGD',
+            generatePremiDokterRepository::TYPE_KEHADIRAN => 'Kehadiran',
             default => 'Jasa Visite',
         };
     }
@@ -1834,6 +2020,8 @@ class generatePremiDokterService
             generatePremiDokterRepository::TYPE_POLI => generatePremiDokterRepository::TYPE_POLI,
             generatePremiDokterRepository::TYPE_ECG => generatePremiDokterRepository::TYPE_ECG,
             generatePremiDokterRepository::TYPE_KONSUL_WA => generatePremiDokterRepository::TYPE_KONSUL_WA,
+            generatePremiDokterRepository::TYPE_IGD => generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN => generatePremiDokterRepository::TYPE_KEHADIRAN,
             default => generatePremiDokterRepository::TYPE_VISITE,
         };
     }
@@ -1844,7 +2032,11 @@ class generatePremiDokterService
             return generatePremiDokterRepository::SERVICE_KEBERSAMAAN;
         }
 
-        if ($premiumType === generatePremiDokterRepository::TYPE_OPERASI) {
+        if (in_array($premiumType, [
+            generatePremiDokterRepository::TYPE_OPERASI,
+            generatePremiDokterRepository::TYPE_IGD,
+            generatePremiDokterRepository::TYPE_KEHADIRAN,
+        ], true)) {
             return generatePremiDokterRepository::SERVICE_MANUAL;
         }
 

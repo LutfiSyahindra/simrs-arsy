@@ -23,7 +23,7 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['nullable', 'date_format:Y-m'],
-            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa'])],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa', 'jasa_igd', 'kehadiran'])],
             'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
         ]);
         $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
@@ -120,6 +120,8 @@ class hitungPremiDokterController extends Controller
             'poli_percent' => $request->input('poli_percent', 30),
             'poli_distribution_mode' => $request->input('poli_distribution_mode', 'split_evenly'),
             'konsul_wa_nominal' => $request->input('konsul_wa_nominal', 0),
+            'igd_nominal_per_pasien' => $request->input('igd_nominal_per_pasien', 30000),
+            'kehadiran_nominal_per_hadir' => $request->input('kehadiran_nominal_per_hadir', 250000),
             'mapping_tindakan_ids' => $request->input('mapping_tindakan_ids', []),
             'ecg_mapping_tindakan_ids' => $request->input('ecg_mapping_tindakan_ids', []),
             'poli_mapping_tindakan_ids' => $request->input('poli_mapping_tindakan_ids', []),
@@ -148,6 +150,8 @@ class hitungPremiDokterController extends Controller
             'poli_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'poli_distribution_mode' => ['required', Rule::in(['split_evenly', 'full_amount'])],
             'konsul_wa_nominal' => ['required', 'integer', 'min:0'],
+            'igd_nominal_per_pasien' => ['required', 'integer', 'min:0'],
+            'kehadiran_nominal_per_hadir' => ['required', 'integer', 'min:0'],
             'mapping_tindakan_ids' => ['present', 'array'],
             'mapping_tindakan_ids.*' => ['required', 'integer', 'distinct', 'exists:master_jenis_tindakan,id'],
             'ecg_mapping_tindakan_ids' => ['present', 'array'],
@@ -165,7 +169,7 @@ class hitungPremiDokterController extends Controller
             'doctor_configs' => ['present', 'array'],
             'doctor_configs.*.kategori' => [
                 'required',
-                Rule::in(['umum', 'spesialis_65', 'spesialis_80', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa']),
+                Rule::in(['umum', 'spesialis_65', 'spesialis_80', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa', 'jasa_igd', 'kehadiran']),
             ],
             'doctor_configs.*.kd_dokter' => ['required', 'string', 'max:30'],
             'doctor_configs.*.percent' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -220,6 +224,8 @@ class hitungPremiDokterController extends Controller
                 (float) $validated['poli_percent'],
                 $validated['poli_distribution_mode'],
                 (int) $validated['konsul_wa_nominal'],
+                (int) $validated['igd_nominal_per_pasien'],
+                (int) $validated['kehadiran_nominal_per_hadir'],
                 $validated['mapping_tindakan_ids'],
                 $validated['doctor_configs'],
                 $validated['ecg_mapping_tindakan_ids'],
@@ -238,9 +244,12 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
-            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa'])],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa', 'jasa_igd', 'kehadiran'])],
             'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
             'nominal_operasi' => ['nullable', 'integer', 'min:0'],
+            'manual_doctor_rows' => ['nullable', 'array'],
+            'manual_doctor_rows.*.kd_dokter' => ['required_with:manual_doctor_rows', 'string', 'max:30'],
+            'manual_doctor_rows.*.jumlah' => ['required_with:manual_doctor_rows', 'integer', 'min:0'],
         ]);
         $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
 
@@ -250,7 +259,8 @@ class hitungPremiDokterController extends Controller
                 $validated['periode'],
                 $validated['jenis_pelayanan'] ?? null,
                 $jenisPremiDokter,
-                $validated['nominal_operasi'] ?? null
+                $validated['nominal_operasi'] ?? null,
+                $validated['manual_doctor_rows'] ?? []
             ),
         ]);
     }
@@ -259,16 +269,20 @@ class hitungPremiDokterController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
-            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa'])],
+            'jenis_premi_dokter' => ['nullable', Rule::in(['visite', 'kebersamaan', 'jasa_operasi', 'jasa_rawat_jalan', 'jasa_poli', 'jasa_ecg', 'konsul_wa', 'jasa_igd', 'kehadiran'])],
             'jenis_pelayanan' => ['nullable', 'in:umum,bpjs'],
             'nominal_operasi' => ['required_if:jenis_premi_dokter,jasa_operasi', 'nullable', 'integer', 'min:1'],
+            'manual_doctor_rows' => ['required_if:jenis_premi_dokter,jasa_igd', 'required_if:jenis_premi_dokter,kehadiran', 'nullable', 'array'],
+            'manual_doctor_rows.*.kd_dokter' => ['required_with:manual_doctor_rows', 'string', 'max:30'],
+            'manual_doctor_rows.*.jumlah' => ['required_with:manual_doctor_rows', 'integer', 'min:0'],
         ]);
         $jenisPremiDokter = $validated['jenis_premi_dokter'] ?? 'visite';
         $result = $this->service->generate(
             $validated['periode'],
             $validated['jenis_pelayanan'] ?? null,
             $jenisPremiDokter,
-            $validated['nominal_operasi'] ?? null
+            $validated['nominal_operasi'] ?? null,
+            $validated['manual_doctor_rows'] ?? []
         );
 
         return response()->json([

@@ -26,6 +26,10 @@ class generatePremiDokterRepository
 
     public const TYPE_KONSUL_WA = 'konsul_wa';
 
+    public const TYPE_IGD = 'jasa_igd';
+
+    public const TYPE_KEHADIRAN = 'kehadiran';
+
     public const ECG_DISTRIBUTION_SPLIT_EVENLY = 'split_evenly';
 
     public const ECG_DISTRIBUTION_FULL_AMOUNT = 'full_amount';
@@ -53,6 +57,10 @@ class generatePremiDokterRepository
     public const CATEGORY_ECG = 'jasa_ecg';
 
     public const CATEGORY_KONSUL_WA = 'konsul_wa';
+
+    public const CATEGORY_IGD = 'jasa_igd';
+
+    public const CATEGORY_KEHADIRAN = 'kehadiran';
 
     public const CATEGORY_RAWAT_JALAN_SPECIAL_45000 = 'rawat_jalan_khusus_45000';
 
@@ -183,6 +191,14 @@ class generatePremiDokterRepository
             $payload['kebersamaan_only_umum'] = false;
         }
 
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'igd_nominal_per_pasien')) {
+            $payload['igd_nominal_per_pasien'] = 30000;
+        }
+
+        if (Schema::hasColumn('generate_premi_dokter_configs', 'kehadiran_nominal_per_hadir')) {
+            $payload['kehadiran_nominal_per_hadir'] = 250000;
+        }
+
         $id = DB::table('generate_premi_dokter_configs')->insertGetId($payload);
 
         if (Schema::hasTable('generate_premi_dokter_poli_filter_source')) {
@@ -233,6 +249,8 @@ class generatePremiDokterRepository
         float $poliPercent,
         string $poliDistributionMode,
         int $konsulWaNominal,
+        int $igdNominalPerPasien,
+        int $kehadiranNominalPerHadir,
         array $jnsTindakanIds,
         array $doctorRows,
         array $ecgJnsTindakanIds = [],
@@ -260,6 +278,8 @@ class generatePremiDokterRepository
             $poliPercent,
             $poliDistributionMode,
             $konsulWaNominal,
+            $igdNominalPerPasien,
+            $kehadiranNominalPerHadir,
             $jnsTindakanIds,
             $doctorRows,
             $ecgJnsTindakanIds,
@@ -312,6 +332,14 @@ class generatePremiDokterRepository
 
             if (Schema::hasColumn('generate_premi_dokter_configs', 'konsul_wa_nominal')) {
                 $configPayload['konsul_wa_nominal'] = max(0, $konsulWaNominal);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'igd_nominal_per_pasien')) {
+                $configPayload['igd_nominal_per_pasien'] = max(0, $igdNominalPerPasien);
+            }
+
+            if (Schema::hasColumn('generate_premi_dokter_configs', 'kehadiran_nominal_per_hadir')) {
+                $configPayload['kehadiran_nominal_per_hadir'] = max(0, $kehadiranNominalPerHadir);
             }
 
             DB::table('generate_premi_dokter_configs')
@@ -941,7 +969,7 @@ class generatePremiDokterRepository
 
         return DB::table('generate_premi_dokter_config_doctor')
             ->where('config_id', $configId)
-            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 when 'kebersamaan' then 3 when 'jasa_operasi' then 4 when 'jasa_rawat_jalan' then 5 when 'jasa_poli' then 6 when 'jasa_ecg' then 7 when 'konsul_wa' then 8 else 9 end")
+            ->orderByRaw("case kategori when 'umum' then 0 when 'spesialis_65' then 1 when 'spesialis_80' then 2 when 'kebersamaan' then 3 when 'jasa_operasi' then 4 when 'jasa_rawat_jalan' then 5 when 'jasa_poli' then 6 when 'jasa_ecg' then 7 when 'konsul_wa' then 8 when 'jasa_igd' then 9 when 'kehadiran' then 10 else 11 end")
             ->orderBy('nm_dokter')
             ->get();
     }
@@ -1511,6 +1539,174 @@ class generatePremiDokterRepository
                 'source_period_text' => 'Input manual periode '.$periode,
                 'nominal_operasi' => $nominalOperasi,
                 'operasi_total_percent' => $totalPercent,
+            ],
+        ];
+    }
+
+    public function calculateManualVolume(
+        string $periode,
+        object $config,
+        string $jenisPremiDokter,
+        array $doctorRows
+    ): array {
+        $isIgd = $jenisPremiDokter === self::TYPE_IGD;
+        $type = $isIgd ? self::TYPE_IGD : self::TYPE_KEHADIRAN;
+        $category = $isIgd ? self::CATEGORY_IGD : self::CATEGORY_KEHADIRAN;
+        $label = $isIgd ? 'Jasa IGD' : 'Kehadiran';
+        $code = $isIgd ? 'JASA_IGD' : 'KEHADIRAN';
+        $countLabel = $isIgd ? 'pasien' : 'kehadiran';
+        $sourceKey = $isIgd ? 'manual_jasa_igd' : 'manual_kehadiran';
+        $sourceLabel = $isIgd ? 'Input Manual Jasa IGD' : 'Input Manual Kehadiran';
+        $nominal = max(0, (int) ($isIgd
+            ? ($config->igd_nominal_per_pasien ?? 30000)
+            : ($config->kehadiran_nominal_per_hadir ?? 250000)));
+        $range = $this->periodRange($periode);
+        $date = Carbon::createFromFormat('Y-m-d', $periode.'-01')->endOfMonth()->toDateString();
+        $inputRows = collect($doctorRows)
+            ->map(function (array $doctor) {
+                $doctor['jumlah'] = max(0, (int) ($doctor['jumlah'] ?? 0));
+
+                return $doctor;
+            })
+            ->filter(fn (array $doctor) => filled($doctor['kd_dokter'] ?? null) && $doctor['jumlah'] > 0)
+            ->values();
+
+        $details = $inputRows
+            ->map(function (array $doctor) use (
+                $periode,
+                $category,
+                $label,
+                $code,
+                $countLabel,
+                $sourceKey,
+                $sourceLabel,
+                $nominal,
+                $date,
+                $isIgd
+            ) {
+                $jumlah = (int) $doctor['jumlah'];
+                $totalPremi = round($jumlah * $nominal, 2);
+                $formulaLabel = $jumlah.' '.$countLabel.' x Rp '.number_format($nominal, 0, ',', '.');
+                $sourceBreakdown = [
+                    [
+                        'key' => $sourceKey,
+                        'label' => $sourceLabel,
+                        'jumlah_data' => $jumlah,
+                        'jumlah_pasien' => $isIgd ? $jumlah : 0,
+                        'total_biaya_rawat' => $totalPremi,
+                    ],
+                ];
+                $manualRows = [
+                    [
+                        'source_table' => $sourceKey,
+                        'sumber_tindakan' => 'MANUAL',
+                        'source_label' => $sourceLabel,
+                        'mapping_tindakan_id' => null,
+                        'jnsTindakan_id' => null,
+                        'kode_jenis_tindakan' => $code,
+                        'nama_jenis_tindakan' => $label,
+                        'no_rawat' => $code.'-'.$periode.'-'.$doctor['kd_dokter'],
+                        'no_rkm_medis' => null,
+                        'nm_pasien' => $sourceLabel,
+                        'kd_pj' => 'MANUAL',
+                        'nama_penjamin' => 'Manual',
+                        'tanggal' => $date,
+                        'jam' => null,
+                        'kd_tindakan' => $code,
+                        'nm_tindakan' => $formulaLabel,
+                        'kd_dokter' => $doctor['kd_dokter'],
+                        'nm_dokter' => $doctor['nm_dokter'],
+                        'kd_sps' => $doctor['kd_sps'] ?? null,
+                        'nm_sps' => $doctor['nm_sps'] ?? null,
+                        'doctor_source' => 'manual_generate',
+                        'nip' => null,
+                        'nama_petugas' => null,
+                        'jumlah_manual' => $jumlah,
+                        'nominal_manual' => $nominal,
+                        'biaya_rawat' => $totalPremi,
+                    ],
+                ];
+
+                return [
+                    'kd_dokter' => $doctor['kd_dokter'],
+                    'nm_dokter' => $doctor['nm_dokter'],
+                    'kd_sps' => $doctor['kd_sps'] ?? null,
+                    'nm_sps' => $doctor['nm_sps'] ?? null,
+                    'kategori' => $category,
+                    'percent' => 100,
+                    'jumlah_data' => $jumlah,
+                    'jumlah_pasien' => $isIgd ? $jumlah : 0,
+                    'total_biaya_rawat' => $totalPremi,
+                    'grand_total' => $totalPremi,
+                    'total_premi' => $totalPremi,
+                    'source_breakdown' => $sourceBreakdown,
+                    'action_breakdown' => [
+                        [
+                            'key' => strtolower($code),
+                            'label' => $formulaLabel,
+                            'jumlah_data' => $jumlah,
+                            'jumlah_pasien' => $isIgd ? $jumlah : 0,
+                            'total_biaya_rawat' => $totalPremi,
+                        ],
+                    ],
+                    'data_rawat' => $manualRows,
+                ];
+            })
+            ->sortByDesc('total_premi')
+            ->values();
+
+        $jumlahTransaksi = (int) $details->sum('jumlah_data');
+        $totalPremi = round((float) $details->sum('total_premi'), 2);
+
+        return [
+            'periode' => $periode,
+            'source_periode' => $periode,
+            'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+            'source_period_mode_label' => 'Input Manual',
+            'source_period_text' => 'Input manual periode '.$periode,
+            'source_tgl_awal' => $range['start']->toDateString(),
+            'source_tgl_akhir' => $range['end']->copy()->subDay()->toDateString(),
+            'jenis_premi_dokter' => $type,
+            'jenis_pelayanan' => self::SERVICE_MANUAL,
+            'visite_umum_percent' => (float) $config->visite_umum_percent,
+            'visite_bpjs_percent' => (float) $config->visite_bpjs_percent,
+            'visite_bpjs_nominal' => (int) $config->visite_bpjs_nominal,
+            'igd_nominal_per_pasien' => (int) ($config->igd_nominal_per_pasien ?? 30000),
+            'kehadiran_nominal_per_hadir' => (int) ($config->kehadiran_nominal_per_hadir ?? 250000),
+            'manual_nominal' => $nominal,
+            'manual_doctor_count' => $details->count(),
+            'manual_count_label' => $countLabel,
+            'manual_type_label' => $label,
+            'jumlah_transaksi' => $jumlahTransaksi,
+            'jumlah_pasien' => $isIgd ? $jumlahTransaksi : 0,
+            'jumlah_dokter' => $details->count(),
+            'jumlah_tindakan' => $jumlahTransaksi > 0 ? 1 : 0,
+            'jumlah_jenis_tindakan' => 0,
+            'jumlah_mapping_tindakan' => 0,
+            'jumlah_tidak_terkonfigurasi' => 0,
+            'jumlah_spesialis_diabaikan' => 0,
+            'total_biaya_rawat' => $totalPremi,
+            'total_grand' => $totalPremi,
+            'total_premi' => $totalPremi,
+            'details' => $details,
+            'all_rows_count' => $jumlahTransaksi,
+            'unconfigured_doctors' => [],
+            'ignored_specialists' => [],
+            'config_snapshot' => [
+                'jenis_tindakan' => [],
+                'mapping_tindakan' => [],
+                'doctor_config' => $inputRows->values()->all(),
+                'source_tables' => [$sourceKey],
+                'source_period_mode' => self::SOURCE_PERIOD_CURRENT,
+                'source_period_mode_label' => 'Input Manual',
+                'source_periode' => $periode,
+                'source_period_text' => 'Input manual periode '.$periode,
+                'igd_nominal_per_pasien' => (int) ($config->igd_nominal_per_pasien ?? 30000),
+                'kehadiran_nominal_per_hadir' => (int) ($config->kehadiran_nominal_per_hadir ?? 250000),
+                'manual_nominal' => $nominal,
+                'manual_doctor_count' => $details->count(),
+                'manual_count_label' => $countLabel,
+                'manual_type_label' => $label,
             ],
         ];
     }
