@@ -475,6 +475,7 @@
                             <span>${item.locked_count || 0} terkunci</span>
                             <span>${item.unlocked_count || 0} terbuka</span>
                         </div>
+                        ${renderGeneratorTypeItems(item)}
                     </div>
                 `;
             }).join(''));
@@ -489,6 +490,37 @@
             $('#stage2GeneratorReadinessList').html(
                 '<div class="stage2-generator-note">Memuat status generator...</div>'
             );
+        }
+
+        function renderGeneratorTypeItems(item) {
+            const typeItems = item.type_items || [];
+
+            if (typeItems.length === 0) {
+                return '';
+            }
+
+            return `
+                <div class="stage2-generator-types">
+                    ${typeItems.map(function(typeItem) {
+                        const meta = generatorStateMeta(typeItem);
+
+                        return `
+                            <div class="stage2-generator-type ${meta.className}">
+                                <span class="stage2-generator-type-icon">
+                                    <i class="mdi ${meta.icon}"></i>
+                                </span>
+                                <span>
+                                    <strong>${escapeHtml(typeItem.label || '-')}</strong>
+                                    <small>${escapeHtml(typeItem.note || '-')}</small>
+                                </span>
+                                <span class="stage2-generator-type-count">
+                                    ${typeItem.locked_count || 0}/${typeItem.generated_count || 0}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
         }
 
         function loadStage2GeneratorReadiness() {

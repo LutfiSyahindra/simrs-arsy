@@ -925,6 +925,78 @@
             margin-top: .55rem;
         }
 
+        .stage2-generator-types {
+            display: grid;
+            gap: .45rem;
+            margin-top: .65rem;
+        }
+
+        .stage2-generator-type {
+            align-items: center;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: .5rem;
+            padding: .48rem .55rem;
+            background: rgba(255, 255, 255, .72);
+        }
+
+        .stage2-generator-type.ready {
+            border-color: #bbf7d0;
+        }
+
+        .stage2-generator-type.unlocked {
+            border-color: #fed7aa;
+        }
+
+        .stage2-generator-type.missing {
+            border-color: #fecaca;
+        }
+
+        .stage2-generator-type strong {
+            color: #0f172a;
+            font-size: .78rem;
+        }
+
+        .stage2-generator-type small {
+            color: #64748b;
+            display: block;
+            font-size: .7rem;
+            line-height: 1.2;
+        }
+
+        .stage2-generator-type-icon {
+            align-items: center;
+            border-radius: 999px;
+            display: inline-flex;
+            height: 24px;
+            justify-content: center;
+            width: 24px;
+        }
+
+        .stage2-generator-type.ready .stage2-generator-type-icon {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .stage2-generator-type.unlocked .stage2-generator-type-icon {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+
+        .stage2-generator-type.missing .stage2-generator-type-icon {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .stage2-generator-type-count {
+            color: #475569;
+            font-size: .72rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
         .payroll-table-heading {
             align-items: center;
             background: #ffffff;

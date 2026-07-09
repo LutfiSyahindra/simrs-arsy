@@ -735,19 +735,19 @@ class penggajianRepository
     private function stage2GeneratorDefinitions(): array
     {
         return [
-            ['key' => 'laboratorium', 'label' => 'Laboratorium', 'table' => 'generate_laboratorium'],
-            ['key' => 'radiologi', 'label' => 'Radiologi', 'table' => 'generate_radiologi'],
-            ['key' => 'operasi', 'label' => 'Operasi', 'table' => 'generate_operasi'],
-            ['key' => 'vk', 'label' => 'VK', 'table' => 'generate_vk'],
-            ['key' => 'apotek', 'label' => 'Apotek', 'table' => 'generate_apotek'],
-            ['key' => 'gizi', 'label' => 'Gizi', 'table' => 'generate_gizi'],
+            ['key' => 'laboratorium', 'label' => 'Laboratorium', 'table' => 'generate_laboratorium', 'type_column' => 'jenis_laboratorium'],
+            ['key' => 'radiologi', 'label' => 'Radiologi', 'table' => 'generate_radiologi', 'type_column' => 'jenis_radiologi'],
+            ['key' => 'operasi', 'label' => 'Operasi', 'table' => 'generate_operasi', 'type_column' => 'jenis_operasi'],
+            ['key' => 'vk', 'label' => 'VK', 'table' => 'generate_vk', 'type_column' => 'jenis_vk'],
+            ['key' => 'apotek', 'label' => 'Apotek', 'table' => 'generate_apotek', 'type_column' => 'jenis_apotek'],
+            ['key' => 'gizi', 'label' => 'Gizi', 'table' => 'generate_gizi', 'type_column' => 'jenis_gizi'],
             ['key' => 'casemix', 'label' => 'Casemix', 'table' => 'generate_casemix'],
-            ['key' => 'fisio', 'label' => 'Fisioterapi', 'table' => 'generate_premi_fisio'],
+            ['key' => 'fisio', 'label' => 'Fisioterapi', 'table' => 'generate_premi_fisio', 'type_column' => 'jenis_fisio'],
             ['key' => 'driver', 'label' => 'Driver', 'table' => 'generate_premi_driver'],
-            ['key' => 'non_medis', 'label' => 'Pelayanan Non Medis', 'table' => 'premi_pelayanan_non_medis'],
-            ['key' => 'tindakan_medis', 'label' => 'Tindakan Medis', 'table' => 'generate_tindakan_medis'],
-            ['key' => 'premi_bersama', 'label' => 'Premi Bersama', 'table' => 'generate_premi_bersama'],
-            ['key' => 'premi_dokter', 'label' => 'Premi Dokter', 'table' => 'generate_premi_dokter'],
+            ['key' => 'non_medis', 'label' => 'Pelayanan Non Medis', 'table' => 'premi_pelayanan_non_medis', 'type_column' => 'jenis_pelayanan'],
+            ['key' => 'tindakan_medis', 'label' => 'Tindakan Medis', 'table' => 'generate_tindakan_medis', 'type_column' => 'jenis_pelayanan'],
+            ['key' => 'premi_bersama', 'label' => 'Premi Bersama', 'table' => 'generate_premi_bersama', 'type_column' => 'jenis_pelayanan'],
+            ['key' => 'premi_dokter', 'label' => 'Premi Dokter', 'table' => 'generate_premi_dokter', 'type_column' => 'jenis_pelayanan'],
         ];
     }
 
@@ -770,6 +770,10 @@ class penggajianRepository
                 false,
                 'Kolom '.($missingColumns->implode(', ')).' belum tersedia.'
             );
+        }
+
+        if ($this->generatorHasServiceTypes($definition)) {
+            return $this->typedGeneratorReadiness($definition, $periode);
         }
 
         $query = fn () => DB::table($table)->where('periode', $periode);
@@ -831,6 +835,102 @@ class penggajianRepository
         );
     }
 
+    private function typedGeneratorReadiness(array $definition, string $periode): array
+    {
+        $table = $definition['table'];
+        $typeColumn = $definition['type_column'];
+
+        if (! Schema::hasColumn($table, $typeColumn)) {
+            return $this->generatorReadinessPayload(
+                $definition,
+                'missing',
+                false,
+                'Kolom '.$typeColumn.' belum tersedia.'
+            );
+        }
+
+        $typeItems = collect($this->stage2GeneratorRequiredTypes())
+            ->map(fn (array $type) => $this->generatorTypeReadiness($definition, $periode, $type))
+            ->values();
+        $generatedCount = (int) $typeItems->sum('generated_count');
+        $lockedCount = (int) $typeItems->sum('locked_count');
+        $unlockedCount = (int) $typeItems->sum('unlocked_count');
+        $notReadyTypes = $typeItems->reject(fn (array $item) => $item['ready'])->values();
+        $ready = $notReadyTypes->isEmpty();
+        $state = $ready
+            ? 'ready'
+            : ($notReadyTypes->contains(fn (array $item) => $item['state'] === 'unlocked') ? 'unlocked' : 'missing');
+        $note = $ready
+            ? 'Jenis UMUM dan BPJS sudah digenerate dan dikunci.'
+            : 'Jenis belum ready: '.$notReadyTypes->pluck('label')->implode(', ').'.';
+
+        return $this->generatorReadinessPayload(
+            $definition,
+            $state,
+            $ready,
+            $note,
+            $generatedCount,
+            $lockedCount,
+            $unlockedCount,
+            $typeItems->pluck('latest_generated_at')->filter()->max(),
+            $typeItems->pluck('latest_locked_at')->filter()->max(),
+            $typeItems->all()
+        );
+    }
+
+    private function generatorTypeReadiness(array $definition, string $periode, array $type): array
+    {
+        $table = $definition['table'];
+        $typeColumn = $definition['type_column'];
+        $query = fn () => DB::table($table)
+            ->where('periode', $periode)
+            ->whereRaw('LOWER('.$typeColumn.') = ?', [$type['value']]);
+
+        $generatedCount = (int) $query()->count();
+        $lockedCount = (int) $query()->where('is_locked', true)->count();
+        $unlockedCount = max(0, $generatedCount - $lockedCount);
+        $latestGeneratedAt = null;
+        $latestLockedAt = null;
+
+        foreach (['updated_at', 'created_at'] as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                $latestGeneratedAt = $query()->max($column);
+                break;
+            }
+        }
+
+        if (Schema::hasColumn($table, 'locked_at')) {
+            $latestLockedAt = $query()->where('is_locked', true)->max('locked_at');
+        }
+
+        if ($generatedCount <= 0) {
+            $state = 'missing';
+            $ready = false;
+            $note = 'Belum digenerate.';
+        } elseif ($unlockedCount > 0) {
+            $state = 'unlocked';
+            $ready = false;
+            $note = $unlockedCount.' data belum dikunci.';
+        } else {
+            $state = 'ready';
+            $ready = true;
+            $note = 'Sudah digenerate dan dikunci.';
+        }
+
+        return [
+            'key' => $type['value'],
+            'label' => $type['label'],
+            'state' => $state,
+            'ready' => $ready,
+            'generated_count' => $generatedCount,
+            'locked_count' => $lockedCount,
+            'unlocked_count' => $unlockedCount,
+            'latest_generated_at' => $latestGeneratedAt,
+            'latest_locked_at' => $latestLockedAt,
+            'note' => $note,
+        ];
+    }
+
     private function generatorReadinessPayload(
         array $definition,
         string $state,
@@ -840,12 +940,15 @@ class penggajianRepository
         int $lockedCount = 0,
         int $unlockedCount = 0,
         ?string $latestGeneratedAt = null,
-        ?string $latestLockedAt = null
+        ?string $latestLockedAt = null,
+        array $typeItems = []
     ): array {
         return [
             'key' => $definition['key'],
             'label' => $definition['label'],
             'table' => $definition['table'],
+            'type_column' => $definition['type_column'] ?? null,
+            'has_service_types' => $this->generatorHasServiceTypes($definition),
             'state' => $state,
             'ready' => $ready,
             'generated_count' => $generatedCount,
@@ -854,6 +957,20 @@ class penggajianRepository
             'latest_generated_at' => $latestGeneratedAt,
             'latest_locked_at' => $latestLockedAt,
             'note' => $note,
+            'type_items' => $typeItems,
+        ];
+    }
+
+    private function generatorHasServiceTypes(array $definition): bool
+    {
+        return filled($definition['type_column'] ?? null);
+    }
+
+    private function stage2GeneratorRequiredTypes(): array
+    {
+        return [
+            ['value' => 'umum', 'label' => 'UMUM'],
+            ['value' => 'bpjs', 'label' => 'BPJS'],
         ];
     }
 
