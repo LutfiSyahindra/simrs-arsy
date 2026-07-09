@@ -334,6 +334,32 @@ class penggajianRepository
             ->get();
     }
 
+    public function getGajiTahap2GeneratorReadiness(string $periode): array
+    {
+        $items = collect($this->stage2GeneratorDefinitions())
+            ->map(fn (array $definition) => $this->generatorReadiness($definition, $periode))
+            ->values();
+
+        $notReady = $items->reject(fn (array $item) => $item['ready'])->values();
+        $ready = $notReady->isEmpty();
+
+        return [
+            'periode' => $periode,
+            'ready' => $ready,
+            'total_required' => $items->count(),
+            'total_ready' => $items->where('ready', true)->count(),
+            'total_generated' => (int) $items->sum('generated_count'),
+            'total_locked' => (int) $items->sum('locked_count'),
+            'total_unlocked' => (int) $items->sum('unlocked_count'),
+            'not_ready_count' => $notReady->count(),
+            'not_ready_labels' => $notReady->pluck('label')->values()->all(),
+            'items' => $items->all(),
+            'message' => $ready
+                ? 'Semua generator tahap 2 sudah digenerate dan dikunci.'
+                : 'Lengkapi dan kunci semua generator tahap 2: '.$notReady->pluck('label')->implode(', ').'.',
+        ];
+    }
+
     public function collectPremiTahap2ByPeriod(string $periode, Collection $eligibleNik): Collection
     {
         $niks = $eligibleNik
@@ -446,8 +472,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table($detailTable.' as d')
-            ->join($headerTable.' as h', 'h.id', '=', 'd.'.$foreignKey)
+        $query = DB::table($detailTable.' as d')
+            ->join($headerTable.' as h', 'h.id', '=', 'd.'.$foreignKey);
+
+        $this->applyLockedSource($query, $headerTable, 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.pegawai_id', $niks)
             ->where('d.total_received', '>', 0)
@@ -482,8 +510,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table('generate_casemix_detail as d')
-            ->join('generate_casemix as h', 'h.id', '=', 'd.generate_casemix_id')
+        $query = DB::table('generate_casemix_detail as d')
+            ->join('generate_casemix as h', 'h.id', '=', 'd.generate_casemix_id');
+
+        $this->applyLockedSource($query, 'generate_casemix', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.pegawai_id', $niks)
             ->where('d.total_received', '>', 0)
@@ -511,8 +541,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table('generate_premi_fisio_detail as d')
-            ->join('generate_premi_fisio as h', 'h.id', '=', 'd.generate_premi_fisio_id')
+        $query = DB::table('generate_premi_fisio_detail as d')
+            ->join('generate_premi_fisio as h', 'h.id', '=', 'd.generate_premi_fisio_id');
+
+        $this->applyLockedSource($query, 'generate_premi_fisio', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.pegawai_id', $niks)
             ->where('d.total_received', '>', 0)
@@ -544,7 +576,9 @@ class penggajianRepository
             return;
         }
 
-        DB::table('generate_premi_driver')
+        $query = DB::table('generate_premi_driver');
+
+        $this->applyLockedSource($query, 'generate_premi_driver')
             ->where('periode', $periode)
             ->whereIn('pegawai_id', $niks)
             ->where('total_premi_pegawai', '>', 0)
@@ -571,8 +605,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table('premi_pelayanan_non_medis_distribution as d')
-            ->join('premi_pelayanan_non_medis as h', 'h.id', '=', 'd.premi_pelayanan_non_medis_id')
+        $query = DB::table('premi_pelayanan_non_medis_distribution as d')
+            ->join('premi_pelayanan_non_medis as h', 'h.id', '=', 'd.premi_pelayanan_non_medis_id');
+
+        $this->applyLockedSource($query, 'premi_pelayanan_non_medis', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.nik', $niks)
             ->where('d.total_diterima', '>', 0)
@@ -604,8 +640,10 @@ class penggajianRepository
             ? 'total_dasar'
             : 'total_diterima';
 
-        DB::table('generate_tindakan_medis_distribution as d')
-            ->join('generate_tindakan_medis as h', 'h.id', '=', 'd.generate_tindakan_medis_id')
+        $query = DB::table('generate_tindakan_medis_distribution as d')
+            ->join('generate_tindakan_medis as h', 'h.id', '=', 'd.generate_tindakan_medis_id');
+
+        $this->applyLockedSource($query, 'generate_tindakan_medis', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.nik', $niks)
             ->where('d.'.$nominalColumn, '>', 0)
@@ -634,8 +672,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table('generate_premi_bersama_distribution as d')
-            ->join('generate_premi_bersama as h', 'h.id', '=', 'd.generate_premi_bersama_id')
+        $query = DB::table('generate_premi_bersama_distribution as d')
+            ->join('generate_premi_bersama as h', 'h.id', '=', 'd.generate_premi_bersama_id');
+
+        $this->applyLockedSource($query, 'generate_premi_bersama', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.nik', $niks)
             ->where('d.total_received', '>', 0)
@@ -664,8 +704,10 @@ class penggajianRepository
             return;
         }
 
-        DB::table('generate_premi_dokter_detail as d')
-            ->join('generate_premi_dokter as h', 'h.id', '=', 'd.generate_premi_dokter_id')
+        $query = DB::table('generate_premi_dokter_detail as d')
+            ->join('generate_premi_dokter as h', 'h.id', '=', 'd.generate_premi_dokter_id');
+
+        $this->applyLockedSource($query, 'generate_premi_dokter', 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.kd_dokter', $niks)
             ->where('d.total_premi', '>', 0)
@@ -688,6 +730,140 @@ class penggajianRepository
                 'source_premium_type' => (string) $row->jenis_premi_dokter,
                 'nominal' => (int) round((float) $row->nominal),
             ]));
+    }
+
+    private function stage2GeneratorDefinitions(): array
+    {
+        return [
+            ['key' => 'laboratorium', 'label' => 'Laboratorium', 'table' => 'generate_laboratorium'],
+            ['key' => 'radiologi', 'label' => 'Radiologi', 'table' => 'generate_radiologi'],
+            ['key' => 'operasi', 'label' => 'Operasi', 'table' => 'generate_operasi'],
+            ['key' => 'vk', 'label' => 'VK', 'table' => 'generate_vk'],
+            ['key' => 'apotek', 'label' => 'Apotek', 'table' => 'generate_apotek'],
+            ['key' => 'gizi', 'label' => 'Gizi', 'table' => 'generate_gizi'],
+            ['key' => 'casemix', 'label' => 'Casemix', 'table' => 'generate_casemix'],
+            ['key' => 'fisio', 'label' => 'Fisioterapi', 'table' => 'generate_premi_fisio'],
+            ['key' => 'driver', 'label' => 'Driver', 'table' => 'generate_premi_driver'],
+            ['key' => 'non_medis', 'label' => 'Pelayanan Non Medis', 'table' => 'premi_pelayanan_non_medis'],
+            ['key' => 'tindakan_medis', 'label' => 'Tindakan Medis', 'table' => 'generate_tindakan_medis'],
+            ['key' => 'premi_bersama', 'label' => 'Premi Bersama', 'table' => 'generate_premi_bersama'],
+            ['key' => 'premi_dokter', 'label' => 'Premi Dokter', 'table' => 'generate_premi_dokter'],
+        ];
+    }
+
+    private function generatorReadiness(array $definition, string $periode): array
+    {
+        $table = $definition['table'];
+
+        if (! Schema::hasTable($table)) {
+            return $this->generatorReadinessPayload($definition, 'missing', false, 'Tabel generator belum tersedia.');
+        }
+
+        $missingColumns = collect(['periode', 'is_locked'])
+            ->reject(fn (string $column) => Schema::hasColumn($table, $column))
+            ->values();
+
+        if ($missingColumns->isNotEmpty()) {
+            return $this->generatorReadinessPayload(
+                $definition,
+                'missing',
+                false,
+                'Kolom '.($missingColumns->implode(', ')).' belum tersedia.'
+            );
+        }
+
+        $query = fn () => DB::table($table)->where('periode', $periode);
+        $generatedCount = (int) $query()->count();
+        $lockedCount = (int) $query()->where('is_locked', true)->count();
+        $unlockedCount = max(0, $generatedCount - $lockedCount);
+        $latestGeneratedAt = null;
+        $latestLockedAt = null;
+
+        foreach (['updated_at', 'created_at'] as $column) {
+            if (Schema::hasColumn($table, $column)) {
+                $latestGeneratedAt = $query()->max($column);
+                break;
+            }
+        }
+
+        if (Schema::hasColumn($table, 'locked_at')) {
+            $latestLockedAt = $query()->where('is_locked', true)->max('locked_at');
+        }
+
+        if ($generatedCount <= 0) {
+            return $this->generatorReadinessPayload(
+                $definition,
+                'missing',
+                false,
+                'Belum digenerate.',
+                $generatedCount,
+                $lockedCount,
+                $unlockedCount,
+                $latestGeneratedAt,
+                $latestLockedAt
+            );
+        }
+
+        if ($unlockedCount > 0) {
+            return $this->generatorReadinessPayload(
+                $definition,
+                'unlocked',
+                false,
+                $unlockedCount.' data belum dikunci.',
+                $generatedCount,
+                $lockedCount,
+                $unlockedCount,
+                $latestGeneratedAt,
+                $latestLockedAt
+            );
+        }
+
+        return $this->generatorReadinessPayload(
+            $definition,
+            'ready',
+            true,
+            'Sudah digenerate dan dikunci.',
+            $generatedCount,
+            $lockedCount,
+            $unlockedCount,
+            $latestGeneratedAt,
+            $latestLockedAt
+        );
+    }
+
+    private function generatorReadinessPayload(
+        array $definition,
+        string $state,
+        bool $ready,
+        string $note,
+        int $generatedCount = 0,
+        int $lockedCount = 0,
+        int $unlockedCount = 0,
+        ?string $latestGeneratedAt = null,
+        ?string $latestLockedAt = null
+    ): array {
+        return [
+            'key' => $definition['key'],
+            'label' => $definition['label'],
+            'table' => $definition['table'],
+            'state' => $state,
+            'ready' => $ready,
+            'generated_count' => $generatedCount,
+            'locked_count' => $lockedCount,
+            'unlocked_count' => $unlockedCount,
+            'latest_generated_at' => $latestGeneratedAt,
+            'latest_locked_at' => $latestLockedAt,
+            'note' => $note,
+        ];
+    }
+
+    private function applyLockedSource($query, string $table, ?string $alias = null)
+    {
+        if (Schema::hasColumn($table, 'is_locked')) {
+            $query->where(($alias ?: $table).'.is_locked', true);
+        }
+
+        return $query;
     }
 
     private function hasTables(array $tables): bool

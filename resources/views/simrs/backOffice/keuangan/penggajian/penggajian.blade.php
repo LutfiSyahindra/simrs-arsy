@@ -802,6 +802,129 @@
             font-size: .95rem;
         }
 
+        .stage2-readiness-panel {
+            background: #ffffff;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, .05);
+            overflow: hidden;
+        }
+
+        .stage2-readiness-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .85rem;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stage2-readiness-badge {
+            align-items: center;
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: .75rem;
+            font-weight: 800;
+            gap: .35rem;
+            padding: .38rem .65rem;
+            white-space: nowrap;
+        }
+
+        .stage2-readiness-badge.ready {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .stage2-readiness-badge.blocked {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .stage2-readiness-stats {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .65rem;
+            padding: .85rem 1rem;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .stage2-readiness-stat {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            padding: .65rem .75rem;
+        }
+
+        .stage2-readiness-stat span {
+            color: #64748b;
+            display: block;
+            font-size: .68rem;
+            font-weight: 800;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .stage2-readiness-stat strong {
+            color: #0f172a;
+            display: block;
+            margin-top: .16rem;
+        }
+
+        .stage2-generator-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: .65rem;
+            padding: 1rem;
+        }
+
+        .stage2-generator-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            padding: .75rem;
+        }
+
+        .stage2-generator-item.ready {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .stage2-generator-item.unlocked {
+            border-color: #fed7aa;
+            background: #fff7ed;
+        }
+
+        .stage2-generator-item.missing {
+            border-color: #fecaca;
+            background: #fef2f2;
+        }
+
+        .stage2-generator-title {
+            align-items: center;
+            color: #0f172a;
+            display: flex;
+            font-weight: 800;
+            gap: .4rem;
+            justify-content: space-between;
+        }
+
+        .stage2-generator-note {
+            color: #64748b;
+            font-size: .78rem;
+            line-height: 1.35;
+            margin-top: .3rem;
+        }
+
+        .stage2-generator-meta {
+            color: #475569;
+            display: flex;
+            flex-wrap: wrap;
+            font-size: .72rem;
+            gap: .4rem .65rem;
+            margin-top: .55rem;
+        }
+
         .payroll-table-heading {
             align-items: center;
             background: #ffffff;
@@ -1095,6 +1218,7 @@
 
             .payroll-command-grid,
             .payroll-context-strip,
+            .stage2-readiness-stats,
             .wa-slip-overview,
             .payroll-config-overview {
                 grid-template-columns: 1fr;
@@ -1372,6 +1496,45 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="stage2-readiness-panel d-none mb-3" id="stage2GeneratorReadinessPanel">
+                        <div class="stage2-readiness-header">
+                            <div>
+                                <div class="payroll-kicker">Kesiapan Generator Tahap 2</div>
+                                <h6 class="fw-bold mb-1">Data Generator Ready</h6>
+                                <small class="payroll-muted-copy" id="stage2GeneratorReadinessMessage">
+                                    Memeriksa generator yang sudah digenerate dan dikunci.
+                                </small>
+                            </div>
+                            <span class="stage2-readiness-badge blocked" id="stage2GeneratorReadinessBadge">
+                                <i class="mdi mdi-timer-sand"></i>
+                                Memuat
+                            </span>
+                        </div>
+
+                        <div class="stage2-readiness-stats">
+                            <div class="stage2-readiness-stat">
+                                <span>Ready</span>
+                                <strong id="stage2GeneratorReadyCount">0 / 0</strong>
+                            </div>
+                            <div class="stage2-readiness-stat">
+                                <span>Generated</span>
+                                <strong id="stage2GeneratorGeneratedCount">0 data</strong>
+                            </div>
+                            <div class="stage2-readiness-stat">
+                                <span>Terkunci</span>
+                                <strong id="stage2GeneratorLockedCount">0 data</strong>
+                            </div>
+                            <div class="stage2-readiness-stat">
+                                <span>Belum Dikunci</span>
+                                <strong id="stage2GeneratorUnlockedCount">0 data</strong>
+                            </div>
+                        </div>
+
+                        <div class="stage2-generator-grid" id="stage2GeneratorReadinessList">
+                            <div class="stage2-generator-note">Memuat status generator...</div>
                         </div>
                     </div>
 

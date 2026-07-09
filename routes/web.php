@@ -429,6 +429,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/penggajian/generateGajiTahap2', [penggajianController::class, 'generateGajiTahap2'])->name('backOffice.keuangan.penggajian.generateGajiTahap2');
         Route::get('/penggajian/getSummaryGajiTahap1', [penggajianController::class, 'getSummaryGajiTahap1'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap1');
         Route::get('/penggajian/getSummaryGajiTahap2', [penggajianController::class, 'getSummaryGajiTahap2'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap2');
+        Route::get('/penggajian/gajitahap2/generator-readiness', [penggajianController::class, 'getGajiTahap2GeneratorReadiness'])->name('backOffice.keuangan.penggajian.getGajiTahap2GeneratorReadiness');
         Route::get('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'gajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.gajiTahap2DoctorConfig');
         Route::put('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'updateGajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig');
         Route::get('/penggajian/gajitahap2/dokter-umum-options', [penggajianController::class, 'dokterUmumTahap2Options'])->name('backOffice.keuangan.penggajian.dokterUmumTahap2Options');

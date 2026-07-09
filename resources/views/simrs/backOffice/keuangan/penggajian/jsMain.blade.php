@@ -35,6 +35,10 @@
         let stage2DoctorConfigRows = [];
         let stage2DoctorPremiumOptions = [];
         let stage2DoctorConfigLoaded = false;
+        let stage2GeneratorReadiness = {
+            ready: false,
+            message: 'Status generator tahap 2 belum dimuat.'
+        };
 
         // ======= DATA =======
         let tablePenggajianTahap1 = $('#tablePenggajianTahap1').DataTable({
@@ -334,6 +338,7 @@
         function loadPayrollSummaries() {
             loadSummaryTahap1();
             loadSummaryTahap2();
+            loadStage2GeneratorReadiness();
         }
 
         function summaryStatusText(data) {
@@ -364,6 +369,7 @@
                 'Sisa gaji kontrak, premi generator, dan konfigurasi dokter tahap 2' :
                 'Gaji pokok dan tunjangan pegawai periode aktif'
             );
+            $('#stage2GeneratorReadinessPanel').toggleClass('d-none', !isTahap2);
         }
 
         function renderActiveSummary(data, tahap) {
@@ -391,6 +397,133 @@
 
         function escapeHtml(value) {
             return $('<div>').text(value || '').html();
+        }
+
+        function generatorStateMeta(item) {
+            if (item.ready) {
+                return {
+                    className: 'ready',
+                    icon: 'mdi-lock-check-outline',
+                    text: 'Ready'
+                };
+            }
+
+            if (item.state === 'unlocked') {
+                return {
+                    className: 'unlocked',
+                    icon: 'mdi-lock-open-variant-outline',
+                    text: 'Belum Dikunci'
+                };
+            }
+
+            return {
+                className: 'missing',
+                icon: 'mdi-alert-circle-outline',
+                text: 'Belum Ready'
+            };
+        }
+
+        function renderStage2GeneratorReadiness(data) {
+            stage2GeneratorReadiness = data || {
+                ready: false,
+                message: 'Status generator tahap 2 belum tersedia.',
+                items: []
+            };
+
+            const ready = !!stage2GeneratorReadiness.ready;
+            const badge = $('#stage2GeneratorReadinessBadge');
+            const items = stage2GeneratorReadiness.items || [];
+
+            badge
+                .removeClass('ready blocked')
+                .addClass(ready ? 'ready' : 'blocked')
+                .html(
+                    '<i class="mdi ' + (ready ? 'mdi-lock-check-outline' : 'mdi-alert-circle-outline') + '"></i>' +
+                    (ready ? 'Siap Generate' : 'Belum Lengkap')
+                );
+
+            $('#stage2GeneratorReadinessMessage').text(stage2GeneratorReadiness.message || '-');
+            $('#stage2GeneratorReadyCount').text(
+                (stage2GeneratorReadiness.total_ready || 0) + ' / ' +
+                (stage2GeneratorReadiness.total_required || 0)
+            );
+            $('#stage2GeneratorGeneratedCount').text((stage2GeneratorReadiness.total_generated || 0) + ' data');
+            $('#stage2GeneratorLockedCount').text((stage2GeneratorReadiness.total_locked || 0) + ' data');
+            $('#stage2GeneratorUnlockedCount').text((stage2GeneratorReadiness.total_unlocked || 0) + ' data');
+
+            if (items.length === 0) {
+                $('#stage2GeneratorReadinessList').html(
+                    '<div class="stage2-generator-note">Belum ada data generator yang bisa ditampilkan.</div>'
+                );
+                return;
+            }
+
+            $('#stage2GeneratorReadinessList').html(items.map(function(item) {
+                const meta = generatorStateMeta(item);
+
+                return `
+                    <div class="stage2-generator-item ${meta.className}">
+                        <div class="stage2-generator-title">
+                            <span>${escapeHtml(item.label || '-')}</span>
+                            <span class="stage2-readiness-badge ${item.ready ? 'ready' : 'blocked'}">
+                                <i class="mdi ${meta.icon}"></i>${meta.text}
+                            </span>
+                        </div>
+                        <div class="stage2-generator-note">${escapeHtml(item.note || '-')}</div>
+                        <div class="stage2-generator-meta">
+                            <span>${item.generated_count || 0} generated</span>
+                            <span>${item.locked_count || 0} terkunci</span>
+                            <span>${item.unlocked_count || 0} terbuka</span>
+                        </div>
+                    </div>
+                `;
+            }).join(''));
+        }
+
+        function renderStage2GeneratorReadinessLoading() {
+            $('#stage2GeneratorReadinessBadge')
+                .removeClass('ready blocked')
+                .addClass('blocked')
+                .html('<i class="mdi mdi-timer-sand"></i>Memuat');
+            $('#stage2GeneratorReadinessMessage').text('Memeriksa generator yang sudah digenerate dan dikunci.');
+            $('#stage2GeneratorReadinessList').html(
+                '<div class="stage2-generator-note">Memuat status generator...</div>'
+            );
+        }
+
+        function loadStage2GeneratorReadiness() {
+            const periode = $('#periodeGaji').val();
+
+            if (!periode) {
+                renderStage2GeneratorReadiness({
+                    ready: false,
+                    message: 'Periode belum dipilih.',
+                    items: []
+                });
+                return;
+            }
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.getGajiTahap2GeneratorReadiness") }}",
+                type: "GET",
+                data: {
+                    periode: periode
+                },
+                beforeSend: function() {
+                    renderStage2GeneratorReadinessLoading();
+                },
+                success: function(response) {
+                    renderStage2GeneratorReadiness(response.data || {});
+                },
+                error: function(xhr) {
+                    renderStage2GeneratorReadiness({
+                        ready: false,
+                        message: xhr.responseJSON?.message ||
+                            'Gagal memuat status generator tahap 2.',
+                        items: []
+                    });
+                }
+            });
         }
 
         $('#configStage2DoctorSelect').select2({
@@ -810,6 +943,16 @@
                 return;
             }
 
+            if (tahap == '2' && !stage2GeneratorReadiness.ready) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Generator Belum Lengkap',
+                    text: stage2GeneratorReadiness.message ||
+                        'Semua generator tahap 2 wajib digenerate dan dikunci terlebih dahulu.'
+                });
+                return;
+            }
+
             Swal.fire({
                 title: 'Generate gaji tahap ' + tahap + '?',
                 text: 'Data gaji pada periode ini akan dibuat atau diperbarui.',
@@ -849,7 +992,12 @@
                     error: function(xhr) {
                         let message = 'Gagal generate gaji tahap ' + tahap + '.';
 
-                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                        if (xhr.responseJSON?.errors) {
+                            const errors = Object.values(xhr.responseJSON.errors);
+                            if (errors.length && errors[0].length) {
+                                message = errors[0][0];
+                            }
+                        } else if (xhr.responseJSON && xhr.responseJSON.message) {
                             message = xhr.responseJSON.message;
                         }
 

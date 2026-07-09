@@ -54,6 +54,18 @@ class penggajianController extends Controller
         ]);
     }
 
+    public function getGajiTahap2GeneratorReadiness(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->penggajianService->getGajiTahap2GeneratorReadiness($validated['periode']),
+        ]);
+    }
+
     public function getGajiTahap1Table(Request $request)
     {
         $periode = $request->input('periode');

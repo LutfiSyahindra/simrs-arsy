@@ -73,6 +73,11 @@ class penggajianService
         ];
     }
 
+    public function getGajiTahap2GeneratorReadiness(string $periode): array
+    {
+        return $this->penggajianRepository->getGajiTahap2GeneratorReadiness($periode);
+    }
+
     public function generateGajiTahap1(string $periode)
     {
         return DB::transaction(function () use ($periode) {
@@ -156,6 +161,8 @@ class penggajianService
 
     public function generateGajiTahap2(string $periode)
     {
+        $this->ensureGajiTahap2GeneratorsReady($periode);
+
         return DB::transaction(function () use ($periode) {
             $stage2DoctorConfig = $this->penggajianRepository
                 ->getGajiTahap2DoctorConfigs()
@@ -321,6 +328,19 @@ class penggajianService
                 ];
             })
             ->values();
+    }
+
+    private function ensureGajiTahap2GeneratorsReady(string $periode): void
+    {
+        $readiness = $this->getGajiTahap2GeneratorReadiness($periode);
+
+        if ($readiness['ready'] ?? false) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'periode' => [$readiness['message'] ?? 'Data generator tahap 2 belum lengkap.'],
+        ]);
     }
 
     public function kirimSlipGajiWhatsappTahap1(string $periode, array $gajiIds)
