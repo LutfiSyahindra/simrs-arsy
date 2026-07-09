@@ -737,7 +737,8 @@ class generatePremiDokterService
 
         if ($jenisPremiDokter === generatePremiDokterRepository::TYPE_KEBERSAMAAN) {
             return (float) $calculation['total_grand'] > 0
-                && (int) $calculation['jumlah_dokter'] === (int) $calculation['kebersamaan_divider'];
+                && (int) $calculation['jumlah_dokter'] > 0
+                && (float) $calculation['total_premi'] > 0;
         }
 
         if ($jenisPelayanan === 'bpjs' && (int) $calculation['visite_bpjs_nominal'] <= 0) {
@@ -911,11 +912,6 @@ class generatePremiDokterService
 
             if ((int) $calculation['jumlah_dokter'] <= 0) {
                 return 'Pilih dokter penerima Kebersamaan pada konfigurasi.';
-            }
-
-            if ((int) $calculation['jumlah_dokter'] !== (int) $calculation['kebersamaan_divider']) {
-                return 'Jumlah dokter Kebersamaan harus sama dengan pembagi: '
-                    .(int) $calculation['kebersamaan_divider'].' dokter.';
             }
 
             if ((float) $calculation['total_grand'] <= 0) {
@@ -1147,11 +1143,11 @@ class generatePremiDokterService
                 ],
                 [
                     'label' => 'Dokter penerima',
-                    'status' => (int) $calculation['jumlah_dokter'] === (int) $calculation['kebersamaan_divider']
+                    'status' => (int) $calculation['jumlah_dokter'] > 0
                         ? 'success'
-                        : 'warning',
-                    'value' => (int) $calculation['jumlah_dokter'].' / '
-                        .(int) $calculation['kebersamaan_divider'].' dokter',
+                        : 'danger',
+                    'value' => (int) $calculation['jumlah_dokter'].' penerima / pembagi '
+                        .(int) $calculation['kebersamaan_divider'],
                 ],
                 [
                     'label' => 'Pembagian',
