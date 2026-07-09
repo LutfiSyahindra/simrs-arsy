@@ -16,18 +16,25 @@
             todayHighlight: true,
             orientation: 'bottom auto'
         }).on('changeDate', function() {
-            if ($('#tahapGaji').val() == '1') {
-                tablePenggajianTahap1.ajax.reload();
-                loadSummaryTahap1();
-            }
+            syncPayrollContext();
+            reloadActivePayrollTable();
+            loadPayrollSummaries();
         });
 
         $('#searchPenggajian').on('keyup', function() {
+            if ($('#tahapGaji').val() == '2') {
+                tablePenggajianTahap2.search(this.value).draw();
+                return;
+            }
+
             tablePenggajianTahap1.search(this.value).draw();
         });
         // ======= END KONFIGURASI AJAX =======
 
         let slipWhatsappRecipients = [];
+        let stage2DoctorConfigRows = [];
+        let stage2DoctorPremiumOptions = [];
+        let stage2DoctorConfigLoaded = false;
 
         // ======= DATA =======
         let tablePenggajianTahap1 = $('#tablePenggajianTahap1').DataTable({
@@ -98,17 +105,164 @@
                 {
                     data: 'gapok',
                     name: 'gapok',
-                    className: 'text-end currency-cell'
+                    className: 'text-end currency-cell',
+                    render: function(data, type, row) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+
+                        return `
+                            <span class="fw-semibold">${escapeHtml(data || 'Rp 0')}</span>
+                            <span class="employee-subtext">${escapeHtml(row.komponen_gaji_label || 'Gaji Pokok')}</span>
+                        `;
+                    }
                 },
                 {
                     data: 'gaji_dibayarkan',
                     name: 'gaji_dibayarkan',
-                    className: 'text-end currency-cell'
+                    className: 'text-end currency-cell',
+                    render: function(data, type, row) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+
+                        return `
+                            <span class="fw-semibold">${escapeHtml(data || 'Rp 0')}</span>
+                            <span class="employee-subtext">${escapeHtml(row.komponen_gaji_dibayar_label || 'Gaji Dibayarkan')}</span>
+                        `;
+                    }
                 },
                 {
                     data: 'tunjangan',
                     name: 'tunjangan',
                     className: 'text-end currency-cell'
+                },
+                {
+                    data: 'total',
+                    name: 'total',
+                    className: 'text-end currency-cell',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'actions',
+                    name: 'actions',
+                    className: 'text-center',
+                    orderable: false,
+                    searchable: false
+                }
+            ]
+        });
+
+        let tablePenggajianTahap2 = $('#tablePenggajianTahap2').DataTable({
+            processing: true,
+            serverSide: true,
+            responsive: false,
+            pageLength: 10,
+            lengthMenu: [10, 25, 50, 100],
+            dom: "<'row g-2 align-items-center mb-2'<'col-12 col-md-6'l><'col-12 col-md-6 text-md-end'i>>" +
+                "rt" +
+                "<'row g-2 align-items-center mt-3'<'col-12 col-md-6'i><'col-12 col-md-6 d-flex justify-content-md-end'p>>",
+            language: {
+                lengthMenu: 'Tampilkan _MENU_ data',
+                info: 'Menampilkan _START_ - _END_ dari _TOTAL_ data',
+                infoEmpty: 'Belum ada data',
+                zeroRecords: 'Data gaji tahap 2 belum tersedia',
+                processing: 'Memuat data...',
+                paginate: {
+                    previous: '<i class="mdi mdi-chevron-left"></i>',
+                    next: '<i class="mdi mdi-chevron-right"></i>'
+                }
+            },
+            ajax: {
+                url: "{{ route("backOffice.keuangan.penggajian.getGajiTahap2Table") }}",
+                type: "GET",
+                data: function(d) {
+                    d.periode = $('#periodeGaji').val();
+                    d.search_penggajian = $('#searchPenggajian').val();
+                }
+            },
+            columns: [{
+                    data: 'DT_RowIndex',
+                    name: 'DT_RowIndex',
+                    orderable: false,
+                    searchable: false,
+                    className: 'text-center'
+                },
+                {
+                    data: 'nama_pegawai',
+                    name: 'nama_pegawai',
+                    render: function(data, type, row) {
+                        return `
+                            <span class="employee-name">${escapeHtml(data || '-')}</span>
+                            <span class="employee-subtext">${escapeHtml(row.nik || '')}</span>
+                        `;
+                    }
+                },
+                {
+                    data: 'jabatan',
+                    name: 'jabatan'
+                },
+                {
+                    data: 'status',
+                    name: 'status',
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        if (data === 'T') {
+                            return '<span class="payroll-status-badge is-tetap">Tetap</span>';
+                        }
+
+                        if (data === 'FT') {
+                            return '<span class="payroll-status-badge is-kontrak">Kontrak</span>';
+                        }
+
+                        return '<span class="payroll-status-badge is-unknown">' + escapeHtml(row
+                            .status_label || '-') + '</span>';
+                    }
+                },
+                {
+                    data: 'gaji_pokok',
+                    name: 'gaji_pokok',
+                    className: 'text-end currency-cell',
+                    render: function(data, type, row) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+
+                        return `
+                            <span class="fw-semibold">${escapeHtml(data || 'Rp 0')}</span>
+                            <span class="employee-subtext">${escapeHtml(row.komponen_gaji_label || 'Gaji Pokok')}</span>
+                        `;
+                    }
+                },
+                {
+                    data: 'gaji_dibayarkan',
+                    name: 'gaji_dibayarkan',
+                    className: 'text-end currency-cell',
+                    render: function(data, type, row) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+
+                        return `
+                            <span class="fw-semibold">${escapeHtml(data || 'Rp 0')}</span>
+                            <span class="employee-subtext">${escapeHtml(row.komponen_gaji_dibayar_label || 'Komponen Gaji')}</span>
+                        `;
+                    }
+                },
+                {
+                    data: 'total_premi',
+                    name: 'total_premi',
+                    className: 'text-end currency-cell'
+                },
+                {
+                    data: 'jumlah_sumber_premi',
+                    name: 'jumlah_sumber_premi',
+                    className: 'text-center',
+                    render: function(data) {
+                        return '<span class="badge bg-primary-subtle text-primary">' + (data || 0) +
+                            '</span>';
+                    }
                 },
                 {
                     data: 'total',
@@ -139,23 +293,386 @@
                 success: function(response) {
                     const data = response.data || {};
 
-                    $('#summaryPegawai').text(data.jumlah_pegawai || 0);
-                    $('#summaryStatusPegawai').text(
-                        (data.jumlah_tetap || 0) + ' tetap / ' +
-                        (data.jumlah_kontrak || 0) + ' kontrak'
-                    );
+                    $('#summaryTahap1Pegawai').text(data.jumlah_pegawai || 0);
+                    $('#summaryTahap1Status').text(summaryStatusText(data));
+                    $('#summaryTahap1Total').text(formatRupiah(data.total_gaji || 0));
+                    $('#summaryTahap1Gapok').text(formatRupiah(data.total_gapok || 0));
+                    $('#summaryTahap1Tunjangan').text(formatRupiah(data.total_tunjangan || 0));
 
-                    $('#summaryTotalGaji').text(formatRupiah(data.total_gaji || 0));
-                    $('#summaryGapok').text(formatRupiah(data.total_gapok || 0));
-                    $('#summaryTunjangan').text(formatRupiah(data.total_tunjangan || 0));
-                    $('#summaryPeriode').text(data.periode || '-');
+                    if ($('#tahapGaji').val() == '1') {
+                        renderActiveSummary(data, '1');
+                    }
                 }
             });
+        }
+
+        function loadSummaryTahap2() {
+            const periode = $('#periodeGaji').val();
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.getSummaryGajiTahap2") }}",
+                type: "GET",
+                data: {
+                    periode: periode
+                },
+                success: function(response) {
+                    const data = response.data || {};
+
+                    $('#summaryTahap2Pegawai').text(data.jumlah_pegawai || 0);
+                    $('#summaryTahap2Status').text(summaryStatusText(data));
+                    $('#summaryTahap2Total').text(formatRupiah(data.total_gaji || 0));
+                    $('#summaryTahap2Gapok').text(formatRupiah(data.total_gapok || 0));
+                    $('#summaryTahap2Premi').text(formatRupiah(data.total_premi || 0));
+
+                    if ($('#tahapGaji').val() == '2') {
+                        renderActiveSummary(data, '2');
+                    }
+                }
+            });
+        }
+
+        function loadPayrollSummaries() {
+            loadSummaryTahap1();
+            loadSummaryTahap2();
+        }
+
+        function summaryStatusText(data) {
+            let text = (data.jumlah_tetap || 0) + ' tetap / ' +
+                (data.jumlah_kontrak || 0) + ' kontrak';
+
+            if ((data.jumlah_lainnya || 0) > 0) {
+                text += ' / ' + data.jumlah_lainnya + ' lainnya';
+            }
+
+            return text;
+        }
+
+        function syncPayrollContext(tahap = $('#tahapGaji').val()) {
+            const periode = $('#periodeGaji').val() || '-';
+            const isTahap2 = tahap == '2';
+            const stageLabel = 'Tahap ' + (isTahap2 ? '2' : '1');
+            const description = isTahap2 ?
+                'Premi generator dan komponen terpilih' :
+                'Gaji pokok dan tunjangan';
+
+            $('#commandPeriodeText').text(periode);
+            $('#activePeriodeBadge').text(periode);
+            $('#activeStageBadge').text(stageLabel);
+            $('#activeStageDescription').text(description);
+            $('#tableStageTitle').text('Hasil Generate ' + stageLabel);
+            $('#tableStageSubtitle').text(isTahap2 ?
+                'Sisa gaji kontrak, premi generator, dan konfigurasi dokter tahap 2' :
+                'Gaji pokok dan tunjangan pegawai periode aktif'
+            );
+        }
+
+        function renderActiveSummary(data, tahap) {
+            syncPayrollContext(tahap);
+            $('#summaryPegawai').text(data.jumlah_pegawai || 0);
+            $('#summaryStatusPegawai').text(summaryStatusText(data));
+            $('#summaryTotalGaji').text(formatRupiah(data.total_gaji || 0));
+            $('#summaryGapok').text(formatRupiah(data.total_gapok || 0));
+            $('#summaryTunjangan').text(formatRupiah(
+                tahap == '2' ? (data.total_premi || 0) : (data.total_tunjangan || 0)
+            ));
+            $('#summaryExtraLabel').text(tahap == '2' ? 'Premi' : 'Tunjangan');
+            $('#summaryExtraNote').text(tahap == '2' ? 'Dari generator premi' : 'Masuk komponen gaji');
+            $('#summaryPeriode').text((data.periode || '-') + ' / Tahap ' + tahap);
+        }
+
+        function reloadActivePayrollTable() {
+            if ($('#tahapGaji').val() == '2') {
+                tablePenggajianTahap2.ajax.reload(null, false);
+                return;
+            }
+
+            tablePenggajianTahap1.ajax.reload(null, false);
         }
 
         function escapeHtml(value) {
             return $('<div>').text(value || '').html();
         }
+
+        $('#configStage2DoctorSelect').select2({
+            dropdownParent: $('#modalGajiTahap2DoctorConfig'),
+            width: '100%',
+            placeholder: 'Pilih dokter...',
+            allowClear: true,
+            ajax: {
+                url: "{{ route("backOffice.keuangan.penggajian.dokterUmumTahap2Options") }}",
+                type: "GET",
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        q: params.term || ''
+                    };
+                },
+                processResults: function(response) {
+                    return {
+                        results: response.data || []
+                    };
+                }
+            }
+        });
+
+        function normalizeStage2DoctorConfigRow(row) {
+            return {
+                kd_dokter: row.kd_dokter || row.id || '',
+                nm_dokter: row.nm_dokter || '',
+                kd_sps: row.kd_sps || null,
+                nm_sps: row.nm_sps || null,
+                include_salary: !!row.include_salary,
+                premium_types: Array.isArray(row.premium_types) ? row.premium_types : []
+            };
+        }
+
+        function stage2DoctorComponentCount(row) {
+            return (row.include_salary ? 1 : 0) + ((row.premium_types || []).length);
+        }
+
+        function updateStage2DoctorConfigMeta() {
+            $('#stage2DoctorConfigCount').text(stage2DoctorConfigRows.length + ' dokter');
+            $('#stage2DoctorPremiumCount').text(stage2DoctorPremiumOptions.length + ' opsi');
+
+            stage2DoctorConfigRows.forEach(function(row, index) {
+                $('.payroll-config-selected-count[data-index="' + index + '"]')
+                    .text(stage2DoctorComponentCount(row) + ' komponen');
+            });
+        }
+
+        function renderStage2DoctorConfigRows() {
+            const wrap = $('#stage2DoctorConfigRows');
+            wrap.empty();
+
+            $('#stage2DoctorConfigEmpty').toggleClass('d-none', stage2DoctorConfigRows.length > 0);
+            updateStage2DoctorConfigMeta();
+
+            stage2DoctorConfigRows.forEach(function(row, index) {
+                const premiumCheckboxes = stage2DoctorPremiumOptions.length > 0 ?
+                    stage2DoctorPremiumOptions.map(function(option) {
+                        const checked = (row.premium_types || []).indexOf(option.id) !== -1 ?
+                            'checked' : '';
+
+                        return `
+                            <label class="form-check mb-0">
+                                <input class="form-check-input stage2-doctor-premium" type="checkbox"
+                                    data-index="${index}" value="${escapeHtml(option.id)}" ${checked}>
+                                <span class="form-check-label">${escapeHtml(option.label)}</span>
+                            </label>
+                        `;
+                    }).join('') :
+                    '<div class="payroll-config-empty-mini">Opsi premi belum tersedia.</div>';
+
+                wrap.append(`
+                    <div class="payroll-config-row" data-index="${index}">
+                        <div class="payroll-config-row-header">
+                            <div>
+                                <span class="employee-name">${escapeHtml(row.nm_dokter || '-')}</span>
+                                <span class="employee-subtext">${escapeHtml(row.kd_dokter || '')} / ${escapeHtml(row.nm_sps || 'Umum')}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="payroll-config-count payroll-config-selected-count" data-index="${index}">
+                                    ${stage2DoctorComponentCount(row)} komponen
+                                </span>
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-stage2-doctor"
+                                    data-index="${index}" title="Hapus">
+                                    <i class="mdi mdi-trash-can-outline"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="payroll-config-components">
+                            <label class="form-check mb-0">
+                                <input class="form-check-input stage2-doctor-salary" type="checkbox"
+                                    data-index="${index}" ${row.include_salary ? 'checked' : ''}>
+                                <span class="form-check-label">STR/Gaji Pokok</span>
+                            </label>
+                            ${premiumCheckboxes}
+                        </div>
+                    </div>
+                `);
+            });
+
+            updateStage2DoctorConfigMeta();
+        }
+
+        function loadStage2DoctorConfig(force = false) {
+            if (stage2DoctorConfigLoaded && !force) {
+                renderStage2DoctorConfigRows();
+                return;
+            }
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.gajiTahap2DoctorConfig") }}",
+                type: "GET",
+                beforeSend: function() {
+                    $('#stage2DoctorConfigLoading').removeClass('d-none');
+                    $('#stage2DoctorConfigRows').addClass('d-none');
+                    $('#stage2DoctorConfigEmpty').addClass('d-none');
+                },
+                success: function(response) {
+                    const data = response.data || {};
+
+                    stage2DoctorPremiumOptions = data.premium_type_options || [];
+                    stage2DoctorConfigRows = (data.rows || []).map(normalizeStage2DoctorConfigRow);
+                    stage2DoctorConfigLoaded = true;
+                    renderStage2DoctorConfigRows();
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: xhr.responseJSON?.message ||
+                            'Gagal memuat konfigurasi dokter tahap 2.'
+                    });
+                },
+                complete: function() {
+                    $('#stage2DoctorConfigLoading').addClass('d-none');
+                    $('#stage2DoctorConfigRows').removeClass('d-none');
+                }
+            });
+        }
+
+        $('#btnOpenStage2DoctorConfig').on('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('modalGajiTahap2DoctorConfig'));
+            modal.show();
+            loadStage2DoctorConfig();
+        });
+
+        $('#btnAddStage2DoctorConfig').on('click', function() {
+            const selected = $('#configStage2DoctorSelect').select2('data')[0];
+
+            if (!selected) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Dokter belum dipilih',
+                    text: 'Pilih dokter terlebih dahulu.'
+                });
+                return;
+            }
+
+            if (stage2DoctorConfigRows.some(function(row) {
+                    return row.kd_dokter === selected.kd_dokter;
+                })) {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sudah Ada',
+                    text: 'Dokter ini sudah masuk konfigurasi tahap 2.'
+                });
+                return;
+            }
+
+            stage2DoctorConfigRows.push({
+                kd_dokter: selected.kd_dokter,
+                nm_dokter: selected.nm_dokter,
+                kd_sps: selected.kd_sps || null,
+                nm_sps: selected.nm_sps || null,
+                include_salary: false,
+                premium_types: stage2DoctorPremiumOptions.map(function(option) {
+                    return option.id;
+                })
+            });
+
+            $('#configStage2DoctorSelect').val(null).trigger('change');
+            renderStage2DoctorConfigRows();
+        });
+
+        $(document).on('change', '.stage2-doctor-salary', function() {
+            const index = Number($(this).data('index'));
+
+            if (stage2DoctorConfigRows[index]) {
+                stage2DoctorConfigRows[index].include_salary = $(this).is(':checked');
+                updateStage2DoctorConfigMeta();
+            }
+        });
+
+        $(document).on('change', '.stage2-doctor-premium', function() {
+            const index = Number($(this).data('index'));
+
+            if (!stage2DoctorConfigRows[index]) {
+                return;
+            }
+
+            stage2DoctorConfigRows[index].premium_types = $('.stage2-doctor-premium[data-index="' + index + '"]:checked')
+                .map(function() {
+                    return $(this).val();
+                })
+                .get();
+            updateStage2DoctorConfigMeta();
+        });
+
+        $(document).on('click', '.btn-remove-stage2-doctor', function() {
+            const index = Number($(this).data('index'));
+            stage2DoctorConfigRows.splice(index, 1);
+            renderStage2DoctorConfigRows();
+        });
+
+        $('#btnSaveStage2DoctorConfig').on('click', function() {
+            const invalidRow = stage2DoctorConfigRows.find(function(row) {
+                return !row.include_salary && (!row.premium_types || row.premium_types.length === 0);
+            });
+
+            if (invalidRow) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Komponen belum dipilih',
+                    text: 'Setiap dokter wajib memiliki minimal satu komponen.'
+                });
+                return;
+            }
+
+            const btn = $(this);
+            const btnHtml = btn.html();
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig") }}",
+                type: "PUT",
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    rows: stage2DoctorConfigRows
+                }),
+                beforeSend: function() {
+                    btn.prop('disabled', true).html(
+                        '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
+                    );
+                },
+                success: function(response) {
+                    const data = response.data || {};
+                    stage2DoctorPremiumOptions = data.premium_type_options || stage2DoctorPremiumOptions;
+                    stage2DoctorConfigRows = (data.rows || []).map(normalizeStage2DoctorConfigRow);
+                    stage2DoctorConfigLoaded = true;
+                    renderStage2DoctorConfigRows();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: response.message || 'Konfigurasi berhasil disimpan.',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                },
+                error: function(xhr) {
+                    let message = xhr.responseJSON?.message || 'Gagal menyimpan konfigurasi.';
+
+                    if (xhr.responseJSON?.errors) {
+                        const errors = Object.values(xhr.responseJSON.errors);
+                        if (errors.length && errors[0].length) {
+                            message = errors[0][0];
+                        }
+                    }
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: message
+                    });
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html(btnHtml);
+                }
+            });
+        });
 
         function setSlipWhatsappLoading(isLoading) {
             $('#waSlipLoading').toggleClass('d-none', !isLoading);
@@ -167,6 +684,7 @@
             const total = $('.wa-slip-checkbox').length;
             const selected = $('.wa-slip-checkbox:checked').length;
 
+            $('#waSlipRecipientCount').text(total + ' penerima');
             $('#waSlipSelectedCount').text(selected + ' dipilih');
             $('#btnSendSlipWhatsapp').prop('disabled', selected === 0 || total === 0);
 
@@ -239,6 +757,7 @@
             const periode = $('#periodeGaji').val();
 
             $('#waSlipPeriode').text(periode || '-');
+            $('#waSlipRecipientCount').text('0 penerima');
             $('#searchSlipWhatsappPegawai').val('');
             $('#checkAllSlipWhatsapp').prop('checked', false).prop('indeterminate', false);
             $('#btnSendSlipWhatsapp').prop('disabled', true);
@@ -278,15 +797,9 @@
             const tahap = $('#tahapGaji').val();
             const btn = $(this);
             const btnHtml = btn.html();
-
-            if (tahap != '1') {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Coming Soon',
-                    text: 'Generate gaji tahap 2 belum tersedia.'
-                });
-                return;
-            }
+            const generateUrl = tahap == '2' ?
+                "{{ route("backOffice.keuangan.penggajian.generateGajiTahap2") }}" :
+                "{{ route("backOffice.keuangan.penggajian.generateGajiTahap1") }}";
 
             if (!periode) {
                 Swal.fire({
@@ -298,7 +811,7 @@
             }
 
             Swal.fire({
-                title: 'Generate gaji tahap 1?',
+                title: 'Generate gaji tahap ' + tahap + '?',
                 text: 'Data gaji pada periode ini akan dibuat atau diperbarui.',
                 icon: 'question',
                 showCancelButton: true,
@@ -310,7 +823,7 @@
                 }
 
                 $.ajax({
-                    url: "{{ route("backOffice.keuangan.penggajian.generateGajiTahap1") }}",
+                    url: generateUrl,
                     type: "POST",
                     data: {
                         periode: periode
@@ -325,29 +838,16 @@
                             icon: 'success',
                             title: 'Berhasil',
                             text: response.message ||
-                                'Gaji tahap 1 berhasil digenerate.',
+                                'Gaji tahap ' + tahap + ' berhasil digenerate.',
                             timer: 1600,
                             showConfirmButton: false
                         });
 
-                        tablePenggajianTahap1.ajax.reload(null, false);
-                        loadSummaryTahap1();
-
-                        if (response.data) {
-                            $('#summaryPegawai').text(response.data
-                                .jumlah_pegawai || 0);
-                            $('#summaryStatusPegawai').text(
-                                (response.data.jumlah_tetap || 0) +
-                                ' tetap / ' +
-                                (response.data.jumlah_kontrak || 0) + ' kontrak'
-                            );
-                            $('#summaryTotalGaji').text(formatRupiah(response.data
-                                .total_gaji || 0));
-                            $('#summaryPeriode').text(periode);
-                        }
+                        reloadActivePayrollTable();
+                        loadPayrollSummaries();
                     },
                     error: function(xhr) {
-                        let message = 'Gagal generate gaji tahap 1.';
+                        let message = 'Gagal generate gaji tahap ' + tahap + '.';
 
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             message = xhr.responseJSON.message;
@@ -366,10 +866,10 @@
             });
         });
 
-        function renderTunjanganDetail(items) {
+        function renderTunjanganDetail(items, emptyText = 'Tidak ada tunjangan') {
             if (!items || items.length === 0) {
                 $('#slipTunjanganDetail').html(
-                    '<div class="slip-empty-row">Tidak ada tunjangan</div>'
+                    '<div class="slip-empty-row">' + escapeHtml(emptyText) + '</div>'
                 );
                 return;
             }
@@ -379,7 +879,7 @@
             items.forEach(function(item) {
                 html += `
                     <div class="slip-detail-row">
-                        <span>${item.nama || 'Tunjangan'}</span>
+                        <span>${escapeHtml(item.nama || 'Tunjangan')}</span>
                         <strong>${formatRupiah(item.nominal || 0)}</strong>
                     </div>
                 `;
@@ -397,15 +897,21 @@
                 success: function(response) {
                     const data = response.data || {};
 
+                    $('#modalSlipGajiTahap1Label').text('Detail Gaji Tahap 1');
                     $('#slipPeriode').text(data.periode || '-');
                     $('#slipNik').text(data.nik || '-');
                     $('#slipNama').text(data.nama || '-');
                     $('#slipJabatan').text(data.jabatan || '-');
 
+                    $('#slipGajiPokokLabel').text(data.komponen_gaji_label || 'Gaji Pokok');
+                    $('#slipGajiDibayarLabel').text(data.komponen_gaji_dibayar_label ||
+                        'Gaji Dibayarkan');
                     $('#slipGajiPokok').text(formatRupiah(data.gaji_pokok));
                     $('#slipGajiDibayar').text(formatRupiah(data.gaji_dibayar));
                     $('#slipTunjangan').text(formatRupiah(data.tunjangan));
                     $('#slipTotal').text(formatRupiah(data.total));
+                    $('#slipDetailListTitle').text('Rincian Tunjangan');
+                    $('#slipTotalTunjanganLabel').text('Total Tunjangan');
 
                     $('#slipStatus')
                         .removeClass('is-tetap is-kontrak is-unknown')
@@ -428,6 +934,52 @@
                 }
             });
         }
+
+        window.detailGajiTahap2 = function(id) {
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.penggajian.detailGajiTahap2", ":id") }}"
+                    .replace(':id', id),
+                type: "GET",
+                success: function(response) {
+                    const data = response.data || {};
+
+                    $('#modalSlipGajiTahap1Label').text('Detail Gaji Tahap 2');
+                    $('#slipPeriode').text(data.periode || '-');
+                    $('#slipNik').text(data.nik || '-');
+                    $('#slipNama').text(data.nama || '-');
+                    $('#slipJabatan').text(data.jabatan || '-');
+
+                    $('#slipGajiPokokLabel').text(data.komponen_gaji_label || 'Gaji Pokok');
+                    $('#slipGajiDibayarLabel').text(data.komponen_gaji_dibayar_label ||
+                        'Gaji Dibayarkan');
+                    $('#slipGajiPokok').text(formatRupiah(data.gaji_pokok));
+                    $('#slipGajiDibayar').text(formatRupiah(data.gaji_dibayar));
+                    $('#slipTunjangan').text(formatRupiah(data.total_premi));
+                    $('#slipTotal').text(formatRupiah(data.total));
+                    $('#slipDetailListTitle').text('Rincian Premi Generator');
+                    $('#slipTotalTunjanganLabel').text('Total Premi');
+
+                    $('#slipStatus')
+                        .removeClass('is-tetap is-kontrak is-unknown')
+                        .addClass(data.status === 'T' ? 'is-tetap' : data.status === 'FT' ?
+                            'is-kontrak' : 'is-unknown')
+                        .text(data.status_label || '-');
+                    renderTunjanganDetail(data.premi_detail || [], 'Tidak ada premi generator');
+
+                    const modal = new bootstrap.Modal(document.getElementById(
+                        'modalSlipGajiTahap1'));
+                    modal.show();
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: xhr.responseJSON?.message ||
+                            'Gagal mengambil detail gaji tahap 2.'
+                    });
+                }
+            });
+        }
         // ======= END DATA =======
 
         // ======= EVENT =======
@@ -436,10 +988,25 @@
         }
 
         $('#btnRefreshPenggajian').on('click', function() {
-            if ($('#tahapGaji').val() == '1') {
-                tablePenggajianTahap1.ajax.reload(null, false);
-                loadSummaryTahap1();
+            reloadActivePayrollTable();
+            loadPayrollSummaries();
+        });
+
+        $('#btnExportGajiTahap2').on('click', function() {
+            const periode = $('#periodeGaji').val();
+
+            if (!periode) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Periode belum dipilih',
+                    text: 'Silakan pilih bulan periode gaji terlebih dahulu.'
+                });
+                return;
             }
+
+            window.location.href =
+                "{{ route("backOffice.keuangan.penggajian.exportGajiTahap2Excel") }}" +
+                '?periode=' + encodeURIComponent(periode);
         });
 
         $('#btnOpenSlipWhatsapp').on('click', function() {
@@ -564,7 +1131,14 @@
             });
         });
 
-        loadSummaryTahap1();
+        $('#tahapGaji').on('change', function() {
+            syncPayrollContext();
+            reloadActivePayrollTable();
+            loadPayrollSummaries();
+        });
+
+        syncPayrollContext();
+        loadPayrollSummaries();
         // ======= END EVENT =======
 
     });

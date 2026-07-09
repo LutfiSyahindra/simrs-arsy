@@ -15,6 +15,14 @@
             allowClear: true
         });
 
+        function escapeHtml(value) {
+            return $('<div>').text(value || '').html();
+        }
+
+        function setKomponenGajiLabel(label) {
+            $('#gapokComponentLabel').text(label || 'Gaji Pokok');
+        }
+
         let gapokTable = $('#tableGapok').DataTable({
             processing: true,
             serverSide: true,
@@ -74,7 +82,17 @@
                 },
                 {
                     data: 'gaji_pokok',
-                    name: 'gaji_pokok'
+                    name: 'gaji_pokok',
+                    render: function(data, type, row) {
+                        if (type !== 'display') {
+                            return data;
+                        }
+
+                        return `
+                            <span class="fw-semibold">${escapeHtml(data || '0')}</span>
+                            <small class="text-muted d-block">${escapeHtml(row.komponen_gaji_label || 'Gaji Pokok')}</small>
+                        `;
+                    }
                 },
                 {
                     data: 'no_telp',
@@ -95,6 +113,7 @@
             let status = row.status ?? '-';
             let mulai = row.mulaiKontrak ?? '-';
             let masa = row.masaKerja ?? '-';
+            let komponenGaji = row.komponen_gaji_label ?? 'Gaji Pokok';
 
             return `
                 <div class="card border-0 shadow-sm mt-2">
@@ -131,6 +150,11 @@
                             <div class="col-md-3">
                                 <small class="text-muted d-block">Masa Kerja</small>
                                 <div class="fw-semibold mt-1">${masa}</div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <small class="text-muted d-block">Komponen Gaji</small>
+                                <div class="fw-semibold mt-1">${komponenGaji}</div>
                             </div>
 
                         </div>
@@ -233,7 +257,10 @@
 
             let nik = $(this).val();
             $('#nik').val(nik);
-            if (!nik) return;
+            if (!nik) {
+                setKomponenGajiLabel('Gaji Pokok');
+                return;
+            }
 
             $.get(`/simrs/masterData/keuangan/gapok/getPegawaiByNik/${nik}`, function(res) {
                 console.log(res);
@@ -241,6 +268,7 @@
                 // isi data
                 $('input[name="nama"]').val(res.data.nama);
                 $('input[name="jbtn"]').val(res.data.jbtn);
+                setKomponenGajiLabel(res.data.komponen_gaji_label);
 
                 $('select[name="stts_kerja"]').val(res.data.stts_kerja);
                 // kirim ke backend lewat hidden
@@ -274,7 +302,7 @@
 
             Swal.fire({
                 title: gapokId ?
-                    'Perbarui data gaji pokok?' : 'Simpan data gaji pokok?',
+                    'Perbarui data komponen gaji?' : 'Simpan data komponen gaji?',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, simpan',
@@ -391,7 +419,7 @@
                     // 🔥 TITLE
                     $('#gapokModalLabel').html(`
                 <i class="mdi mdi-pencil text-warning me-1"></i>
-                Edit Gaji Pokok
+                Edit Komponen Gaji
             `);
 
                     $('#submitForm').html(`
@@ -440,6 +468,7 @@
                     $('input[name="masa_kerja"]').val(masaKerja);
 
                     $('input[name="gaji_pokok"]').val(data.gaji_pokok);
+                    setKomponenGajiLabel(data.komponen_gaji_label);
 
                 },
 
@@ -796,13 +825,14 @@
             $('input[name="masa_kerja"]').val('');
 
             $('input[name="gaji_pokok"]').val('');
+            setKomponenGajiLabel('Gaji Pokok');
 
             // =========================
             // 🔥 RESET TITLE & BUTTON
             // =========================
             $('#gapokModalLabel').html(`
                     <i class="mdi mdi-cash-multiple text-primary me-1"></i>
-                    Form Gaji Pokok
+                    Form Komponen Gaji
                 `);
 
             $('#submitForm').html(`

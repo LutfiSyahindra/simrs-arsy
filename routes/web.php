@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiApotekController;
+use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBersamaController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBhpController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiCasemixController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiController;
@@ -12,7 +13,6 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiGiziController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiIcuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiKamarController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiLaboratoriumController;
-use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiBersamaController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiNicuController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiOperasiController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiPelayananNonMedisController;
@@ -423,13 +423,21 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/penggajian', [penggajianController::class, 'index'])->name('backOffice.keuangan.penggajian');
         Route::get('/penggajian/getGajiTahap1Table', [penggajianController::class, 'getGajiTahap1Table'])->name('backOffice.keuangan.penggajian.getGajiTahap1Table');
+        Route::get('/penggajian/getGajiTahap2Table', [penggajianController::class, 'getGajiTahap2Table'])->name('backOffice.keuangan.penggajian.getGajiTahap2Table');
         Route::get('/penggajian/getPenggajianDetail', [penggajianController::class, 'getPenggajianDetail'])->name('backOffice.keuangan.penggajian.getPenggajianDetail');
         Route::post('/penggajian/generateGajiTahap1', [penggajianController::class, 'generateGajiTahap1'])->name('backOffice.keuangan.penggajian.generateGajiTahap1');
+        Route::post('/penggajian/generateGajiTahap2', [penggajianController::class, 'generateGajiTahap2'])->name('backOffice.keuangan.penggajian.generateGajiTahap2');
         Route::get('/penggajian/getSummaryGajiTahap1', [penggajianController::class, 'getSummaryGajiTahap1'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap1');
+        Route::get('/penggajian/getSummaryGajiTahap2', [penggajianController::class, 'getSummaryGajiTahap2'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap2');
+        Route::get('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'gajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.gajiTahap2DoctorConfig');
+        Route::put('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'updateGajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig');
+        Route::get('/penggajian/gajitahap2/dokter-umum-options', [penggajianController::class, 'dokterUmumTahap2Options'])->name('backOffice.keuangan.penggajian.dokterUmumTahap2Options');
         Route::get('/penggajian/slip-whatsapp/recipients', [penggajianController::class, 'getPenerimaSlipWhatsappTahap1'])->name('backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1');
         Route::post('/penggajian/slip-whatsapp/send', [penggajianController::class, 'kirimSlipGajiWhatsappTahap1'])->name('backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1');
-        Route::get('/penggajian/gajitahap1/{id}/detail', [PenggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
-        Route::get('/penggajian/gajitahap1/{id}/export-pdf', [PenggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
+        Route::get('/penggajian/gajitahap1/{id}/detail', [penggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
+        Route::get('/penggajian/gajitahap1/{id}/export-pdf', [penggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
+        Route::get('/penggajian/gajitahap2/{id}/detail', [penggajianController::class, 'detailGajiTahap2'])->name('backOffice.keuangan.penggajian.detailGajiTahap2');
+        Route::get('/penggajian/gajitahap2/export-excel', [penggajianController::class, 'exportGajiTahap2Excel'])->name('backOffice.keuangan.penggajian.exportGajiTahap2Excel');
 
     });
 

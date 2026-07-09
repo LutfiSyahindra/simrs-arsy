@@ -6,10 +6,11 @@ use App\Export\Keuangan\master\gapokExport;
 use App\Models\dbKhanza\pegawaiModel;
 use App\Models\dbSimrs\gapokModel;
 use App\Repositories\masterData\masterGapokRepository;
+use App\Support\PayrollComponentLabel;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
-use Carbon\Carbon;
 
 class masterGapokService
 {
@@ -20,9 +21,10 @@ class masterGapokService
         $this->masterGapokRepository = $masterGapokRepository;
     }
 
-    
     public $added = 0;
+
     public $updated = 0;
+
     public $skipped = 0;
 
     private function getStatusAlias($status)
@@ -43,7 +45,7 @@ class masterGapokService
             'PT' => 'Pegawai Tetap',
             'MT' => 'Mitra',
             '<1' => '< 1 Tahun',
-            default => $masaKerja . ' Tahun'
+            default => $masaKerja.' Tahun'
         };
     }
 
@@ -56,7 +58,7 @@ class masterGapokService
     {
         $pegawai = pegawaiModel::where('nik', $nik)->first();
 
-        if (!$pegawai) {
+        if (! $pegawai) {
             return null;
         }
 
@@ -65,6 +67,7 @@ class masterGapokService
             'jbtn' => $pegawai->jbtn,
             'stts_kerja' => $pegawai->stts_kerja,
             'mulai_kontrak' => $pegawai->mulai_kontrak ?? '-',
+            'komponen_gaji_label' => PayrollComponentLabel::salaryLabel($pegawai->jbtn, $pegawai->stts_kerja),
         ];
     }
 
@@ -84,7 +87,8 @@ class masterGapokService
                     'masaKerja' => $this->getMasaKerjaAlias($g->masa_kerja),
                     'mulaiKontrak' => $g->mulai_kontrak ? Carbon::parse($g->mulai_kontrak)->format('d-m-Y') : '-',
                     'gaji_pokok' => (int) $g->gaji_pokok,
-                    'no_telp' => $g->no_telp ?? '-'
+                    'komponen_gaji_label' => PayrollComponentLabel::salaryLabel($g->jbtn, $g->stts_kerja),
+                    'no_telp' => $g->no_telp ?? '-',
                 ];
             }
         }
@@ -100,10 +104,11 @@ class masterGapokService
             // Bisa langsung dikembalikan ke controller
             return Excel::download(new gapokExport, $fileName);
         } catch (Exception $e) {
-            Log::error('Gagal export template MasterGapok Gapok: ' . $e->getMessage());
+            Log::error('Gagal export template MasterGapok Gapok: '.$e->getMessage());
+
             return [
                 'status' => false,
-                'message' => 'Gagal membuat template: ' . $e->getMessage(),
+                'message' => 'Gagal membuat template: '.$e->getMessage(),
             ];
         }
     }
@@ -118,7 +123,9 @@ class masterGapokService
     // 🔥 FUNCTION HITUNG MASA KERJA
     private function hitungMasaKerja($mulaiKontrak)
     {
-        if (!$mulaiKontrak) return null;
+        if (! $mulaiKontrak) {
+            return null;
+        }
 
         $mulai = Carbon::parse($mulaiKontrak);
         $sekarang = Carbon::now();
@@ -131,14 +138,16 @@ class masterGapokService
         // 🔥 VALIDASI DASAR
         if (empty($data['nik']) || empty($data['gaji_pokok'])) {
             $this->skipped++;
+
             return;
         }
 
         // 🔥 CEK PEGAWAI
         $pegawai = pegawaiModel::where('nik', $data['nik'])->first();
 
-        if (!$pegawai) {
+        if (! $pegawai) {
             $this->skipped++;
+
             return;
         }
 
@@ -158,7 +167,7 @@ class masterGapokService
                 'mulai_kontrak' => $pegawai->mulai_kontrak, // 🔥 FIX
                 'masa_kerja' => $masaKerja, // 🔥 AUTO HITUNG
                 'gaji_pokok' => $data['gaji_pokok'],
-                'no_telp' => $data['no_telp']
+                'no_telp' => $data['no_telp'],
             ]
         );
 
@@ -200,7 +209,16 @@ class masterGapokService
 
     public function findById($id)
     {
-        return $this->masterGapokRepository->findById($id);
+        $gapok = $this->masterGapokRepository->findById($id);
+
+        if ($gapok) {
+            $gapok->setAttribute(
+                'komponen_gaji_label',
+                PayrollComponentLabel::salaryLabel($gapok->jbtn, $gapok->stts_kerja)
+            );
+        }
+
+        return $gapok;
     }
 
     public function update($id, $data)
@@ -234,7 +252,7 @@ class masterGapokService
                     'mulai_kontrak' => $pegawai->mulai_kontrak,
                     'masa_kerja' => $masaKerja,
                     'stts_aktif' => $pegawai->stts_aktif,
-                    'gaji_pokok' => $existing->gaji_pokok ?? 0 // 🔥 tidak overwrite
+                    'gaji_pokok' => $existing->gaji_pokok ?? 0, // 🔥 tidak overwrite
                 ]
             );
 
@@ -248,8 +266,7 @@ class masterGapokService
         return [
             'added' => $this->added,
             'updated' => $this->updated,
-            'skipped' => $this->skipped
+            'skipped' => $this->skipped,
         ];
     }
-    
 }

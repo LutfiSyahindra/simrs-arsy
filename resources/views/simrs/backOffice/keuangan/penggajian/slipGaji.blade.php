@@ -5,6 +5,7 @@
     $bulanSlip = $periode ? strtoupper(Carbon::createFromFormat("Y-m", $periode)->translatedFormat("F Y")) : "-";
     $tunjanganDetail = collect($data["tunjangan_detail"] ?? []);
     $totalTahap1 = (int) ($data["total"] ?? 0);
+    $komponenGajiLabel = strtoupper($data["komponen_gaji_label"] ?? "Gaji Pokok");
 
     $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
 @endphp
@@ -233,7 +234,7 @@
                         <tr>
                             <td></td>
                             <td class="col-no">1.</td>
-                            <td class="col-name">GAJI POKOK</td>
+                            <td class="col-name">{{ $komponenGajiLabel }}</td>
                             <td class="col-rp">: Rp.</td>
                             <td class="col-value">{{ $rupiahSlip($data["gaji_dibayar"] ?? 0) }}</td>
                         </tr>
@@ -274,7 +275,7 @@
                         <tr>
                             <td></td>
                             <td class="col-no">1.</td>
-                            <td class="col-name">GAJI POKOK</td>
+                            <td class="col-name">{{ $komponenGajiLabel }}</td>
                             <td class="col-rp">: Rp.</td>
                             <td class="col-value">-</td>
                         </tr>

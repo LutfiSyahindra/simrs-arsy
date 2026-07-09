@@ -6,7 +6,7 @@
             <div class="modal-header bg-light border-0">
                 <h5 class="modal-title fw-semibold" id="gapokModalLabel">
                     <i class="mdi mdi-cash-multiple text-primary me-1"></i>
-                    Form Gaji Pokok
+                    Form Komponen Gaji
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -88,7 +88,7 @@
                         </div>
 
                         <div class="col-md-12">
-                            <label class="form-label">Gaji Pokok</label>
+                            <label class="form-label" id="gapokComponentLabel">Gaji Pokok</label>
                             <input type="number" name="gaji_pokok" class="form-control form-control-sm">
                             <div class="invalid-feedback" id="error-gaji_pokok"></div>
                         </div>

@@ -8,10 +8,10 @@ use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColumnWidths, WithTitle
+class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, WithStyles, WithTitle
 {
     public function collection()
     {
@@ -31,7 +31,7 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
                 $item->stts_kerja,
                 $item->mulai_kontrak,
                 '',
-                '' // hanya ini yang diisi user
+                '', // hanya ini yang diisi user
             ];
         });
     }
@@ -44,8 +44,8 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
             'jbtn',
             'stts_kerja',
             'mulai_kontrak',
-            'gaji_pokok',
-            'no_telp'
+            'gaji_pokok_atau_upah_str',
+            'no_telp',
         ];
     }
 
@@ -57,11 +57,11 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
         $sheet->getStyle('A1:F1')->applyFromArray([
             'font' => [
                 'bold' => true,
-                'size' => 11
+                'size' => 11,
             ],
             'alignment' => [
                 'horizontal' => 'center',
-                'vertical' => 'center'
+                'vertical' => 'center',
             ],
             'fill' => [
                 'fillType' => 'solid',
@@ -91,8 +91,8 @@ class gapokExport implements FromCollection, WithHeadings, WithStyles, WithColum
         $sheet->getStyle("F2:F{$highestRow}")
             ->getProtection()
             ->setLocked(false);
-        
-         // 🔥 UNLOCK KOLOM GAJI (F)
+
+        // 🔥 UNLOCK KOLOM GAJI (F)
         $sheet->getStyle("G2:G{$highestRow}")
             ->getProtection()
             ->setLocked(false);

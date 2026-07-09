@@ -79,7 +79,7 @@
                                             <th>Nama</th>
                                             <th>Jabatan</th>
                                             <th>Status Kerja</th>
-                                            <th>Gaji Pokok</th>
+                                            <th>Komponen Gaji</th>
                                             <th>No Telpon</th>
                                             <th>Aksi</th>
                                         </tr>

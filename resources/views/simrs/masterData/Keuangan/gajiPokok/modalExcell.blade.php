@@ -216,7 +216,7 @@
     </style>
 @endpush
 
-<!-- Modal Upload Excel Gaji Pokok -->
+<!-- Modal Upload Excel Gaji Pokok / Upah STR -->
 <div class="modal fade gapok-excel-modal" id="gapokModalExcell" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -231,7 +231,7 @@
 
                         <div>
                             <div class="text-uppercase small fw-semibold opacity-75 mb-1">Import Excel</div>
-                            <h4 class="fw-bold mb-1">Upload Gaji Pokok</h4>
+                            <h4 class="fw-bold mb-1">Upload Komponen Gaji</h4>
                             <p class="mb-0 opacity-75">
                                 Masukkan data gaji pokok pegawai dengan format template resmi sistem.
                             </p>
@@ -253,7 +253,7 @@
                     </div>
                     <div class="gapok-meta-item">
                         <div class="small opacity-75">Kolom wajib</div>
-                        <div class="fw-bold">NIK & Gaji Pokok</div>
+                        <div class="fw-bold">NIK & Komponen Gaji</div>
                     </div>
                 </div>
             </div>
@@ -279,7 +279,7 @@
                             <div class="gapok-step is-fill">
                                 <div class="gapok-step-number">2</div>
                                 <div>
-                                    <div class="fw-bold">Isi Gaji Pokok</div>
+                                    <div class="fw-bold">Isi Gaji Pokok / Upah STR</div>
                                     <small class="text-muted">Lengkapi nominal gaji pada baris pegawai yang valid.</small>
                                 </div>
                             </div>
@@ -378,7 +378,7 @@
                                             <i data-feather="dollar-sign"></i>
                                         </div>
                                         <div>
-                                            <div class="fw-semibold">Isi nominal Gaji Pokok</div>
+                                            <div class="fw-semibold">Isi nominal Gaji Pokok / Upah STR</div>
                                             <small class="text-muted">
                                                 Gunakan angka nominal tanpa simbol mata uang.
                                             </small>
@@ -472,7 +472,7 @@
                                         <th>Jabatan</th>
                                         <th>Status</th>
                                         <th>Masa Kerja</th>
-                                        <th>Gaji Pokok</th>
+                                        <th>Gaji Pokok / Upah STR</th>
                                     </tr>
                                 </thead>
                                 <tbody>
