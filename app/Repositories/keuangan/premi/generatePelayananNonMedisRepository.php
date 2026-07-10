@@ -432,7 +432,9 @@ class generatePelayananNonMedisRepository
             ])
             ->where('mpp.jnsPremi_id', $jnsPremiId)
             ->orderBy('pegawai_name')
-            ->get();
+            ->get()
+            ->unique(fn ($row) => (string) $row->nik)
+            ->values();
     }
 
     private function getCalculationMappings(
@@ -807,6 +809,7 @@ class generatePelayananNonMedisRepository
 
         $now = now();
         $distributions
+            ->unique(fn (array $distribution) => (string) $distribution['nik'])
             ->map(fn (array $distribution) => [
                 ...$distribution,
                 'premi_pelayanan_non_medis_id' => $header->id,

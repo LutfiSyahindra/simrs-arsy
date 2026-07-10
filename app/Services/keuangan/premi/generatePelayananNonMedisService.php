@@ -664,7 +664,9 @@ class generatePelayananNonMedisService
         string $distributionMode
     )
     {
-        $pegawai = collect($pegawai)->values();
+        $pegawai = collect($pegawai)
+            ->unique(fn ($item) => (string) data_get($item, 'nik'))
+            ->values();
         $count = $pegawai->count();
 
         if ($count === 0) {

@@ -51,7 +51,7 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
         $repository->shouldReceive('getMappedPegawai')
             ->once()
             ->with(7)
-            ->andReturn($this->pegawai());
+            ->andReturn($this->pegawaiWithDuplicateNik());
         $repository->shouldReceive('getKarcisTindakanIds')
             ->twice()
             ->andReturn(collect());
@@ -67,6 +67,8 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
         );
         $this->assertSame('2026-06', $summary['periode_sumber']);
         $this->assertSame(35000.0, $summary['total_final']);
+        $this->assertSame(1, $summary['jumlah_penerima']);
+        $this->assertSame(35000.0, $summary['total_dibagikan']);
     }
 
     public function test_summary_is_not_ready_when_kamar_is_not_locked(): void
@@ -152,6 +154,22 @@ class GeneratePelayananNonMedisServiceTest extends TestCase
     private function pegawai()
     {
         return collect([
+            (object) [
+                'nik' => 'EMP001',
+                'pegawai_name' => 'Pegawai Satu',
+                'pegawai_position' => 'Staff',
+            ],
+        ]);
+    }
+
+    private function pegawaiWithDuplicateNik()
+    {
+        return collect([
+            (object) [
+                'nik' => 'EMP001',
+                'pegawai_name' => 'Pegawai Satu',
+                'pegawai_position' => 'Staff',
+            ],
             (object) [
                 'nik' => 'EMP001',
                 'pegawai_name' => 'Pegawai Satu',

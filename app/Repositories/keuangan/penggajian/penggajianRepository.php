@@ -605,29 +605,75 @@ class penggajianRepository
             return;
         }
 
+        $eligibleNik = array_flip(
+            collect($niks)
+                ->map(fn ($nik) => (string) $nik)
+                ->all()
+        );
         $query = DB::table('premi_pelayanan_non_medis_distribution as d')
             ->join('premi_pelayanan_non_medis as h', 'h.id', '=', 'd.premi_pelayanan_non_medis_id');
 
         $this->applyLockedSource($query, 'premi_pelayanan_non_medis', 'h')
             ->where('h.periode', $periode)
-            ->whereIn('d.nik', $niks)
             ->where('d.total_diterima', '>', 0)
             ->select([
                 'd.id as source_id',
                 'd.nik',
-                'd.total_diterima as nominal',
+                'd.distribution_mode',
+                'h.id as header_id',
                 'h.jenis_pelayanan',
+                'h.total_final',
             ])
+            ->orderBy('h.id')
+            ->orderBy('d.id')
             ->get()
-            ->each(fn ($row) => $rows->push([
-                'nik' => (string) $row->nik,
-                'source_key' => 'pelayanan_non_medis_'.strtolower((string) $row->jenis_pelayanan),
-                'source_label' => 'Pelayanan Non Medis '.strtoupper((string) $row->jenis_pelayanan),
-                'source_table' => 'premi_pelayanan_non_medis_distribution',
-                'source_id' => (int) $row->source_id,
-                'role_label' => 'Penerima',
-                'nominal' => (int) round((float) $row->nominal),
-            ]));
+            ->groupBy('header_id')
+            ->each(function (Collection $headerRows) use ($rows, $eligibleNik) {
+                $first = $headerRows->first();
+                $recipients = $headerRows
+                    ->unique(fn ($row) => (string) $row->nik)
+                    ->values();
+                $count = $recipients->count();
+
+                if ($count === 0) {
+                    return;
+                }
+
+                $mode = in_array((string) $first->distribution_mode, ['split_evenly', 'full_amount'], true)
+                    ? (string) $first->distribution_mode
+                    : 'split_evenly';
+                $totalCents = (int) round(((float) $first->total_final) * 100);
+                $baseCents = $mode === 'full_amount'
+                    ? $totalCents
+                    : intdiv($totalCents, $count);
+                $remainder = $mode === 'full_amount'
+                    ? 0
+                    : $totalCents % $count;
+
+                $recipients->each(function ($row, int $index) use (
+                    $rows,
+                    $first,
+                    $eligibleNik,
+                    $baseCents,
+                    $remainder
+                ) {
+                    if (! isset($eligibleNik[(string) $row->nik])) {
+                        return;
+                    }
+
+                    $amountCents = $baseCents + ($index < $remainder ? 1 : 0);
+
+                    $rows->push([
+                        'nik' => (string) $row->nik,
+                        'source_key' => 'pelayanan_non_medis_'.strtolower((string) $first->jenis_pelayanan),
+                        'source_label' => 'Pelayanan Non Medis '.strtoupper((string) $first->jenis_pelayanan),
+                        'source_table' => 'premi_pelayanan_non_medis_distribution',
+                        'source_id' => (int) $row->source_id,
+                        'role_label' => 'Penerima',
+                        'nominal' => (int) round($amountCents / 100),
+                    ]);
+                });
+            });
     }
 
     private function appendTindakanMedisPremium(Collection $rows, array $niks, string $periode): void
