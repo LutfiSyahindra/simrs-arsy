@@ -610,11 +610,23 @@ class penggajianRepository
                 ->map(fn ($nik) => (string) $nik)
                 ->all()
         );
+        $activePremiIds = $this->activeNonMedisPremiIds();
         $query = DB::table('premi_pelayanan_non_medis_distribution as d')
             ->join('premi_pelayanan_non_medis as h', 'h.id', '=', 'd.premi_pelayanan_non_medis_id');
 
         $this->applyLockedSource($query, 'premi_pelayanan_non_medis', 'h')
             ->where('h.periode', $periode)
+            ->when(! empty($activePremiIds), function ($query) use ($activePremiIds) {
+                $query->where(function ($where) use ($activePremiIds) {
+                    foreach ($activePremiIds as $jenis => $premiId) {
+                        $where->orWhere(function ($typed) use ($jenis, $premiId) {
+                            $typed
+                                ->where('h.jenis_pelayanan', $jenis)
+                                ->where('h.jnsPremi_id', $premiId);
+                        });
+                    }
+                });
+            })
             ->where('d.total_diterima', '>', 0)
             ->select([
                 'd.id as source_id',
@@ -674,6 +686,28 @@ class penggajianRepository
                     ]);
                 });
             });
+    }
+
+    private function activeNonMedisPremiIds(): array
+    {
+        if (! Schema::hasTable('premi_pelayanan_non_medis_config')) {
+            return [];
+        }
+
+        $config = DB::table('premi_pelayanan_non_medis_config')->first();
+
+        if (! $config) {
+            return [];
+        }
+
+        $legacyPremiId = (int) ($config->jnsPremi_id ?? 0);
+
+        return collect([
+            'umum' => (int) (data_get($config, 'jnsPremi_umum_id') ?: $legacyPremiId),
+            'bpjs' => (int) (data_get($config, 'jnsPremi_bpjs_id') ?: $legacyPremiId),
+        ])
+            ->filter(fn (int $premiId) => $premiId > 0)
+            ->all();
     }
 
     private function appendTindakanMedisPremium(Collection $rows, array $niks, string $periode): void
