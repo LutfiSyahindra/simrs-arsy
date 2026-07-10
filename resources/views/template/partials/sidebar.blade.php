@@ -69,6 +69,9 @@
                                 <a href="{{ route("masterData.keuangan.tunjangan") }}" class="nav-link">Jenis Tunjangan</a>
                             </li>
                             <li class="nav-item">
+                                <a href="{{ route("masterData.keuangan.potongan") }}" class="nav-link">Jenis Potongan</a>
+                            </li>
+                            <li class="nav-item">
                                 <a href="{{ route("masterData.keuangan.skor") }}" class="nav-link">Master Skor</a>
                             </li>
                             <li class="nav-item">

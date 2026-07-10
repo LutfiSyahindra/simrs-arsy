@@ -24,10 +24,12 @@ use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
 use App\Http\Controllers\simrs\master\keuangan\jabatanController;
+use App\Http\Controllers\simrs\master\keuangan\jenisPotonganController;
 use App\Http\Controllers\simrs\master\keuangan\jenisTunjanganController;
 use App\Http\Controllers\simrs\master\keuangan\jnsPremiController;
 use App\Http\Controllers\simrs\master\keuangan\jnsTindakanController;
 use App\Http\Controllers\simrs\master\keuangan\plotingPremiController;
+use App\Http\Controllers\simrs\master\keuangan\potonganPegawaiController;
 use App\Http\Controllers\simrs\master\keuangan\profesiController;
 use App\Http\Controllers\simrs\master\keuangan\skorController;
 use App\Http\Controllers\simrs\master\keuangan\tunjanganPegawaiController;
@@ -438,6 +440,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/penggajian/gajitahap1/{id}/detail', [penggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');
         Route::get('/penggajian/gajitahap1/{id}/export-pdf', [penggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
         Route::get('/penggajian/gajitahap2/{id}/detail', [penggajianController::class, 'detailGajiTahap2'])->name('backOffice.keuangan.penggajian.detailGajiTahap2');
+        Route::get('/penggajian/gajitahap2/{id}/export-pdf', [penggajianController::class, 'exportSlipGajiTahap2Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap2Pdf');
         Route::get('/penggajian/gajitahap2/export-excel', [penggajianController::class, 'exportGajiTahap2Excel'])->name('backOffice.keuangan.penggajian.exportGajiTahap2Excel');
 
     });
@@ -481,6 +484,29 @@ Route::middleware('auth')->group(function () {
         Route::get('/tunjanganPegawai/getJabatan', [tunjanganPegawaiController::class, 'getJabatan'])->name('masterData.keuangan.tunjanganPegawai.getJabatan');
         Route::get('/tunjanganPegawai/getProfesi', [tunjanganPegawaiController::class, 'getProfesi'])->name('masterData.keuangan.tunjanganPegawai.getProfesi');
         Route::get('/tunjanganPegawai/getGapokById/{nik}', [tunjanganPegawaiController::class, 'getGapokById'])->name('masterData.keuangan.tunjanganPegawai.getGapokById');
+
+        Route::get('/potongan', [jenisPotonganController::class, 'index'])->name('masterData.keuangan.potongan');
+        Route::get('/potongan/generateKode', [jenisPotonganController::class, 'generateKodePotongan'])->name('masterData.keuangan.potongan.generateKode');
+        Route::get('/potongan/getPotonganTable', [jenisPotonganController::class, 'getJnsPotonganTable'])->name('masterData.keuangan.potongan.getJnsPotonganTable');
+        Route::post('/potongan/store', [jenisPotonganController::class, 'store'])->name('masterData.keuangan.potongan.store');
+        Route::get('/potongan/{id}/edit', [jenisPotonganController::class, 'edit'])->name('masterData.keuangan.potongan.edit');
+        Route::put('/potongan/{id}/update', [jenisPotonganController::class, 'update'])->name('masterData.keuangan.potongan.update');
+        Route::delete('/potongan/{id}/delete', [jenisPotonganController::class, 'destroy'])->name('masterData.keuangan.potongan.delete');
+
+        Route::get('/potonganPegawai', [potonganPegawaiController::class, 'index'])->name('masterData.keuangan.potonganPegawai');
+        Route::get('/potonganPegawai/getPotonganPegawaiTable', [potonganPegawaiController::class, 'getPotonganPegawaiTable'])->name('masterData.keuangan.potongan.getPotonganPegawaiTable');
+        Route::get('/potonganPegawai/guideJenisPotongan', [potonganPegawaiController::class, 'guideJenisPotongan'])->name('masterData.keuangan.potongan.getGuideJenisPotongan');
+        Route::get('/potonganPegawai/exportTemplate', [potonganPegawaiController::class, 'exportTemplate'])->name('masterData.keuangan.potongan.getPotonganPegawaiExportTemplate');
+        Route::post('/potonganPegawai/import', [potonganPegawaiController::class, 'importPotonganPegawai'])->name('masterData.keuangan.potongan.importPotonganPegawai');
+        Route::get('/potonganPegawai/getPegawai', [potonganPegawaiController::class, 'getPegawai'])->name('masterData.keuangan.potongan.getPegawai');
+        Route::post('/potonganPegawai/store', [potonganPegawaiController::class, 'store'])->name('masterData.keuangan.potonganPegawai.store');
+        Route::put('/potongan/update-inline/{id}', [potonganPegawaiController::class, 'updateInline'])->name('masterData.keuangan.potonganPegawai.updateInline');
+        Route::put('/potongan/bulk-update', [potonganPegawaiController::class, 'bulkUpdate'])->name('masterData.keuangan.potonganPegawai.bulkUpdate');
+        Route::delete('/potonganPegawai/{id}/delete', [potonganPegawaiController::class, 'destroy'])->name('masterData.keuangan.potonganPegawai.delete');
+        Route::get('/potongan/by-pegawai/{nik}', [potonganPegawaiController::class, 'getByPegawai'])->name('masterData.keuangan.potonganPegawai.getByPegawai');
+        Route::post('/potongan/distribusi', [potonganPegawaiController::class, 'distribusi'])->name('masterData.keuangan.potongan.distribusi');
+        Route::post('/potongan/preview-distribusi', [potonganPegawaiController::class, 'previewDistribusi'])->name('masterData.keuangan.potongan.previewDistribusi');
+        Route::get('/potonganPegawai/getGapokById/{nik}', [potonganPegawaiController::class, 'getGapokById'])->name('masterData.keuangan.potonganPegawai.getGapokById');
 
         Route::get('/jabatan', [jabatanController::class, 'index'])->name('masterData.keuangan.jabatan');
         Route::get('/jabatan/getJabatanTable', [jabatanController::class, 'jabatanTable'])->name('masterData.keuangan.jabatan.getJabatanTable');

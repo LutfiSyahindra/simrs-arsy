@@ -1566,6 +1566,10 @@
                                         <small class="text-muted d-block">Premi</small>
                                         <strong id="summaryTahap2Premi">Rp 0</strong>
                                     </div>
+                                    <div class="col-6">
+                                        <small class="text-muted d-block">Potongan</small>
+                                        <strong id="summaryTahap2Potongan">Rp 0</strong>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1659,6 +1663,7 @@
                                             <th class="text-end">Gaji Pokok</th>
                                             <th class="text-end">Dibayarkan</th>
                                             <th class="text-end">Premi</th>
+                                            <th class="text-end">Potongan</th>
                                             <th class="text-center">Sumber</th>
                                             <th class="text-end">Total</th>
                                             <th>Aksi</th>

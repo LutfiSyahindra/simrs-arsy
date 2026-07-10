@@ -22,18 +22,22 @@ class gajiTahap2Model extends Model
         'gaji_pokok',
         'gaji_dibayar',
         'total_premi',
+        'total_potongan',
         'total',
         'jumlah_sumber_premi',
         'premi_breakdown',
+        'potongan_breakdown',
     ];
 
     protected $casts = [
         'gaji_pokok' => 'integer',
         'gaji_dibayar' => 'integer',
         'total_premi' => 'integer',
+        'total_potongan' => 'integer',
         'total' => 'integer',
         'jumlah_sumber_premi' => 'integer',
         'premi_breakdown' => 'array',
+        'potongan_breakdown' => 'array',
     ];
 
     public function details(): HasMany

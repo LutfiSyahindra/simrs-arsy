@@ -7,6 +7,7 @@ use App\Models\dbSimrs\gajiTahap1Model;
 use App\Models\dbSimrs\gajiTahap2DetailModel;
 use App\Models\dbSimrs\gajiTahap2Model;
 use App\Models\dbSimrs\gapokModel;
+use App\Models\dbSimrs\potonganPegawaiModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -147,6 +148,26 @@ class penggajianRepository
             ->get();
     }
 
+    public function getDoctorNikLookup(array $niks): Collection
+    {
+        $nikList = collect($niks)
+            ->filter(fn ($nik) => filled($nik))
+            ->map(fn ($nik) => trim((string) $nik))
+            ->filter(fn (string $nik) => $nik !== '')
+            ->unique()
+            ->values();
+
+        if ($nikList->isEmpty()) {
+            return collect();
+        }
+
+        return DB::connection('mysql_khanza')
+            ->table('dokter')
+            ->whereIn('kd_dokter', $nikList->all())
+            ->pluck('kd_dokter')
+            ->mapWithKeys(fn ($nik) => ['nik:'.trim((string) $nik) => true]);
+    }
+
     public function getGajiTahap2DoctorConfigs(bool $activeOnly = true): Collection
     {
         if (! Schema::hasTable('gaji_tahap2_dokter_config')) {
@@ -230,6 +251,14 @@ class penggajianRepository
         return gajiTahap1Model::find($id);
     }
 
+    public function findGajiTahap1ByPeriodNik(string $periode, string $nik): ?gajiTahap1Model
+    {
+        return gajiTahap1Model::query()
+            ->where('periode', $periode)
+            ->where('nik', $nik)
+            ->first();
+    }
+
     public function getGajiTahap2Table($periode): Collection
     {
         return gajiTahap2Model::query()
@@ -243,9 +272,15 @@ class penggajianRepository
                 'gaji_pokok',
                 'gaji_dibayar',
                 'total_premi',
+                Schema::hasColumn('gaji_tahap2', 'total_potongan')
+                    ? 'total_potongan'
+                    : DB::raw('0 as total_potongan'),
                 'total',
                 'jumlah_sumber_premi',
                 'premi_breakdown',
+                Schema::hasColumn('gaji_tahap2', 'potongan_breakdown')
+                    ? 'potongan_breakdown'
+                    : DB::raw('NULL as potongan_breakdown'),
             ])
             ->where('periode', $periode)
             ->orderBy('nama')
@@ -254,23 +289,69 @@ class penggajianRepository
 
     public function updateOrCreateGajiTahap2(array $data): gajiTahap2Model
     {
+        $values = [
+            'nama' => $data['nama'],
+            'jabatan' => $data['jabatan'],
+            'status' => $data['status'],
+            'gaji_pokok' => $data['gaji_pokok'],
+            'gaji_dibayar' => $data['gaji_dibayar'],
+            'total_premi' => $data['total_premi'],
+            'total' => $data['total'],
+            'jumlah_sumber_premi' => $data['jumlah_sumber_premi'],
+            'premi_breakdown' => $data['premi_breakdown'],
+        ];
+
+        if (Schema::hasColumn('gaji_tahap2', 'total_potongan')) {
+            $values['total_potongan'] = $data['total_potongan'] ?? 0;
+        }
+
+        if (Schema::hasColumn('gaji_tahap2', 'potongan_breakdown')) {
+            $values['potongan_breakdown'] = $data['potongan_breakdown'] ?? [];
+        }
+
         return gajiTahap2Model::updateOrCreate(
             [
                 'periode' => $data['periode'],
                 'nik' => $data['nik'],
             ],
-            [
-                'nama' => $data['nama'],
-                'jabatan' => $data['jabatan'],
-                'status' => $data['status'],
-                'gaji_pokok' => $data['gaji_pokok'],
-                'gaji_dibayar' => $data['gaji_dibayar'],
-                'total_premi' => $data['total_premi'],
-                'total' => $data['total'],
-                'jumlah_sumber_premi' => $data['jumlah_sumber_premi'],
-                'premi_breakdown' => $data['premi_breakdown'],
-            ]
+            $values
         );
+    }
+
+    public function getGajiTahap1TotalsByNik(string $periode): Collection
+    {
+        return gajiTahap1Model::query()
+            ->where('periode', $periode)
+            ->selectRaw('nik, COALESCE(gaji_dibayar, 0) + COALESCE(tunjangan, 0) as total_tahap1')
+            ->pluck('total_tahap1', 'nik');
+    }
+
+    public function getPotonganPegawaiForStage2(array $niks): Collection
+    {
+        $nikList = collect($niks)
+            ->filter()
+            ->map(fn ($nik) => (string) $nik)
+            ->unique()
+            ->values();
+
+        if ($nikList->isEmpty()) {
+            return collect();
+        }
+
+        return potonganPegawaiModel::query()
+            ->join('master_potongan', 'master_potongan.id', '=', 'potongan_pegawai.potongan_id')
+            ->whereIn('potongan_pegawai.nik', $nikList->all())
+            ->select([
+                'potongan_pegawai.nik',
+                'potongan_pegawai.potongan_id',
+                'potongan_pegawai.nominal as nominal_mapping',
+                'master_potongan.kode',
+                'master_potongan.nama',
+                'master_potongan.tipe',
+                'master_potongan.nilai',
+            ])
+            ->get()
+            ->groupBy('nik');
     }
 
     public function replaceGajiTahap2Details(gajiTahap2Model $gaji, Collection $details): void
@@ -312,6 +393,42 @@ class penggajianRepository
         return gajiTahap2Model::query()
             ->with(['details' => fn ($query) => $query->orderBy('source_label')])
             ->find($id);
+    }
+
+    public function findGajiTahap2ByPeriodNik(string $periode, string $nik): ?gajiTahap2Model
+    {
+        if (! Schema::hasTable('gaji_tahap2')) {
+            return null;
+        }
+
+        return gajiTahap2Model::query()
+            ->with(['details' => fn ($query) => $query->orderBy('source_label')])
+            ->where('periode', $periode)
+            ->where('nik', $nik)
+            ->first();
+    }
+
+    public function getGajiTahap2RowsByNik(string $periode, array $niks): Collection
+    {
+        if (! Schema::hasTable('gaji_tahap2')) {
+            return collect();
+        }
+
+        $nikList = collect($niks)
+            ->filter()
+            ->map(fn ($nik) => (string) $nik)
+            ->unique()
+            ->values();
+
+        if ($nikList->isEmpty()) {
+            return collect();
+        }
+
+        return gajiTahap2Model::query()
+            ->where('periode', $periode)
+            ->whereIn('nik', $nikList->all())
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->nik);
     }
 
     public function getGajiTahap2DetailsByPeriod(string $periode): Collection

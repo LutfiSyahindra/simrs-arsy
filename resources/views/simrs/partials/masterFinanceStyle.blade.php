@@ -23,6 +23,7 @@
         --fm-primary-dark: #1d4ed8;
         --fm-success: #16a34a;
         --fm-warning: #f59e0b;
+        --fm-danger: #dc2626;
         --fm-info: #0891b2;
         --fm-ink: #172033;
         --fm-muted: #64748b;
@@ -94,6 +95,10 @@
 
     .finance-master-page .master-icon-warning {
         background: linear-gradient(135deg, var(--fm-warning), #ef4444);
+    }
+
+    .finance-master-page .master-icon-danger {
+        background: linear-gradient(135deg, var(--fm-danger), #f97316);
     }
 
     .finance-master-page .master-icon i {

@@ -6,8 +6,24 @@
     $tunjanganDetail = collect($data["tunjangan_detail"] ?? []);
     $totalTahap1 = (int) ($data["total"] ?? 0);
     $komponenGajiLabel = strtoupper($data["komponen_gaji_label"] ?? "Gaji Pokok");
+    $stage2 = $data["tahap2"] ?? null;
+    $hasStage2 = is_array($stage2) && !empty($stage2);
+    $stage2PremiDetail = collect($stage2["premi_detail"] ?? []);
+    $stage2SlipPendapatanUmum = $stage2["slip_pendapatan_umum"] ?? [];
+    $stage2JasaTindakan = $stage2SlipPendapatanUmum["jasa_tindakan"] ?? [];
+    $stage2JasaTindakanItems = collect($stage2JasaTindakan["items"] ?? []);
+    $stage2JasaTindakanTotal = (int) ($stage2JasaTindakan["total"] ?? $stage2JasaTindakanItems->sum("nominal"));
+    $stage2PremiBersama = (int) (($stage2SlipPendapatanUmum["premi_bersama"]["nominal"] ?? 0));
+    $stage2HasGroupedPremi = $stage2JasaTindakanTotal > 0 || $stage2PremiBersama > 0;
+    $stage2PotonganDetail = collect($stage2["potongan_detail"] ?? []);
+    $stage2GajiDibayar = (int) ($stage2["gaji_dibayar"] ?? 0);
+    $stage2SalaryLabel = strtoupper($stage2["komponen_gaji_dibayar_label"] ?? ($data["komponen_gaji_dibayar_label"] ?? "Gaji Dibayarkan"));
+    $totalTahap2Bruto = (int) ($stage2["total_bruto"] ?? ($stage2GajiDibayar + (int) ($stage2["total_premi"] ?? 0)));
+    $totalTahap2Potongan = (int) ($stage2["total_potongan"] ?? 0);
+    $totalTahap2 = (int) ($stage2["total"] ?? 0);
 
     $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
+    $rupiahStage2 = static fn($angka) => $hasStage2 ? number_format((int) $angka, 0, ",", ".") : "-";
 @endphp
 
 <!DOCTYPE html>
@@ -132,6 +148,10 @@
 
             .col-name {
                 width: auto;
+            }
+
+            .income-subitem {
+                padding-left: 8px !important;
             }
 
             .col-rp {
@@ -272,33 +292,73 @@
                             <td class="col-letter">A.</td>
                             <td colspan="4" class="bold">PENDAPATAN UMUM</td>
                         </tr>
-                        <tr>
-                            <td></td>
-                            <td class="col-no">1.</td>
-                            <td class="col-name">{{ $komponenGajiLabel }}</td>
-                            <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td class="col-no">2.</td>
-                            <td class="col-name">JASA TINDAKAN</td>
-                            <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
-                        </tr>
-                        <tr>
-                            <td></td>
-                            <td class="col-no">3.</td>
-                            <td class="col-name">PREMI BERSAMA</td>
-                            <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
-                        </tr>
+
+                        @php $stage2IncomeNo = 1; @endphp
+
+                        @if ($hasStage2 && $stage2GajiDibayar > 0)
+                            <tr>
+                                <td></td>
+                                <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
+                                <td class="col-name">{{ $stage2SalaryLabel }}</td>
+                                <td class="col-rp">: Rp.</td>
+                                <td class="col-value">{{ $rupiahSlip($stage2GajiDibayar) }}</td>
+                            </tr>
+                        @endif
+
+                        @if ($stage2HasGroupedPremi)
+                            <tr>
+                                <td></td>
+                                <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
+                                <td class="col-name bold">JASA TINDAKAN</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+
+                            @foreach ($stage2JasaTindakanItems as $index => $item)
+                                <tr>
+                                    <td></td>
+                                    <td></td>
+                                    <td class="col-name income-subitem">{{ chr(97 + $index) }}. {{ strtoupper($item["label"] ?? "-") }}</td>
+                                    <td class="col-rp">: Rp.</td>
+                                    <td class="col-value">{{ $rupiahSlip($item["nominal"] ?? 0) }}</td>
+                                </tr>
+                            @endforeach
+
+                            <tr>
+                                <td></td>
+                                <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
+                                <td class="col-name">PREMI BERSAMA</td>
+                                <td class="col-rp">: Rp.</td>
+                                <td class="col-value">{{ $rupiahSlip($stage2PremiBersama) }}</td>
+                            </tr>
+                        @else
+                            @foreach ($stage2PremiDetail as $premi)
+                                <tr>
+                                    <td></td>
+                                    <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
+                                    <td class="col-name">{{ strtoupper($premi["nama"] ?? "PREMI") }}</td>
+                                    <td class="col-rp">: Rp.</td>
+                                    <td class="col-value">{{ $rupiahSlip($premi["nominal"] ?? 0) }}</td>
+                                </tr>
+                            @endforeach
+                        @endif
+
+                        @if (! $hasStage2 || ($stage2GajiDibayar <= 0 && ! $stage2HasGroupedPremi && $stage2PremiDetail->isEmpty()))
+                            <tr>
+                                <td></td>
+                                <td class="col-no">1.</td>
+                                <td class="col-name">BELUM ADA DATA TAHAP 2</td>
+                                <td class="col-rp">: Rp.</td>
+                                <td class="col-value">-</td>
+                            </tr>
+                        @endif
+
                         <tr class="summary">
                             <td></td>
                             <td></td>
                             <td class="col-name center">TOTAL PENDAPATAN</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
+                            <td class="col-value">{{ $rupiahStage2($totalTahap2Bruto) }}</td>
                         </tr>
 
                         <tr>
@@ -306,36 +366,44 @@
                             <td colspan="4" class="bold">POTONGAN</td>
                         </tr>
 
-                        @foreach (["DANA SEHAT", "INFAQ", "PAJAK", "BPJS", "KADO", "ANGSURAN BRI", "LAIN - LAIN 1", "LAIN - LAIN 2"] as $i => $potongan)
+                        @forelse ($stage2PotonganDetail as $i => $potongan)
                             <tr>
                                 <td></td>
                                 <td class="col-no">{{ $i + 1 }}.</td>
-                                <td class="col-name">{{ $potongan }}</td>
+                                <td class="col-name">{{ strtoupper($potongan["nama"] ?? "POTONGAN") }}</td>
+                                <td class="col-rp">: Rp.</td>
+                                <td class="col-value">{{ $rupiahSlip($potongan["nominal"] ?? 0) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td></td>
+                                <td class="col-no">1.</td>
+                                <td class="col-name">{{ $hasStage2 ? "TIDAK ADA POTONGAN" : "BELUM ADA DATA TAHAP 2" }}</td>
                                 <td class="col-rp">: Rp.</td>
                                 <td class="col-value">-</td>
                             </tr>
-                        @endforeach
+                        @endforelse
 
                         <tr class="summary">
                             <td></td>
                             <td></td>
                             <td class="col-name center">TOTAL POTONGAN</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
+                            <td class="col-value">{{ $rupiahStage2($totalTahap2Potongan) }}</td>
                         </tr>
                         <tr class="summary">
                             <td></td>
                             <td></td>
                             <td class="col-name center">GAJI TAHAP 2</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
+                            <td class="col-value">{{ $rupiahStage2($totalTahap2) }}</td>
                         </tr>
                         <tr class="summary">
                             <td></td>
                             <td></td>
                             <td class="col-name center">DI TERIMA / DI TRANSFER</td>
                             <td class="col-rp">: Rp.</td>
-                            <td class="col-value">-</td>
+                            <td class="col-value">{{ $rupiahStage2($totalTahap2) }}</td>
                         </tr>
                     </table>
 

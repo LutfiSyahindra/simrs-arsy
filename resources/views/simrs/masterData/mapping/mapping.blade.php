@@ -302,7 +302,7 @@
                                     <div class="master-eyebrow">Master Keuangan</div>
                                     <h5 class="master-title">Menu Mapping</h5>
                                     <p class="master-subtitle mb-0">
-                                        Kelola penghubung data skor, tunjangan, dan parameter keuangan lainnya.
+                                        Kelola penghubung data skor, tunjangan, potongan, dan parameter keuangan lainnya.
                                     </p>
                                 </div>
                             </div>
@@ -374,6 +374,36 @@
                                             <span>Nominal</span>
                                         </div>
                                         <a href="{{ route("masterData.keuangan.tunjanganPegawai") }}"
+                                            class="mapping-card-action">
+                                            <span>Buka mapping</span>
+                                            <i class="mdi mdi-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <div class="mapping-menu-card"
+                                    data-search="mapping potongan pegawai jenis potongan nominal persen gaji tahap">
+                                    <div>
+                                        <div class="mapping-card-head">
+                                            <span class="mapping-card-icon red">
+                                                <i class="mdi mdi-cash-minus"></i>
+                                            </span>
+                                            <span class="mapping-status ready">Siap</span>
+                                        </div>
+                                        <div class="mt-3">
+                                            <div class="mapping-card-title">Mapping Potongan Pegawai</div>
+                                            <p class="mapping-card-text">
+                                                Sambungkan pegawai dengan jenis potongan dan nominalnya.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="mapping-meta mb-3">
+                                            <span>Pegawai</span>
+                                            <span>Jenis</span>
+                                            <span>Potongan</span>
+                                        </div>
+                                        <a href="{{ route("masterData.keuangan.potonganPegawai") }}"
                                             class="mapping-card-action">
                                             <span>Buka mapping</span>
                                             <i class="mdi mdi-arrow-right"></i>
@@ -499,7 +529,7 @@
                                 </div>
 
                                 <div class="mapping-menu-card"
-                                    data-search="mapping lainnya potongan periode pajak akun coa">
+                                    data-search="mapping lainnya periode pajak akun coa">
                                     <div>
                                         <div class="mapping-card-head">
                                             <span class="mapping-card-icon slate">
@@ -510,15 +540,15 @@
                                         <div class="mt-3">
                                             <div class="mapping-card-title">Mapping Lainnya</div>
                                             <p class="mapping-card-text">
-                                                Area mapping untuk potongan, periode, pajak, dan akun keuangan.
+                                                Area mapping untuk periode, pajak, dan akun keuangan.
                                             </p>
                                         </div>
                                     </div>
                                     <div>
                                         <div class="mapping-meta mb-3">
-                                            <span>Potongan</span>
                                             <span>Periode</span>
                                             <span>Akun</span>
+                                            <span>Pajak</span>
                                         </div>
                                         <a href="#" class="mapping-card-action is-draft" data-mapping-draft="true">
                                             <span>Draft</span>

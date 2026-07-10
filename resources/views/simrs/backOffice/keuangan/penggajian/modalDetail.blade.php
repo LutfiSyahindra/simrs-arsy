@@ -72,6 +72,15 @@
                         </div>
                     </div>
 
+                    <div class="slip-allowance-box mb-3 d-none" id="slipPotonganBox">
+                        <div class="slip-section-title">Rincian Potongan</div>
+                        <div id="slipPotonganDetail"></div>
+                        <div class="slip-detail-row">
+                            <span>Total Potongan</span>
+                            <strong id="slipPotongan">Rp 0</strong>
+                        </div>
+                    </div>
+
                     <div class="slip-detail-list">
                         <div class="slip-detail-row total">
                             <span>Total Diterima</span>

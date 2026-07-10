@@ -260,6 +260,11 @@
                     className: 'text-end currency-cell'
                 },
                 {
+                    data: 'total_potongan',
+                    name: 'total_potongan',
+                    className: 'text-end currency-cell'
+                },
+                {
                     data: 'jumlah_sumber_premi',
                     name: 'jumlah_sumber_premi',
                     className: 'text-center',
@@ -327,6 +332,7 @@
                     $('#summaryTahap2Total').text(formatRupiah(data.total_gaji || 0));
                     $('#summaryTahap2Gapok').text(formatRupiah(data.total_gapok || 0));
                     $('#summaryTahap2Premi').text(formatRupiah(data.total_premi || 0));
+                    $('#summaryTahap2Potongan').text(formatRupiah(data.total_potongan || 0));
 
                     if ($('#tahapGaji').val() == '2') {
                         renderActiveSummary(data, '2');
@@ -1068,6 +1074,52 @@
             $('#slipTunjanganDetail').html(html);
         }
 
+        function renderPotonganDetail(items, emptyText = 'Tidak ada potongan') {
+            if (!items || items.length === 0) {
+                $('#slipPotonganDetail').html(
+                    '<div class="slip-empty-row">' + escapeHtml(emptyText) + '</div>'
+                );
+                return;
+            }
+
+            let html = '';
+
+            items.forEach(function(item) {
+                const notes = [];
+
+                if (item.keterangan) {
+                    notes.push(escapeHtml(item.keterangan));
+                }
+
+                if (item.tipe === 'persen_total_gaji') {
+                    if (Number(item.total_tahap1 || 0) > 0) {
+                        notes.push(`Total gaji tahap 1: ${formatRupiah(item.total_tahap1 || 0)}`);
+                    }
+
+                    if (Number(item.total_tahap2 || 0) > 0) {
+                        notes.push(`Total gaji tahap 2: ${formatRupiah(item.total_tahap2 || 0)}`);
+                    }
+
+                    if (Number(item.basis || 0) > 0) {
+                        notes.push(`Dasar potongan tahap 1 + 2: ${formatRupiah(item.basis || 0)}`);
+                    }
+                }
+
+                const note = notes.length ?
+                    `<span class="employee-subtext">${notes.join('<br>')}</span>` :
+                    '';
+
+                html += `
+                    <div class="slip-detail-row">
+                        <span>${escapeHtml(item.nama || 'Potongan')}${note}</span>
+                        <strong>${formatRupiah(item.nominal || 0)}</strong>
+                    </div>
+                `;
+            });
+
+            $('#slipPotonganDetail').html(html);
+        }
+
         window.detailGajiTahap1 = function(id) {
             $.ajax({
                 url: "{{ route("backOffice.keuangan.penggajian.detailGajiTahap1", ":id") }}"
@@ -1092,6 +1144,7 @@
                     $('#slipTotal').text(formatRupiah(data.total));
                     $('#slipDetailListTitle').text('Rincian Tunjangan');
                     $('#slipTotalTunjanganLabel').text('Total Tunjangan');
+                    $('#slipPotonganBox').addClass('d-none');
 
                     $('#slipStatus')
                         .removeClass('is-tetap is-kontrak is-unknown')
@@ -1138,6 +1191,8 @@
                     $('#slipTotal').text(formatRupiah(data.total));
                     $('#slipDetailListTitle').text('Rincian Premi Generator');
                     $('#slipTotalTunjanganLabel').text('Total Premi');
+                    $('#slipPotongan').text(formatRupiah(data.total_potongan || 0));
+                    $('#slipPotonganBox').removeClass('d-none');
 
                     $('#slipStatus')
                         .removeClass('is-tetap is-kontrak is-unknown')
@@ -1145,6 +1200,7 @@
                             'is-kontrak' : 'is-unknown')
                         .text(data.status_label || '-');
                     renderTunjanganDetail(data.premi_detail || [], 'Tidak ada premi generator');
+                    renderPotonganDetail(data.potongan_detail || [], 'Tidak ada potongan');
 
                     const modal = new bootstrap.Modal(document.getElementById(
                         'modalSlipGajiTahap1'));
@@ -1190,15 +1246,6 @@
         });
 
         $('#btnOpenSlipWhatsapp').on('click', function() {
-            if ($('#tahapGaji').val() != '1') {
-                Swal.fire({
-                    icon: 'info',
-                    title: 'Coming Soon',
-                    text: 'Kirim slip Whatsapp untuk gaji tahap 2 belum tersedia.'
-                });
-                return;
-            }
-
             if (!$('#periodeGaji').val()) {
                 Swal.fire({
                     icon: 'warning',

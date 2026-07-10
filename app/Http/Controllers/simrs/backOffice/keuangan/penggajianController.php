@@ -88,6 +88,23 @@ class penggajianController extends Controller
             })
             ->addColumn('actions', function ($row) {
                 $pdfUrl = route('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf', $row['id']);
+                $pdfButton = $row['can_export_slip'] ?? true
+                    ? '
+                        <a href="'.$pdfUrl.'"
+                            target="_blank"
+                            class="btn btn-outline-danger"
+                            title="Export PDF">
+                            <i class="mdi mdi-file-pdf-box"></i>
+                        </a>
+                    '
+                    : '
+                        <button type="button"
+                            class="btn btn-outline-secondary"
+                            disabled
+                            title="'.e($row['slip_unavailable_message'] ?? 'Slip belum tersedia').'">
+                            <i class="mdi mdi-file-pdf-box"></i>
+                        </button>
+                    ';
 
                 return '
                     <div class="payroll-action-group">
@@ -97,12 +114,7 @@ class penggajianController extends Controller
                             <i class="mdi mdi-eye"></i>
                         </button>
 
-                        <a href="'.$pdfUrl.'"
-                            target="_blank"
-                            class="btn btn-outline-danger"
-                            title="Export PDF">
-                            <i class="mdi mdi-file-pdf-box"></i>
-                        </a>
+                        '.$pdfButton.'
                     </div>
                 ';
             })
@@ -127,10 +139,32 @@ class penggajianController extends Controller
             ->editColumn('total_premi', function ($row) {
                 return 'Rp '.number_format($row['total_premi'], 0, ',', '.');
             })
+            ->editColumn('total_potongan', function ($row) {
+                return 'Rp '.number_format($row['total_potongan'], 0, ',', '.');
+            })
             ->editColumn('total', function ($row) {
                 return 'Rp '.number_format($row['total'], 0, ',', '.');
             })
             ->addColumn('actions', function ($row) {
+                $pdfUrl = route('backOffice.keuangan.penggajian.exportSlipGajiTahap2Pdf', $row['id']);
+                $pdfButton = $row['can_export_slip'] ?? true
+                    ? '
+                        <a href="'.$pdfUrl.'"
+                            target="_blank"
+                            class="btn btn-outline-danger"
+                            title="Lihat PDF Slip Gaji">
+                            <i class="mdi mdi-file-pdf-box"></i>
+                        </a>
+                    '
+                    : '
+                        <button type="button"
+                            class="btn btn-outline-secondary"
+                            disabled
+                            title="'.e($row['slip_unavailable_message'] ?? 'Slip belum tersedia').'">
+                            <i class="mdi mdi-file-pdf-box"></i>
+                        </button>
+                    ';
+
                 return '
                     <div class="payroll-action-group">
                         <button class="btn btn-outline-primary"
@@ -138,6 +172,8 @@ class penggajianController extends Controller
                             onclick="detailGajiTahap2('.$row['id'].')">
                             <i class="mdi mdi-eye"></i>
                         </button>
+
+                        '.$pdfButton.'
                     </div>
                 ';
             })
@@ -295,7 +331,18 @@ class penggajianController extends Controller
 
     public function exportSlipGajiTahap1Pdf($id)
     {
-        $data = $this->penggajianService->detailGajiTahap1($id);
+        $data = $this->penggajianService->detailSlipGajiTahap1($id);
+
+        $pdf = Pdf::loadView('simrs.backOffice.keuangan.penggajian.slipGaji', [
+            'data' => $data,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->stream('slip-gaji-'.$data['nik'].'-'.$data['periode'].'.pdf');
+    }
+
+    public function exportSlipGajiTahap2Pdf($id)
+    {
+        $data = $this->penggajianService->detailSlipGajiTahap2($id);
 
         $pdf = Pdf::loadView('simrs.backOffice.keuangan.penggajian.slipGaji', [
             'data' => $data,

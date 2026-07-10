@@ -288,6 +288,7 @@ class GajiTahap2SummarySheet implements FromCollection, WithColumnWidths, WithCu
             'Komponen Dibayar',
             'Gaji Dibayarkan',
             'Total Premi',
+            'Total Potongan',
             'Sumber',
             'Rincian Premi',
             'Total Diterima',
@@ -308,6 +309,7 @@ class GajiTahap2SummarySheet implements FromCollection, WithColumnWidths, WithCu
             $row['komponen_gaji_dibayar_label'] ?? 'Komponen Gaji',
             (int) ($row['gaji_dibayarkan'] ?? 0),
             (int) ($row['total_premi'] ?? 0),
+            (int) ($row['total_potongan'] ?? 0),
             (int) ($row['jumlah_sumber_premi'] ?? 0),
             $this->premiumBreakdownText($row['premi_breakdown'] ?? []),
             (int) ($row['total'] ?? 0),
@@ -328,9 +330,10 @@ class GajiTahap2SummarySheet implements FromCollection, WithColumnWidths, WithCu
             'I' => 22,
             'J' => 18,
             'K' => 18,
-            'L' => 10,
-            'M' => 42,
-            'N' => 19,
+            'L' => 18,
+            'M' => 10,
+            'N' => 42,
+            'O' => 19,
         ];
     }
 
@@ -347,41 +350,43 @@ class GajiTahap2SummarySheet implements FromCollection, WithColumnWidths, WithCu
 
                 $this->applyWorkbookShell(
                     $sheet,
-                    'N',
+                    'O',
                     'LAPORAN GAJI TAHAP 2',
                     'Periode '.$this->periode
                 );
                 $this->applySummaryCard($sheet, 'A4:C4', 'A5:C5', 'TOTAL PEGAWAI', (int) ($this->summary['jumlah_pegawai'] ?? 0).' pegawai');
                 $this->applySummaryCard($sheet, 'D4:F4', 'D5:F5', 'TOTAL GAJI', $this->formatRupiah($this->summary['total_gaji'] ?? 0));
-                $this->applySummaryCard($sheet, 'G4:I4', 'G5:I5', 'GAJI DIBAYARKAN', $this->formatRupiah($this->summary['total_gapok'] ?? 0));
-                $this->applySummaryCard($sheet, 'J4:L4', 'J5:L5', 'TOTAL PREMI', $this->formatRupiah($this->summary['total_premi'] ?? 0));
+                $this->applySummaryCard($sheet, 'G4:H4', 'G5:H5', 'GAJI DIBAYARKAN', $this->formatRupiah($this->summary['total_gapok'] ?? 0));
+                $this->applySummaryCard($sheet, 'I4:J4', 'I5:J5', 'TOTAL PREMI', $this->formatRupiah($this->summary['total_premi'] ?? 0));
+                $this->applySummaryCard($sheet, 'K4:L4', 'K5:L5', 'TOTAL POTONGAN', $this->formatRupiah($this->summary['total_potongan'] ?? 0));
                 $this->applySummaryCard(
                     $sheet,
-                    'M4:N4',
-                    'M5:N5',
+                    'M4:O4',
+                    'M5:O5',
                     'STATUS',
                     (int) ($this->summary['jumlah_tetap'] ?? 0).' tetap / '.(int) ($this->summary['jumlah_kontrak'] ?? 0).' kontrak'
                 );
-                $this->applySectionLabel($sheet, 'A7:N7', 'RINCIAN PEMBAYARAN PER PEGAWAI');
-                $this->applyTableStyle($sheet, "A{$headerRow}:N{$lastTableRow}", "A{$headerRow}:N{$headerRow}");
+                $this->applySectionLabel($sheet, 'A7:O7', 'RINCIAN PEMBAYARAN PER PEGAWAI');
+                $this->applyTableStyle($sheet, "A{$headerRow}:O{$lastTableRow}", "A{$headerRow}:O{$headerRow}");
 
-                $sheet->setAutoFilter("A{$headerRow}:N{$lastTableRow}");
+                $sheet->setAutoFilter("A{$headerRow}:O{$lastTableRow}");
                 $sheet->freezePane("A{$firstDataRow}");
                 $sheet->getRowDimension($headerRow)->setRowHeight(30);
-                $sheet->getStyle("A{$firstDataRow}:N".max($firstDataRow, $lastDataRow))->getAlignment()->setWrapText(true);
+                $sheet->getStyle("A{$firstDataRow}:O".max($firstDataRow, $lastDataRow))->getAlignment()->setWrapText(true);
                 $sheet->getStyle("A{$firstDataRow}:C".max($firstDataRow, $lastDataRow))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $sheet->getStyle("H{$firstDataRow}:H{$totalRow}")->getNumberFormat()->setFormatCode($this->moneyFormat());
-                $sheet->getStyle("J{$firstDataRow}:K{$totalRow}")->getNumberFormat()->setFormatCode($this->moneyFormat());
-                $sheet->getStyle("N{$firstDataRow}:N{$totalRow}")->getNumberFormat()->setFormatCode($this->moneyFormat());
-                $sheet->getStyle("H{$firstDataRow}:N{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("J{$firstDataRow}:L{$totalRow}")->getNumberFormat()->setFormatCode($this->moneyFormat());
+                $sheet->getStyle("O{$firstDataRow}:O{$totalRow}")->getNumberFormat()->setFormatCode($this->moneyFormat());
+                $sheet->getStyle("H{$firstDataRow}:O{$totalRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
                 $sheet->mergeCells("A{$totalRow}:G{$totalRow}");
                 $sheet->setCellValue("A{$totalRow}", 'TOTAL KESELURUHAN');
                 $sheet->setCellValue("H{$totalRow}", $this->sumFormula('H', $firstDataRow, $lastDataRow));
                 $sheet->setCellValue("J{$totalRow}", (int) ($this->summary['total_gapok'] ?? 0));
                 $sheet->setCellValue("K{$totalRow}", (int) ($this->summary['total_premi'] ?? 0));
-                $sheet->setCellValue("N{$totalRow}", (int) ($this->summary['total_gaji'] ?? 0));
-                $this->applyTotalRow($sheet, "A{$totalRow}:N{$totalRow}");
+                $sheet->setCellValue("L{$totalRow}", (int) ($this->summary['total_potongan'] ?? 0));
+                $sheet->setCellValue("O{$totalRow}", (int) ($this->summary['total_gaji'] ?? 0));
+                $this->applyTotalRow($sheet, "A{$totalRow}:O{$totalRow}");
             },
         ];
     }

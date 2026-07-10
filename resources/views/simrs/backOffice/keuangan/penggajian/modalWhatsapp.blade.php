@@ -10,7 +10,7 @@
                     <div>
                         <div class="payroll-kicker">Distribusi Slip</div>
                         <h5 class="modal-title fw-bold mb-0" id="modalSlipWhatsappLabel">Kirim Slip Gaji WhatsApp</h5>
-                        <small class="payroll-muted-copy">Slip tahap 1 yang siap dikirim berdasarkan periode aktif</small>
+                        <small class="payroll-muted-copy">Slip gabungan tahap 1 + 2 untuk pegawai non-dokter</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
@@ -49,7 +49,7 @@
                                 placeholder="Cari pegawai...">
                         </div>
 
-                        <span class="badge bg-success-subtle text-success">Tahap 1</span>
+                        <span class="badge bg-success-subtle text-success">Tahap 1 + 2</span>
                     </div>
                 </div>
 
