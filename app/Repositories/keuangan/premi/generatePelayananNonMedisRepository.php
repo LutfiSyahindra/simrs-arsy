@@ -12,6 +12,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class generatePelayananNonMedisRepository
 {
@@ -297,36 +298,57 @@ class generatePelayananNonMedisRepository
         }
 
         $now = now();
-        $id = DB::table('premi_pelayanan_non_medis_config')->insertGetId([
+        $payload = [
             'jnsPremi_id' => $defaultPremiId,
             'distribution_mode' => 'split_evenly',
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ];
+
+        if (Schema::hasColumn('premi_pelayanan_non_medis_config', 'jnsPremi_umum_id')) {
+            $payload['jnsPremi_umum_id'] = $defaultPremiId;
+        }
+
+        if (Schema::hasColumn('premi_pelayanan_non_medis_config', 'jnsPremi_bpjs_id')) {
+            $payload['jnsPremi_bpjs_id'] = $defaultPremiId;
+        }
+
+        $id = DB::table('premi_pelayanan_non_medis_config')->insertGetId($payload);
 
         return DB::table('premi_pelayanan_non_medis_config')->where('id', $id)->first();
     }
 
     public function saveConfig(
-        int $jnsPremiId,
+        int $jnsPremiUmumId,
+        int $jnsPremiBpjsId,
         string $distributionMode,
         array $karcisTindakanIds
     ): object
     {
         return DB::transaction(function () use (
-            $jnsPremiId,
+            $jnsPremiUmumId,
+            $jnsPremiBpjsId,
             $distributionMode,
             $karcisTindakanIds
         ) {
             $config = $this->getConfig();
+            $updates = [
+                'jnsPremi_id' => $jnsPremiUmumId,
+                'distribution_mode' => $distributionMode,
+                'updated_at' => now(),
+            ];
+
+            if (Schema::hasColumn('premi_pelayanan_non_medis_config', 'jnsPremi_umum_id')) {
+                $updates['jnsPremi_umum_id'] = $jnsPremiUmumId;
+            }
+
+            if (Schema::hasColumn('premi_pelayanan_non_medis_config', 'jnsPremi_bpjs_id')) {
+                $updates['jnsPremi_bpjs_id'] = $jnsPremiBpjsId;
+            }
 
             DB::table('premi_pelayanan_non_medis_config')
                 ->where('id', $config->id)
-                ->update([
-                    'jnsPremi_id' => $jnsPremiId,
-                    'distribution_mode' => $distributionMode,
-                    'updated_at' => now(),
-                ]);
+                ->update($updates);
 
             $this->replaceKarcisConfig($karcisTindakanIds);
 

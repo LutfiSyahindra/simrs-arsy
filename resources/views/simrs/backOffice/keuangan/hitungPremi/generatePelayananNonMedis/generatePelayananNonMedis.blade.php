@@ -864,7 +864,7 @@
                     <div class="non-medis-eyebrow">Premium Generator</div>
                     <h4 class="non-medis-title">Generate Premi Pelayanan Non Medis</h4>
                     <p class="non-medis-description">
-                        Hitung premi dari enam sumber tindakan Khanza, mapping tindakan, mapping premi,
+                        Hitung premi dari enam sumber tindakan Khanza, mapping tindakan, mapping premi UMUM/BPJS,
                         BHP, dan lama inap dengan snapshot perhitungan yang dapat diaudit.
                     </p>
                 </div>
@@ -1075,22 +1075,37 @@
                         <div>
                             <h5 class="modal-title fw-bold">Konfigurasi Pelayanan Non Medis</h5>
                             <small class="text-muted">
-                                Pilih sumber mapping premi dan tindakan karcis BPJS yang berlaku untuk generate.
+                                Pilih sumber mapping premi UMUM/BPJS dan tindakan karcis BPJS yang berlaku untuk generate.
                             </small>
                         </div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-4">
-                            <label for="configMappingPremiNonMedis" class="form-label fw-semibold">
-                                Sumber Mapping Premi
-                            </label>
-                            <select id="configMappingPremiNonMedis" class="form-select">
-                                <option value="">Memuat mapping premi...</option>
-                            </select>
-                            <small class="text-muted" id="configMappingPremiNote">
-                                Pegawai penerima diambil dari mapping premi yang dipilih.
-                            </small>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="configMappingPremiUmumNonMedis" class="form-label fw-semibold">
+                                        Sumber Mapping Premi UMUM
+                                    </label>
+                                    <select id="configMappingPremiUmumNonMedis" class="form-select">
+                                        <option value="">Memuat mapping premi...</option>
+                                    </select>
+                                    <small class="text-muted" id="configMappingPremiUmumNote">
+                                        Pegawai penerima UMUM diambil dari mapping premi yang dipilih.
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="configMappingPremiBpjsNonMedis" class="form-label fw-semibold">
+                                        Sumber Mapping Premi BPJS
+                                    </label>
+                                    <select id="configMappingPremiBpjsNonMedis" class="form-select">
+                                        <option value="">Memuat mapping premi...</option>
+                                    </select>
+                                    <small class="text-muted" id="configMappingPremiBpjsNote">
+                                        Pegawai penerima BPJS diambil dari mapping premi yang dipilih.
+                                    </small>
+                                </div>
+                            </div>
                             <div class="mt-3">
                                 <label for="configDistributionModeNonMedis" class="form-label fw-semibold">
                                     Distribusi Nilai Final
@@ -1105,8 +1120,11 @@
                             </div>
                             <div class="mt-3 rounded bg-light p-3">
                                 <div class="fw-semibold mb-1">Pegawai Penerima</div>
-                                <div class="small text-muted" id="configPegawaiPreview">
-                                    Pilih mapping premi untuk melihat pegawai penerima.
+                                <div class="small text-muted" id="configPegawaiUmumPreview">
+                                    Pilih mapping premi UMUM untuk melihat pegawai penerima.
+                                </div>
+                                <div class="small text-muted mt-1" id="configPegawaiBpjsPreview">
+                                    Pilih mapping premi BPJS untuk melihat pegawai penerima.
                                 </div>
                             </div>
                         </div>

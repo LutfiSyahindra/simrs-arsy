@@ -56,14 +56,16 @@ class generatePelayananNonMedisService
     }
 
     public function updateConfig(
-        int $jnsPremiId,
+        int $jnsPremiUmumId,
+        int $jnsPremiBpjsId,
         string $distributionMode,
         array $karcisTindakanIds
     ): array
     {
         return $this->configPayload(
             $this->repository->saveConfig(
-                $jnsPremiId,
+                $jnsPremiUmumId,
+                $jnsPremiBpjsId,
                 $distributionMode,
                 collect($karcisTindakanIds)
                     ->map(fn ($id) => (int) $id)
@@ -115,7 +117,7 @@ class generatePelayananNonMedisService
         ?int $generateKamarId = null
     ): array {
         $config = $this->repository->getConfig();
-        $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+        $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
         $distributionMode = $this->distributionMode($config->distribution_mode ?? null);
         $existing = $this->repository->findByPeriodAndType(
             $periode,
@@ -274,7 +276,7 @@ class generatePelayananNonMedisService
             $generateKamarId
         ) {
             $config = $this->repository->getConfig();
-            $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config);
+            $jnsPremiId = $this->selectedConfigPremiId($jnsPremiId, $config, $jenis);
             $distributionMode = $this->distributionMode($config->distribution_mode ?? null);
             $existing = $this->repository
                 ->findByPeriodAndTypeForUpdate($periode, $jenis, $jnsPremiId);
@@ -575,15 +577,19 @@ class generatePelayananNonMedisService
 
     private function selectedConfigPremiId(
         ?int $requestPremiId = null,
-        ?object $config = null
+        ?object $config = null,
+        string $jenis = 'umum'
     ): int
     {
         $config ??= $this->repository->getConfig();
-        $jnsPremiId = (int) ($config->jnsPremi_id ?? $requestPremiId ?? 0);
+        $configuredId = $jenis === 'bpjs'
+            ? data_get($config, 'jnsPremi_bpjs_id')
+            : data_get($config, 'jnsPremi_umum_id');
+        $jnsPremiId = (int) ($configuredId ?: ($config->jnsPremi_id ?? $requestPremiId ?? 0));
 
         if ($jnsPremiId < 1 || ! $this->repository->findPremi($jnsPremiId)) {
             throw ValidationException::withMessages([
-                'jnsPremi_id' => 'Konfigurasi sumber mapping premi wajib dipilih terlebih dahulu.',
+                'jnsPremi_id' => 'Konfigurasi sumber mapping premi '.strtoupper($jenis).' wajib dipilih terlebih dahulu.',
             ]);
         }
 
@@ -592,37 +598,63 @@ class generatePelayananNonMedisService
 
     private function configPayload(object $config): array
     {
-        $jnsPremiId = $config->jnsPremi_id ? (int) $config->jnsPremi_id : null;
-        $premi = $jnsPremiId ? $this->repository->findPremi($jnsPremiId) : null;
-        $pegawai = $jnsPremiId
-            ? $this->repository->getMappedPegawai($jnsPremiId)
+        $legacyPremiId = data_get($config, 'jnsPremi_id') ? (int) data_get($config, 'jnsPremi_id') : null;
+        $jnsPremiUmumId = (int) (data_get($config, 'jnsPremi_umum_id') ?: $legacyPremiId) ?: null;
+        $jnsPremiBpjsId = (int) (data_get($config, 'jnsPremi_bpjs_id') ?: $legacyPremiId) ?: null;
+        $premiUmum = $jnsPremiUmumId ? $this->repository->findPremi($jnsPremiUmumId) : null;
+        $premiBpjs = $jnsPremiBpjsId ? $this->repository->findPremi($jnsPremiBpjsId) : null;
+        $pegawaiUmum = $jnsPremiUmumId
+            ? $this->repository->getMappedPegawai($jnsPremiUmumId)
+            : collect();
+        $pegawaiBpjs = $jnsPremiBpjsId
+            ? $this->repository->getMappedPegawai($jnsPremiBpjsId)
             : collect();
 
         return [
             'id' => (int) $config->id,
-            'jnsPremi_id' => $jnsPremiId,
+            'jnsPremi_id' => $jnsPremiUmumId,
+            'jnsPremi_umum_id' => $jnsPremiUmumId,
+            'jnsPremi_bpjs_id' => $jnsPremiBpjsId,
             'distribution_mode' => $this->distributionMode($config->distribution_mode ?? null),
             'distribution_mode_label' => $this->distributionModeLabel(
                 $this->distributionMode($config->distribution_mode ?? null)
             ),
-            'premi' => $premi ? [
-                'id' => (int) $premi->id,
-                'kode' => $premi->kode,
-                'jenis' => $premi->jenis,
-                'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
-                'label' => trim($premi->kode.' - '.$premi->jenis),
-            ] : null,
+            'premi' => $this->premiPayload($premiUmum),
+            'premi_umum' => $this->premiPayload($premiUmum),
+            'premi_bpjs' => $this->premiPayload($premiBpjs),
             'mapping_options' => $this->getMappingPremiOptions(),
             'karcis' => $this->getKarcisConfig(),
-            'pegawai' => $pegawai
-                ->map(fn ($item) => [
-                    'nik' => $item->nik,
-                    'pegawai_name' => $item->pegawai_name,
-                    'pegawai_position' => $item->pegawai_position,
-                    'text' => trim($item->nik.' - '.$item->pegawai_name),
-                ])
-                ->values(),
+            'pegawai' => $this->pegawaiPayload($pegawaiUmum),
+            'pegawai_umum' => $this->pegawaiPayload($pegawaiUmum),
+            'pegawai_bpjs' => $this->pegawaiPayload($pegawaiBpjs),
         ];
+    }
+
+    private function premiPayload($premi): ?array
+    {
+        if (! $premi) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $premi->id,
+            'kode' => $premi->kode,
+            'jenis' => $premi->jenis,
+            'pembagi' => max(1, (int) ($premi->pembagi ?? 1)),
+            'label' => trim($premi->kode.' - '.$premi->jenis),
+        ];
+    }
+
+    private function pegawaiPayload($pegawai)
+    {
+        return collect($pegawai)
+            ->map(fn ($item) => [
+                'nik' => $item->nik,
+                'pegawai_name' => $item->pegawai_name,
+                'pegawai_position' => $item->pegawai_position,
+                'text' => trim($item->nik.' - '.$item->pegawai_name),
+            ])
+            ->values();
     }
 
     private function distributeFinal(

@@ -93,10 +93,19 @@ class hitungPremiPelayananNonMedisController extends Controller
     {
         $request->merge([
             'jnsTindakan_id' => $request->input('jnsTindakan_id', []),
+            'jnsPremi_umum_id' => $request->input(
+                'jnsPremi_umum_id',
+                $request->input('jnsPremi_id')
+            ),
+            'jnsPremi_bpjs_id' => $request->input(
+                'jnsPremi_bpjs_id',
+                $request->input('jnsPremi_id')
+            ),
         ]);
 
         $validated = $request->validate([
-            'jnsPremi_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_umum_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
+            'jnsPremi_bpjs_id' => ['required', 'integer', 'exists:master_jenis_premi,id'],
             'distribution_mode' => ['required', 'in:split_evenly,full_amount'],
             'jnsTindakan_id' => ['present', 'array'],
             'jnsTindakan_id.*' => [
@@ -106,8 +115,10 @@ class hitungPremiPelayananNonMedisController extends Controller
                 'exists:master_jenis_tindakan,id',
             ],
         ], [
-            'jnsPremi_id.required' => 'Sumber mapping premi wajib dipilih.',
-            'jnsPremi_id.exists' => 'Sumber mapping premi tidak ditemukan.',
+            'jnsPremi_umum_id.required' => 'Sumber mapping premi UMUM wajib dipilih.',
+            'jnsPremi_umum_id.exists' => 'Sumber mapping premi UMUM tidak ditemukan.',
+            'jnsPremi_bpjs_id.required' => 'Sumber mapping premi BPJS wajib dipilih.',
+            'jnsPremi_bpjs_id.exists' => 'Sumber mapping premi BPJS tidak ditemukan.',
             'distribution_mode.required' => 'Mode distribusi nilai final wajib dipilih.',
             'distribution_mode.in' => 'Mode distribusi nilai final tidak valid.',
             'jnsTindakan_id.present' => 'Daftar tindakan karcis wajib dikirim.',
@@ -120,7 +131,8 @@ class hitungPremiPelayananNonMedisController extends Controller
             'status' => true,
             'message' => 'Konfigurasi pelayanan non medis berhasil disimpan.',
             'data' => $this->service->updateConfig(
-                (int) $validated['jnsPremi_id'],
+                (int) $validated['jnsPremi_umum_id'],
+                (int) $validated['jnsPremi_bpjs_id'],
                 $validated['distribution_mode'],
                 $validated['jnsTindakan_id']
             ),
