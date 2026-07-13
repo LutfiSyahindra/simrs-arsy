@@ -734,18 +734,6 @@ class penggajianService
 
     public function slipPdfPaperOptions(array $detail, string $mode = 'export'): array
     {
-        $fitToSlip = strtolower($mode) === 'whatsapp' || ($detail['is_doctor_slip'] ?? false);
-
-        if (! $fitToSlip) {
-            return [
-                'paper' => 'a4',
-                'paper_size' => [
-                    'width_mm' => 210,
-                    'height_mm' => 297,
-                ],
-            ];
-        }
-
         $paperSize = $this->slipPdfFitPaperSize($detail);
 
         return [
@@ -2552,11 +2540,11 @@ class penggajianService
 
         $stage1Rows = 4 + $tunjanganRows->count();
         $stage2Rows = 7 + $stage2IncomeRows + max(1, $stage2PotonganRows->count());
-        $heightMm = 56 + (($stage1Rows + $stage2Rows) * 3.2) + ($sourceRows * 2.8);
+        $heightMm = 72 + (($stage1Rows + $stage2Rows) * 4.1) + ($sourceRows * 4.0);
 
         return [
             'width_mm' => 108,
-            'height_mm' => (int) ceil(max(126, $heightMm)),
+            'height_mm' => (int) ceil(max(148, $heightMm)),
         ];
     }
 
@@ -2583,11 +2571,11 @@ class penggajianService
             + ($bpjsRows->isNotEmpty() ? 1 + $bpjsRows->count() : 0)
             + count($slip['deduction_rows'] ?? [])
             + 6;
-        $heightMm = 62 + ($tableRows * 3.8) + ($sourceRows * 3.2);
+        $heightMm = 78 + ($tableRows * 4.6) + ($sourceRows * 4.4);
 
         return [
             'width_mm' => 148,
-            'height_mm' => (int) ceil(max(210, $heightMm)),
+            'height_mm' => (int) ceil(max(230, $heightMm)),
         ];
     }
 

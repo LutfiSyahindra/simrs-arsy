@@ -27,10 +27,11 @@
     $rupiahStage2 = static fn($angka) => $hasStage2 ? number_format((int) $angka, 0, ",", ".") : "-";
     $pdfMode = $pdfMode ?? "export";
     $paperSize = $paperSize ?? [];
-    $isWhatsappPdf = $pdfMode === "whatsapp";
+    $hasCustomPaper = !empty($paperSize);
+    $isSingleSlipPdf = in_array($pdfMode, ["single", "whatsapp"], true) || $hasCustomPaper;
     $paperWidthMm = (float) ($paperSize["width_mm"] ?? 210);
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
-    $copyLabels = $isWhatsappPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
+    $copyLabels = $isSingleSlipPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
 <!DOCTYPE html>
@@ -40,7 +41,7 @@
         <meta charset="utf-8">
         <style>
             @page {
-                @if ($isWhatsappPdf)
+                @if ($hasCustomPaper)
                     size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
                     margin: 3mm;
                 @else
@@ -49,11 +50,13 @@
                 @endif
             }
 
+            html,
             body {
                 font-family: DejaVu Sans, Arial, sans-serif;
                 font-size: 8.5px;
                 color: #000;
                 margin: 0;
+                page-break-after: avoid;
             }
 
             .sheet {
@@ -219,10 +222,11 @@
                 font-weight: bold;
             }
 
-            @if ($isWhatsappPdf)
+            @if ($isSingleSlipPdf)
                 .sheet {
                     display: block;
                     table-layout: auto;
+                    page-break-inside: avoid;
                 }
 
                 .slip-column {

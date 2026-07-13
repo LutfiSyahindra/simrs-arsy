@@ -44,11 +44,13 @@
                 @endif
             }
 
+            html,
             body {
                 font-family: DejaVu Sans, Arial, sans-serif;
                 font-size: 7.4px;
                 color: #111827;
                 margin: 0;
+                page-break-after: avoid;
             }
 
             .slip-wrap {
@@ -57,6 +59,7 @@
                 border: 1px solid #24382f;
                 padding: 4mm;
                 background: #fff;
+                page-break-inside: avoid;
             }
 
             table {

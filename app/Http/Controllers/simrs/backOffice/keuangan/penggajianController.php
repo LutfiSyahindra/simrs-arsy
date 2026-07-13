@@ -431,6 +431,7 @@ class penggajianController extends Controller
 
         $pdf = Pdf::loadView($view, [
             'data' => $data,
+            'pdfMode' => 'single',
             'paperSize' => $pdfOptions['paper_size'],
         ])->setPaper($pdfOptions['paper'], 'portrait');
 
@@ -447,6 +448,7 @@ class penggajianController extends Controller
 
         $pdf = Pdf::loadView($view, [
             'data' => $data,
+            'pdfMode' => 'single',
             'paperSize' => $pdfOptions['paper_size'],
         ])->setPaper($pdfOptions['paper'], 'portrait');
 
