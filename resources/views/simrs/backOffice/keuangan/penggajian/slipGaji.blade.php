@@ -34,8 +34,7 @@
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
     $customPageMarginVerticalMm = $isSingleSlipPdf ? 5 : 3;
     $customPageMarginHorizontalMm = $isWhatsappPdf ? 4 : $customPageMarginVerticalMm;
-    $whatsappSlipSideGutterMm = 14;
-    $whatsappSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginHorizontalMm * 2) + ($whatsappSlipSideGutterMm * 2)));
+    $whatsappContentPaddingMm = $isWhatsappPdf ? 18 : 0;
     $copyLabels = $isSingleSlipPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
@@ -245,13 +244,9 @@
                 }
 
                 @if ($isWhatsappPdf)
-                    .sheet {
-                        box-sizing: border-box;
-                        width: {{ $whatsappSlipWidthMm }}mm;
-                        max-width: {{ $whatsappSlipWidthMm }}mm;
-                        margin: 0 auto;
-                        border: 1px solid #24382f;
-                        padding: 3mm;
+                    .slip-column {
+                        padding-left: {{ $whatsappContentPaddingMm }}mm;
+                        padding-right: {{ $whatsappContentPaddingMm }}mm;
                     }
                 @endif
 
