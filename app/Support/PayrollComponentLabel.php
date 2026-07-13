@@ -10,6 +10,8 @@ final class PayrollComponentLabel
 
     public const UGD_CONTRACT_SALARY_LABEL = 'Upah STR';
 
+    public const UGD_CONTRACT_PAID_SALARY_LABEL = 'Kehadiran';
+
     public static function salaryLabel(?string $position, ?string $employmentStatus): string
     {
         return self::isUgdContractDoctor($position, $employmentStatus)
@@ -20,7 +22,7 @@ final class PayrollComponentLabel
     public static function paidSalaryLabel(?string $position, ?string $employmentStatus): string
     {
         return self::isUgdContractDoctor($position, $employmentStatus)
-            ? self::UGD_CONTRACT_SALARY_LABEL.' Dibayarkan'
+            ? self::UGD_CONTRACT_PAID_SALARY_LABEL
             : self::DEFAULT_PAID_SALARY_LABEL;
     }
 

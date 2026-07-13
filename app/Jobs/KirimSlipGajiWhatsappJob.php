@@ -21,20 +21,23 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
 
     public function __construct(
         public int $gajiId,
-        public string $periode
+        public string $periode,
+        public int $tahap = 1
     ) {
     }
 
     public function handle(penggajianService $penggajianService): void
     {
         $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
+        $tahap = $this->normalizeTahap();
 
         $result = Cache::lock('queue:slip-gaji-whatsapp', 180)
-            ->block(90, function () use ($penggajianService, $delaySeconds) {
+            ->block(90, function () use ($penggajianService, $delaySeconds, $tahap) {
                 try {
-                    return $penggajianService->sendSingleSlipWhatsappTahap1(
+                    return $penggajianService->sendSingleSlipWhatsapp(
                         $this->gajiId,
-                        $this->periode
+                        $this->periode,
+                        $tahap
                     );
                 } finally {
                     sleep($delaySeconds);
@@ -45,12 +48,13 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
             'gaji_id' => $this->gajiId,
             'nik' => $result['nik'] ?? null,
             'periode' => $this->periode,
+            'tahap' => $tahap,
         ]);
     }
 
     public function uniqueId(): string
     {
-        return $this->periode . ':' . $this->gajiId;
+        return $this->periode.':'.$this->normalizeTahap().':'.$this->gajiId;
     }
 
     public function failed(?Throwable $exception): void
@@ -58,7 +62,13 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
         Log::error('Queue slip gaji Whatsapp gagal.', [
             'gaji_id' => $this->gajiId,
             'periode' => $this->periode,
+            'tahap' => $this->normalizeTahap(),
             'message' => $exception?->getMessage(),
         ]);
+    }
+
+    private function normalizeTahap(): int
+    {
+        return (int) ($this->tahap ?? 1) === 2 ? 2 : 1;
     }
 }

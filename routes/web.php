@@ -432,9 +432,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/penggajian/getSummaryGajiTahap1', [penggajianController::class, 'getSummaryGajiTahap1'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap1');
         Route::get('/penggajian/getSummaryGajiTahap2', [penggajianController::class, 'getSummaryGajiTahap2'])->name('backOffice.keuangan.penggajian.getSummaryGajiTahap2');
         Route::get('/penggajian/gajitahap2/generator-readiness', [penggajianController::class, 'getGajiTahap2GeneratorReadiness'])->name('backOffice.keuangan.penggajian.getGajiTahap2GeneratorReadiness');
+        Route::get('/penggajian/gajitahap1/doctor-config', [penggajianController::class, 'gajiTahap1DoctorConfig'])->name('backOffice.keuangan.penggajian.gajiTahap1DoctorConfig');
+        Route::put('/penggajian/gajitahap1/doctor-config', [penggajianController::class, 'updateGajiTahap1DoctorConfig'])->name('backOffice.keuangan.penggajian.updateGajiTahap1DoctorConfig');
+        Route::get('/penggajian/gajitahap1/dokter-ugd-kontrak-options', [penggajianController::class, 'dokterUgdKontrakTahap1Options'])->name('backOffice.keuangan.penggajian.dokterUgdKontrakTahap1Options');
         Route::get('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'gajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.gajiTahap2DoctorConfig');
         Route::put('/penggajian/gajitahap2/doctor-config', [penggajianController::class, 'updateGajiTahap2DoctorConfig'])->name('backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig');
         Route::get('/penggajian/gajitahap2/dokter-umum-options', [penggajianController::class, 'dokterUmumTahap2Options'])->name('backOffice.keuangan.penggajian.dokterUmumTahap2Options');
+        Route::get('/penggajian/rounding-config', [penggajianController::class, 'payrollRoundingConfig'])->name('backOffice.keuangan.penggajian.payrollRoundingConfig');
+        Route::put('/penggajian/rounding-config', [penggajianController::class, 'updatePayrollRoundingConfig'])->name('backOffice.keuangan.penggajian.updatePayrollRoundingConfig');
         Route::get('/penggajian/slip-whatsapp/recipients', [penggajianController::class, 'getPenerimaSlipWhatsappTahap1'])->name('backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1');
         Route::post('/penggajian/slip-whatsapp/send', [penggajianController::class, 'kirimSlipGajiWhatsappTahap1'])->name('backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1');
         Route::get('/penggajian/gajitahap1/{id}/detail', [penggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');

@@ -4,7 +4,8 @@
     $periode = $data["periode"] ?? null;
     $bulanSlip = $periode ? strtoupper(Carbon::createFromFormat("Y-m", $periode)->translatedFormat("F Y")) : "-";
     $tunjanganDetail = collect($data["tunjangan_detail"] ?? []);
-    $totalTahap1 = (int) ($data["total"] ?? 0);
+    $pembulatanTahap1 = (int) ($data["pembulatan"] ?? 0);
+    $totalTahap1 = (int) ($data["total"] ?? 0) - $pembulatanTahap1;
     $komponenGajiLabel = strtoupper($data["komponen_gaji_label"] ?? "Gaji Pokok");
     $stage2 = $data["tahap2"] ?? null;
     $hasStage2 = is_array($stage2) && !empty($stage2);
@@ -14,13 +15,15 @@
     $stage2JasaTindakanItems = collect($stage2JasaTindakan["items"] ?? []);
     $stage2JasaTindakanTotal = (int) ($stage2JasaTindakan["total"] ?? $stage2JasaTindakanItems->sum("nominal"));
     $stage2PremiBersama = (int) (($stage2SlipPendapatanUmum["premi_bersama"]["nominal"] ?? 0));
+    $stage2PremiBersamaSourcePeriods = collect($stage2SlipPendapatanUmum["premi_bersama"]["source_period_labels"] ?? []);
     $stage2HasGroupedPremi = $stage2JasaTindakanTotal > 0 || $stage2PremiBersama > 0;
     $stage2PotonganDetail = collect($stage2["potongan_detail"] ?? []);
     $stage2GajiDibayar = (int) ($stage2["gaji_dibayar"] ?? 0);
     $stage2SalaryLabel = strtoupper($stage2["komponen_gaji_dibayar_label"] ?? ($data["komponen_gaji_dibayar_label"] ?? "Gaji Dibayarkan"));
     $totalTahap2Bruto = (int) ($stage2["total_bruto"] ?? ($stage2GajiDibayar + (int) ($stage2["total_premi"] ?? 0)));
     $totalTahap2Potongan = (int) ($stage2["total_potongan"] ?? 0);
-    $totalTahap2 = (int) ($stage2["total"] ?? 0);
+    $pembulatanTahap2 = (int) ($stage2["pembulatan"] ?? 0);
+    $totalTahap2 = (int) ($stage2["total"] ?? 0) - $pembulatanTahap2;
 
     $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
     $rupiahStage2 = static fn($angka) => $hasStage2 ? number_format((int) $angka, 0, ",", ".") : "-";
@@ -152,6 +155,13 @@
 
             .income-subitem {
                 padding-left: 8px !important;
+            }
+
+            .source-period {
+                display: block;
+                font-size: 6.5px;
+                line-height: 1.15;
+                color: #333;
             }
 
             .col-rp {
@@ -315,28 +325,52 @@
                             </tr>
 
                             @foreach ($stage2JasaTindakanItems as $index => $item)
+                                @php
+                                    $sourcePeriodText = collect($item["source_period_labels"] ?? [])->filter()->implode(", ");
+                                @endphp
                                 <tr>
                                     <td></td>
                                     <td></td>
-                                    <td class="col-name income-subitem">{{ chr(97 + $index) }}. {{ strtoupper($item["label"] ?? "-") }}</td>
+                                    <td class="col-name income-subitem">
+                                        {{ chr(97 + $index) }}. {{ strtoupper($item["label"] ?? "-") }}
+                                        @if ($sourcePeriodText)
+                                            <span class="source-period">PERIODE SUMBER: {{ strtoupper($sourcePeriodText) }}</span>
+                                        @endif
+                                    </td>
                                     <td class="col-rp">: Rp.</td>
                                     <td class="col-value">{{ $rupiahSlip($item["nominal"] ?? 0) }}</td>
                                 </tr>
                             @endforeach
 
+                            @php
+                                $premiBersamaSourcePeriodText = $stage2PremiBersamaSourcePeriods->filter()->implode(", ");
+                            @endphp
                             <tr>
                                 <td></td>
                                 <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
-                                <td class="col-name">PREMI BERSAMA</td>
+                                <td class="col-name">
+                                    PREMI BERSAMA
+                                    @if ($premiBersamaSourcePeriodText)
+                                        <span class="source-period">PERIODE SUMBER: {{ strtoupper($premiBersamaSourcePeriodText) }}</span>
+                                    @endif
+                                </td>
                                 <td class="col-rp">: Rp.</td>
                                 <td class="col-value">{{ $rupiahSlip($stage2PremiBersama) }}</td>
                             </tr>
                         @else
                             @foreach ($stage2PremiDetail as $premi)
+                                @php
+                                    $premiSourcePeriodLabel = $premi["source_period_label"] ?? null;
+                                @endphp
                                 <tr>
                                     <td></td>
                                     <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
-                                    <td class="col-name">{{ strtoupper($premi["nama"] ?? "PREMI") }}</td>
+                                    <td class="col-name">
+                                        {{ strtoupper($premi["nama"] ?? "PREMI") }}
+                                        @if ($premiSourcePeriodLabel)
+                                            <span class="source-period">PERIODE SUMBER: {{ strtoupper($premiSourcePeriodLabel) }}</span>
+                                        @endif
+                                    </td>
                                     <td class="col-rp">: Rp.</td>
                                     <td class="col-value">{{ $rupiahSlip($premi["nominal"] ?? 0) }}</td>
                                 </tr>

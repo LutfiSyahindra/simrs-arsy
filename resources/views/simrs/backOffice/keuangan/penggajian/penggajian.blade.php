@@ -1213,6 +1213,28 @@
             padding: .85rem;
         }
 
+        .payroll-config-tabs {
+            background: #eef2f7;
+            border: 1px solid #dbe3ef;
+            border-radius: 8px;
+            display: inline-flex;
+            gap: .25rem;
+            padding: .28rem;
+        }
+
+        .payroll-config-tabs .nav-link {
+            border-radius: 6px;
+            color: #475569;
+            font-size: .82rem;
+            font-weight: 800;
+            min-width: 112px;
+        }
+
+        .payroll-config-tabs .nav-link.active {
+            background: #0f172a;
+            color: #ffffff;
+        }
+
         .payroll-config-row {
             padding: .9rem;
         }
@@ -1316,6 +1338,643 @@
                 width: 100%;
             }
         }
+
+        .payroll-premium-page {
+            --payroll-ink: #0f172a;
+            --payroll-muted: #64748b;
+            --payroll-line: #dbe3ef;
+            --payroll-soft: #f6f8fb;
+            --payroll-panel: #ffffff;
+            --payroll-teal: #0f766e;
+            --payroll-blue: #2563eb;
+            --payroll-green: #16a34a;
+            --payroll-amber: #d97706;
+            color: var(--payroll-ink);
+        }
+
+        .payroll-breadcrumb .breadcrumb {
+            background: transparent;
+            margin-bottom: .75rem;
+            padding: 0;
+        }
+
+        .payroll-premium-page .payroll-kicker,
+        .payroll-premium-page .payroll-summary-label,
+        .payroll-premium-page .payroll-field-label {
+            letter-spacing: .04em;
+        }
+
+        .payroll-hero-panel,
+        .payroll-control-bar,
+        .payroll-active-card,
+        .payroll-table-card,
+        .payroll-stage-card,
+        .payroll-summary-card,
+        .stage2-readiness-panel {
+            border: 1px solid var(--payroll-line);
+            border-radius: 8px;
+            box-shadow: 0 16px 36px rgba(15, 23, 42, .07);
+        }
+
+        .payroll-hero-panel {
+            align-items: center;
+            background: linear-gradient(135deg, #ffffff 0%, #f2fbf7 52%, #f8fbff 100%);
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: minmax(0, 1fr) auto;
+            margin-bottom: .85rem;
+            padding: 1rem;
+        }
+
+        .payroll-hero-title,
+        .payroll-active-card-head,
+        .payroll-stage-card-top {
+            align-items: flex-start;
+            display: flex;
+            gap: .85rem;
+            min-width: 0;
+        }
+
+        .payroll-hero-icon,
+        .payroll-active-orb {
+            align-items: center;
+            background: #0f766e;
+            border-radius: 8px;
+            color: #ffffff;
+            display: inline-flex;
+            flex: 0 0 44px;
+            height: 44px;
+            justify-content: center;
+            width: 44px;
+        }
+
+        .payroll-active-orb {
+            background: #eff6ff;
+            color: var(--payroll-blue);
+            flex-basis: 38px;
+            height: 38px;
+            margin-left: auto;
+            width: 38px;
+        }
+
+        .payroll-stage-tabs {
+            background: #eef2f7;
+            border: 1px solid var(--payroll-line);
+            border-radius: 8px;
+            display: grid;
+            gap: .28rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            min-width: 260px;
+            padding: .28rem;
+        }
+
+        .payroll-stage-tabs .nav-link {
+            border-radius: 6px;
+            color: #475569;
+            font-size: .82rem;
+            font-weight: 800;
+            min-height: 38px;
+        }
+
+        .payroll-stage-tabs .nav-link.active {
+            background: var(--payroll-ink);
+            box-shadow: 0 9px 18px rgba(15, 23, 42, .2);
+            color: #ffffff;
+        }
+
+        .payroll-control-bar {
+            align-items: end;
+            background: var(--payroll-panel);
+            display: grid;
+            gap: .75rem;
+            grid-template-columns: 190px minmax(260px, 1fr) minmax(420px, auto);
+            margin-bottom: .85rem;
+            padding: .9rem;
+        }
+
+        .payroll-control-field,
+        .payroll-actions-wrap {
+            min-width: 0;
+        }
+
+        .payroll-control-bar .form-control,
+        .payroll-control-bar .input-group-text {
+            border-color: var(--payroll-line);
+            border-radius: 6px;
+            min-height: 36px;
+        }
+
+        .payroll-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .45rem;
+            min-width: 0;
+        }
+
+        .payroll-actions .btn {
+            align-items: center;
+            border-radius: 6px;
+            display: inline-flex;
+            font-size: .78rem;
+            font-weight: 800;
+            justify-content: center;
+            min-height: 36px;
+            white-space: nowrap;
+        }
+
+        .payroll-actions .btn-light {
+            background: #ffffff;
+            border: 1px solid var(--payroll-line);
+            color: #475569;
+            min-width: 38px;
+        }
+
+        .payroll-action-hint {
+            color: var(--payroll-muted);
+            display: block;
+            font-size: .74rem;
+            margin-top: .35rem;
+        }
+
+        .payroll-stage-workspace,
+        .payroll-stage-content,
+        .payroll-stage-pane {
+            min-width: 0;
+        }
+
+        .payroll-stage-pane.active {
+            display: grid;
+            gap: .85rem;
+        }
+
+        .payroll-stage-overview {
+            align-items: stretch;
+            display: grid;
+            gap: .85rem;
+            grid-template-columns: minmax(0, 1fr);
+            min-width: 0;
+        }
+
+        .payroll-stage-overview.is-stage-2 {
+            grid-template-columns: minmax(320px, .7fr) minmax(0, 1.3fr);
+        }
+
+        .payroll-stage-overview .payroll-stage-card,
+        .payroll-stage-overview .stage2-readiness-panel {
+            min-height: 100%;
+        }
+
+        .payroll-stage-overview.is-stage-1 .payroll-stage-metrics {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .payroll-stage-overview .stage2-readiness-stats {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .payroll-stage-overview .stage2-generator-grid {
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            max-height: 210px;
+        }
+
+        .payroll-layout-grid {
+            align-items: start;
+            display: grid;
+            gap: .85rem;
+            grid-template-columns: minmax(0, 1fr) 360px;
+        }
+
+        .payroll-primary-column {
+            display: grid;
+            gap: .85rem;
+            min-width: 0;
+        }
+
+        .payroll-active-overview {
+            display: grid;
+            gap: .85rem;
+            grid-template-columns: minmax(300px, .9fr) minmax(460px, 1.1fr);
+        }
+
+        .payroll-active-card,
+        .payroll-table-card,
+        .payroll-summary-card,
+        .payroll-stage-card,
+        .stage2-readiness-panel {
+            background: var(--payroll-panel);
+        }
+
+        .payroll-active-card {
+            padding: .95rem;
+        }
+
+        .payroll-active-card-head {
+            justify-content: space-between;
+        }
+
+        .payroll-active-card-head span {
+            color: var(--payroll-muted);
+            font-size: .84rem;
+        }
+
+        .payroll-context-strip {
+            border-top: 1px solid #e8edf5;
+            display: grid;
+            gap: .55rem;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: .85rem;
+            padding-top: .85rem;
+        }
+
+        .payroll-context-item {
+            background: var(--payroll-soft);
+            border: 1px solid #e6edf5;
+            border-radius: 8px;
+            min-width: 0;
+            padding: .62rem .68rem;
+        }
+
+        .payroll-context-item span,
+        .payroll-stage-metrics small {
+            color: var(--payroll-muted);
+            display: block;
+            font-size: .68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .payroll-context-item strong {
+            color: var(--payroll-ink);
+            display: block;
+            font-size: .82rem;
+            margin-top: .15rem;
+            overflow-wrap: anywhere;
+        }
+
+        .payroll-summary-grid {
+            display: grid;
+            gap: .65rem;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .payroll-summary-card {
+            box-shadow: none;
+            min-width: 0;
+            overflow: hidden;
+            padding: .78rem;
+            position: relative;
+        }
+
+        .payroll-summary-card::before,
+        .payroll-stage-card::before {
+            background: linear-gradient(90deg, var(--payroll-teal), var(--payroll-blue), var(--payroll-amber));
+            content: "";
+            height: 3px;
+            inset: 0 0 auto;
+            position: absolute;
+        }
+
+        .payroll-summary-value {
+            color: var(--payroll-ink);
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.25;
+            margin: .22rem 0 0;
+            overflow-wrap: anywhere;
+        }
+
+        .payroll-table-card {
+            overflow: hidden;
+        }
+
+        .payroll-table-heading {
+            align-items: center;
+            background: #ffffff;
+            border: 0;
+            border-bottom: 1px solid var(--payroll-line);
+            border-radius: 0;
+            display: flex;
+            gap: .75rem;
+            justify-content: space-between;
+            padding: .85rem .95rem;
+        }
+
+        .payroll-table-note {
+            align-items: center;
+            background: var(--payroll-soft);
+            border: 1px solid #e6edf5;
+            border-radius: 8px;
+            color: #475569;
+            display: inline-flex;
+            font-size: .76rem;
+            font-weight: 800;
+            gap: .35rem;
+            padding: .4rem .58rem;
+            white-space: nowrap;
+        }
+
+        .payroll-table-wrap,
+        .payroll-premium-page .table-responsive {
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            height: calc(100vh - 330px);
+            min-height: 430px;
+            overflow: auto;
+        }
+
+        .payroll-table {
+            min-width: 1080px;
+        }
+
+        .payroll-table thead th,
+        .payroll-premium-page .table thead th {
+            background: #f8fafc !important;
+            border-bottom: 1px solid var(--payroll-line) !important;
+            color: #334155;
+            font-size: .7rem;
+            font-weight: 800;
+            padding: .75rem .8rem;
+            position: sticky;
+            text-transform: uppercase;
+            top: 0;
+            z-index: 2;
+        }
+
+        .payroll-table tbody td,
+        .payroll-premium-page .table tbody td {
+            border-color: #edf2f7;
+            padding: .74rem .8rem;
+        }
+
+        .payroll-insight-rail {
+            display: grid;
+            gap: .85rem;
+            max-height: calc(100vh - 120px);
+            min-width: 0;
+            overflow: auto;
+            position: sticky;
+            top: 82px;
+        }
+
+        .payroll-stage-card {
+            appearance: none;
+            border-color: var(--payroll-line);
+            color: inherit;
+            cursor: pointer;
+            overflow: hidden;
+            padding: .85rem;
+            position: relative;
+            text-align: left;
+            transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+            width: 100%;
+        }
+
+        .payroll-stage-card:hover,
+        .payroll-stage-card.is-active {
+            border-color: #bfdbfe;
+            box-shadow: 0 18px 36px rgba(37, 99, 235, .12);
+            transform: translateY(-1px);
+        }
+
+        .payroll-stage-card-top {
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .payroll-stage-card-top>span {
+            min-width: 0;
+        }
+
+        .payroll-stage-card-top strong,
+        .payroll-stage-card-top small {
+            display: block;
+        }
+
+        .payroll-stage-card-top strong {
+            color: var(--payroll-ink);
+            font-size: .9rem;
+            margin-top: .12rem;
+        }
+
+        .payroll-stage-card-top small {
+            color: var(--payroll-muted);
+            font-size: .76rem;
+            margin-top: .12rem;
+        }
+
+        .payroll-stage-card-top i {
+            align-items: center;
+            background: #eff6ff;
+            border-radius: 8px;
+            color: var(--payroll-blue);
+            display: inline-flex;
+            flex: 0 0 36px;
+            height: 36px;
+            justify-content: center;
+            width: 36px;
+        }
+
+        .payroll-stage-metrics {
+            display: grid;
+            gap: .48rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-top: .75rem;
+        }
+
+        .payroll-stage-metrics>span {
+            background: var(--payroll-soft);
+            border: 1px solid #e6edf5;
+            border-radius: 8px;
+            min-width: 0;
+            padding: .55rem .6rem;
+        }
+
+        .payroll-stage-metrics strong {
+            color: var(--payroll-ink);
+            display: block;
+            font-size: .84rem;
+            margin-top: .15rem;
+            overflow-wrap: anywhere;
+        }
+
+        .stage2-readiness-panel {
+            overflow: hidden;
+        }
+
+        .stage2-readiness-header {
+            padding: .85rem;
+        }
+
+        .stage2-readiness-stats {
+            gap: .48rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            padding: .75rem .85rem;
+        }
+
+        .stage2-readiness-stat {
+            padding: .55rem .6rem;
+        }
+
+        .stage2-generator-grid {
+            display: grid;
+            gap: .55rem;
+            max-height: 310px;
+            overflow: auto;
+            padding: .85rem;
+        }
+
+        .stage2-generator-item,
+        .stage2-generator-type {
+            border-radius: 8px;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            padding-top: .35rem;
+        }
+
+        .dataTables_wrapper .row {
+            margin-left: 0;
+            margin-right: 0;
+            padding: .55rem .75rem;
+        }
+
+        .dataTables_wrapper .row:first-child {
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .dataTables_wrapper .row:last-child {
+            border-top: 1px solid #eef2f7;
+        }
+
+        @media (max-width: 1399.98px) {
+            .payroll-layout-grid {
+                grid-template-columns: minmax(0, 1fr) 330px;
+            }
+
+            .payroll-stage-overview.is-stage-2 {
+                grid-template-columns: minmax(300px, .8fr) minmax(0, 1.2fr);
+            }
+
+            .payroll-active-overview {
+                grid-template-columns: 1fr;
+            }
+
+            .payroll-summary-grid {
+                grid-template-columns: repeat(4, minmax(150px, 1fr));
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 1199.98px) {
+            .payroll-control-bar {
+                grid-template-columns: 190px minmax(240px, 1fr);
+            }
+
+            .payroll-actions-wrap {
+                grid-column: 1 / -1;
+            }
+
+            .payroll-layout-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payroll-stage-overview.is-stage-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .payroll-stage-overview.is-stage-1 .payroll-stage-metrics,
+            .payroll-stage-overview.is-stage-2 .payroll-stage-metrics {
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+            }
+
+            .payroll-stage-overview .stage2-readiness-stats {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .payroll-insight-rail {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                max-height: none;
+                overflow: visible;
+                position: static;
+            }
+
+            .stage2-readiness-panel {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            .payroll-hero-panel {
+                grid-template-columns: 1fr;
+            }
+
+            .payroll-stage-tabs {
+                min-width: 0;
+                width: 100%;
+            }
+
+            .payroll-summary-grid,
+            .payroll-context-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .payroll-stage-overview.is-stage-1 .payroll-stage-metrics,
+            .payroll-stage-overview.is-stage-2 .payroll-stage-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .payroll-table-wrap {
+                height: calc(100vh - 355px);
+                min-height: 380px;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .payroll-premium-page {
+                margin-left: -.35rem;
+                margin-right: -.35rem;
+            }
+
+            .payroll-hero-panel,
+            .payroll-control-bar,
+            .payroll-active-card,
+            .payroll-table-heading {
+                padding: .78rem;
+            }
+
+            .payroll-control-bar,
+            .payroll-active-overview,
+            .payroll-stage-overview,
+            .payroll-stage-overview.is-stage-1 .payroll-stage-metrics,
+            .payroll-stage-overview.is-stage-2 .payroll-stage-metrics,
+            .payroll-insight-rail,
+            .payroll-summary-grid,
+            .payroll-context-strip,
+            .stage2-readiness-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .payroll-actions .btn {
+                flex: 1 1 calc(50% - .45rem);
+            }
+
+            .payroll-table-heading {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .payroll-table-note {
+                justify-content: center;
+                white-space: normal;
+            }
+
+            .payroll-table-wrap {
+                height: calc(100vh - 360px);
+                min-height: 320px;
+            }
+        }
     </style>
 @endpush
 
@@ -1323,359 +1982,293 @@
     @include("simrs.backOffice.keuangan.penggajian.modalDetail")
     @include("simrs.backOffice.keuangan.penggajian.modalWhatsapp")
     @include("simrs.backOffice.keuangan.penggajian.modalGajiTahap2DoctorConfig")
-    <nav class="page-breadcrumb">
+
+    <nav class="page-breadcrumb payroll-breadcrumb">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="#">Keuangan</a></li>
             <li class="breadcrumb-item active" aria-current="page">Penggajian</li>
         </ol>
     </nav>
 
-    <div class="row">
-        <div class="col-md-12 grid-margin stretch-card">
-            <div class="card payroll-page-card">
-                <div class="card-body payroll-workspace">
-                    <div class="mb-3 payroll-command-panel">
-                        <div class="payroll-command-header">
-                            <div class="payroll-command-title">
-                                <div class="payroll-command-icon">
-                                    <i class="mdi mdi-cash-multiple mdi-24px"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="payroll-kicker">Payroll Workspace</div>
-                                    <h5 class="fw-bold mb-1">Penggajian Pegawai</h5>
-                                    <div class="payroll-command-copy">
-                                        Periode <strong id="commandPeriodeText">{{ date("Y-m") }}</strong> dengan
-                                        komponen tahap pembayaran yang sedang aktif.
-                                    </div>
-                                </div>
-                            </div>
+    <div class="payroll-premium-page">
+        <section class="payroll-hero-panel">
+            <div class="payroll-hero-title">
+                <div class="payroll-hero-icon">
+                    <i class="mdi mdi-cash-sync mdi-24px"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="payroll-kicker">Payroll Command Center</div>
+                    <h4 class="fw-bold mb-1">Penggajian Pegawai</h4>
+                    <p class="mb-0 payroll-command-copy">
+                        Periode <strong id="commandPeriodeText">{{ date("Y-m") }}</strong>
+                        dengan kontrol tahap, ringkasan biaya, dan status generator dalam satu layar kerja.
+                    </p>
+                </div>
+            </div>
 
-                            <ul class="nav nav-pills payroll-stage-tabs" id="payrollStageTabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button type="button" class="nav-link active" id="tabTahap1" data-bs-toggle="pill"
-                                        data-bs-target="#paneTahap1" data-tahap="1" role="tab">
-                                        <i class="mdi mdi-numeric-1-circle-outline"></i>
-                                        Gaji Tahap 1
-                                    </button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button type="button" class="nav-link" id="tabTahap2" data-bs-toggle="pill"
-                                        data-bs-target="#paneTahap2" data-tahap="2" role="tab">
-                                        <i class="mdi mdi-numeric-2-circle-outline"></i>
-                                        Gaji Tahap 2
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
+            <ul class="nav nav-pills payroll-stage-tabs" id="payrollStageTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link active" id="tabTahap1" data-bs-toggle="pill"
+                        data-bs-target="#paneTahap1" data-tahap="1" role="tab">
+                        <i class="mdi mdi-numeric-1-circle-outline"></i>
+                        <span>Tahap 1</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link" id="tabTahap2" data-bs-toggle="pill"
+                        data-bs-target="#paneTahap2" data-tahap="2" role="tab">
+                        <i class="mdi mdi-numeric-2-circle-outline"></i>
+                        <span>Tahap 2</span>
+                    </button>
+                </li>
+            </ul>
+        </section>
 
-                        <input type="hidden" id="tahapGaji" value="1">
+        <input type="hidden" id="tahapGaji" value="1">
 
-                        <div class="payroll-command-grid">
-                            <div>
-                                <label class="payroll-field-label">Periode</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white">
-                                        <i class="mdi mdi-calendar-month text-muted"></i>
-                                    </span>
-                                    <input type="text" id="periodeGaji" class="form-control" value="{{ date("Y-m") }}"
-                                        autocomplete="off">
-                                </div>
-                            </div>
+        <section class="payroll-control-bar">
+            <div class="payroll-control-field">
+                <label class="payroll-field-label">Periode</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white">
+                        <i class="mdi mdi-calendar-month text-muted"></i>
+                    </span>
+                    <input type="text" id="periodeGaji" class="form-control" value="{{ date("Y-m") }}"
+                        autocomplete="off">
+                </div>
+            </div>
 
-                            <div>
-                                <label class="payroll-field-label">Pencarian</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white">
-                                        <i class="mdi mdi-magnify text-muted"></i>
-                                    </span>
-                                    <input type="text" id="searchPenggajian" class="form-control"
-                                        placeholder="Cari nama / NIK / jabatan...">
-                                </div>
-                            </div>
+            <div class="payroll-control-field payroll-search-field">
+                <label class="payroll-field-label">Pencarian Payroll</label>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white">
+                        <i class="mdi mdi-magnify text-muted"></i>
+                    </span>
+                    <input type="text" id="searchPenggajian" class="form-control"
+                        placeholder="Cari nama / NIK / jabatan...">
+                </div>
+            </div>
 
-                            <div class="payroll-actions-wrap">
-                                <label class="payroll-field-label">Aksi Payroll</label>
-                                <div class="payroll-actions">
-                                    <button type="button" id="btnGenerateGaji" class="btn btn-primary btn-sm">
-                                        <i class="mdi mdi-calculator-variant-outline me-1"></i>
-                                        Generate
-                                    </button>
+            <div class="payroll-actions-wrap">
+                <label class="payroll-field-label">Aksi</label>
+                <div class="payroll-actions">
+                    <button type="button" id="btnGenerateGaji" class="btn btn-primary btn-sm">
+                        <i class="mdi mdi-calculator-variant-outline me-1"></i>
+                        <span class="payroll-action-label">Generate Tahap 1</span>
+                    </button>
 
-                                    <button type="button" id="btnOpenSlipWhatsapp" class="btn btn-success btn-sm">
-                                        <i class="mdi mdi-whatsapp me-1"></i>
-                                        Kirim Slip Gaji WhatsApp
-                                    </button>
+                    <button type="button" id="btnOpenSlipWhatsapp" class="btn btn-success btn-sm">
+                        <i class="mdi mdi-whatsapp me-1"></i>
+                        <span>Kirim WA</span>
+                    </button>
 
-                                    <button type="button" id="btnOpenStage2DoctorConfig"
-                                        class="btn btn-outline-primary btn-sm">
-                                        <i class="mdi mdi-account-cog-outline me-1"></i>
-                                        Konfig Tahap 2
-                                    </button>
+                    <button type="button" id="btnOpenPayrollDoctorConfig" class="btn btn-outline-primary btn-sm">
+                        <i class="mdi mdi-account-cog-outline me-1"></i>
+                        <span>Konfig Gaji</span>
+                    </button>
 
-                                    <button type="button" id="btnExportGajiTahap2" class="btn btn-outline-success btn-sm">
-                                        <i class="mdi mdi-file-excel-outline me-1"></i>
-                                        Export Tahap 2
-                                    </button>
+                    <button type="button" id="btnExportGajiTahap2" class="btn btn-outline-success btn-sm d-none">
+                        <i class="mdi mdi-file-excel-outline me-1"></i>
+                        <span>Export T2</span>
+                    </button>
 
-                                    <button type="button" id="btnRefreshPenggajian" class="btn btn-light btn-sm"
-                                        title="Refresh">
-                                        <i class="mdi mdi-refresh"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                    <button type="button" id="btnRefreshPenggajian" class="btn btn-light btn-sm" title="Refresh">
+                        <i class="mdi mdi-refresh"></i>
+                    </button>
+                </div>
+                <small class="payroll-action-hint" id="stageActionHint">Slip WhatsApp tersedia untuk tahap 1.</small>
+            </div>
+        </section>
 
-                        <div class="payroll-context-strip">
-                            <div class="payroll-context-item">
-                                <span>Tahap Aktif</span>
-                                <strong id="activeStageBadge">Tahap 1</strong>
-                            </div>
-                            <div class="payroll-context-item">
-                                <span>Komponen Utama</span>
-                                <strong id="activeStageDescription">Gaji pokok dan tunjangan</strong>
-                            </div>
-                            <div class="payroll-context-item">
-                                <span>Periode</span>
-                                <strong id="activePeriodeBadge">{{ date("Y-m") }}</strong>
-                            </div>
-                        </div>
+        <section class="payroll-stage-workspace">
+            <div class="tab-content payroll-stage-content" id="payrollStageContent">
+                <div class="tab-pane fade show active payroll-stage-pane" id="paneTahap1" role="tabpanel"
+                    aria-labelledby="tabTahap1">
+                    <div class="payroll-stage-overview is-stage-1">
+                        <button type="button" class="payroll-stage-summary payroll-stage-card is-active"
+                            data-stage-shortcut="1">
+                            <span class="payroll-stage-card-top">
+                                <span>
+                                    <span class="payroll-summary-label">Summary Tahap 1</span>
+                                    <strong>Gaji Pokok dan Tunjangan</strong>
+                                    <small id="summaryTahap1Status">0 tetap / 0 kontrak</small>
+                                </span>
+                                <i class="mdi mdi-numeric-1-circle-outline"></i>
+                            </span>
+                            <span class="payroll-stage-metrics">
+                                <span>
+                                    <small>Pegawai</small>
+                                    <strong id="summaryTahap1Pegawai">0</strong>
+                                </span>
+                                <span>
+                                    <small>Total</small>
+                                    <strong id="summaryTahap1Total">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Gapok</small>
+                                    <strong id="summaryTahap1Gapok">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Tunjangan</small>
+                                    <strong id="summaryTahap1Tunjangan">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Premi</small>
+                                    <strong id="summaryTahap1Premi">Rp 0</strong>
+                                </span>
+                            </span>
+                        </button>
                     </div>
 
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-sm-6 col-xl-3">
-                            <div class="payroll-summary-card p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <div class="payroll-summary-label">Total Gaji</div>
-                                        <h5 class="payroll-summary-value" id="summaryTotalGaji">Rp 0</h5>
-                                        <small class="text-muted" id="summaryPeriode">-</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-primary-subtle text-primary">
-                                        <i class="mdi mdi-wallet-outline mdi-24px"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-sm-6 col-xl-3">
-                            <div class="payroll-summary-card p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <div class="payroll-summary-label">Pegawai</div>
-                                        <h5 class="payroll-summary-value" id="summaryPegawai">0</h5>
-                                        <small class="text-muted" id="summaryStatusPegawai">0 tetap / 0 kontrak</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-success-subtle text-success">
-                                        <i class="mdi mdi-account-group-outline mdi-24px"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-sm-6 col-xl-3">
-                            <div class="payroll-summary-card p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <div class="payroll-summary-label">Komponen Dibayar</div>
-                                        <h5 class="payroll-summary-value" id="summaryGapok">Rp 0</h5>
-                                        <small class="text-muted">Tahap terpilih</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-warning-subtle text-warning">
-                                        <i class="mdi mdi-cash-check mdi-24px"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-sm-6 col-xl-3">
-                            <div class="payroll-summary-card p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div>
-                                        <div class="payroll-summary-label" id="summaryExtraLabel">Tunjangan</div>
-                                        <h5 class="payroll-summary-value" id="summaryTunjangan">Rp 0</h5>
-                                        <small class="text-muted" id="summaryExtraNote">Masuk komponen gaji</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-info-subtle text-info">
-                                        <i class="mdi mdi-plus-box-multiple-outline mdi-24px"></i>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-12 col-xl-6">
-                            <div class="payroll-stage-summary p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-                                    <div>
-                                        <div class="payroll-summary-label">Summary Tahap 1</div>
-                                        <h6 class="fw-bold mb-0">Gaji Pokok dan Tunjangan</h6>
-                                        <small class="text-muted" id="summaryTahap1Status">0 tetap / 0 kontrak</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-primary-subtle text-primary">
-                                        <i class="mdi mdi-numeric-1-circle-outline mdi-24px"></i>
-                                    </div>
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Pegawai</small>
-                                        <strong id="summaryTahap1Pegawai">0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Total</small>
-                                        <strong id="summaryTahap1Total">Rp 0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Gapok Dibayar</small>
-                                        <strong id="summaryTahap1Gapok">Rp 0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Tunjangan</small>
-                                        <strong id="summaryTahap1Tunjangan">Rp 0</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="col-12 col-xl-6">
-                            <div class="payroll-stage-summary p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
-                                    <div>
-                                        <div class="payroll-summary-label">Summary Tahap 2</div>
-                                        <h6 class="fw-bold mb-0">Sisa Gaji Kontrak dan Premi Generator</h6>
-                                        <small class="text-muted" id="summaryTahap2Status">0 tetap / 0 kontrak</small>
-                                    </div>
-                                    <div class="payroll-summary-icon bg-success-subtle text-success">
-                                        <i class="mdi mdi-numeric-2-circle-outline mdi-24px"></i>
-                                    </div>
-                                </div>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Pegawai</small>
-                                        <strong id="summaryTahap2Pegawai">0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Total</small>
-                                        <strong id="summaryTahap2Total">Rp 0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Gaji Kontrak</small>
-                                        <strong id="summaryTahap2Gapok">Rp 0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Premi</small>
-                                        <strong id="summaryTahap2Premi">Rp 0</strong>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Potongan</small>
-                                        <strong id="summaryTahap2Potongan">Rp 0</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="stage2-readiness-panel d-none mb-3" id="stage2GeneratorReadinessPanel">
-                        <div class="stage2-readiness-header">
-                            <div>
-                                <div class="payroll-kicker">Kesiapan Generator Tahap 2</div>
-                                <h6 class="fw-bold mb-1">Data Generator Ready</h6>
-                                <small class="payroll-muted-copy" id="stage2GeneratorReadinessMessage">
-                                    Memeriksa generator yang sudah digenerate dan dikunci.
+                    <div class="payroll-table-card">
+                        <div class="payroll-table-heading">
+                            <div class="payroll-table-title">
+                                <div class="payroll-kicker">Daftar Payroll</div>
+                                <h6 class="fw-bold mb-0">Hasil Generate Tahap 1</h6>
+                                <small class="payroll-muted-copy">
+                                    Gaji pokok, tunjangan, dan premi pegawai periode aktif
                                 </small>
                             </div>
-                            <span class="stage2-readiness-badge blocked" id="stage2GeneratorReadinessBadge">
-                                <i class="mdi mdi-timer-sand"></i>
-                                Memuat
+                            <div class="payroll-table-note">
+                                <i class="mdi mdi-database-check-outline"></i>
+                                <span>Workspace tabel penuh</span>
+                            </div>
+                        </div>
+
+                        <div class="payroll-table-wrap">
+                            <table id="tablePenggajianTahap1" class="table table-hover align-middle w-100 payroll-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="5%">No</th>
+                                        <th>Nama</th>
+                                        <th>Jabatan</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Komponen Gaji</th>
+                                        <th class="text-end">Dibayarkan</th>
+                                        <th class="text-end">Tunjangan</th>
+                                        <th class="text-end">Premi</th>
+                                        <th class="text-end">Total</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade payroll-stage-pane" id="paneTahap2" role="tabpanel" aria-labelledby="tabTahap2">
+                    <div class="payroll-stage-overview is-stage-2">
+                        <button type="button" class="payroll-stage-summary payroll-stage-card" data-stage-shortcut="2">
+                            <span class="payroll-stage-card-top">
+                                <span>
+                                    <span class="payroll-summary-label">Summary Tahap 2</span>
+                                    <strong>Sisa Gaji, Premi, Potongan</strong>
+                                    <small id="summaryTahap2Status">0 tetap / 0 kontrak</small>
+                                </span>
+                                <i class="mdi mdi-numeric-2-circle-outline"></i>
                             </span>
-                        </div>
+                            <span class="payroll-stage-metrics">
+                                <span>
+                                    <small>Pegawai</small>
+                                    <strong id="summaryTahap2Pegawai">0</strong>
+                                </span>
+                                <span>
+                                    <small>Total</small>
+                                    <strong id="summaryTahap2Total">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Gaji</small>
+                                    <strong id="summaryTahap2Gapok">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Premi</small>
+                                    <strong id="summaryTahap2Premi">Rp 0</strong>
+                                </span>
+                                <span>
+                                    <small>Potongan</small>
+                                    <strong id="summaryTahap2Potongan">Rp 0</strong>
+                                </span>
+                            </span>
+                        </button>
 
-                        <div class="stage2-readiness-stats">
-                            <div class="stage2-readiness-stat">
-                                <span>Ready</span>
-                                <strong id="stage2GeneratorReadyCount">0 / 0</strong>
+                        <div class="stage2-readiness-panel d-none" id="stage2GeneratorReadinessPanel">
+                            <div class="stage2-readiness-header">
+                                <div>
+                                    <div class="payroll-kicker">Kesiapan Generator Tahap 2</div>
+                                    <h6 class="fw-bold mb-1">Generator Ready</h6>
+                                    <small class="payroll-muted-copy" id="stage2GeneratorReadinessMessage">
+                                        Memeriksa generator yang sudah digenerate dan dikunci.
+                                    </small>
+                                </div>
+                                <span class="stage2-readiness-badge blocked" id="stage2GeneratorReadinessBadge">
+                                    <i class="mdi mdi-timer-sand"></i>
+                                    Memuat
+                                </span>
                             </div>
-                            <div class="stage2-readiness-stat">
-                                <span>Generated</span>
-                                <strong id="stage2GeneratorGeneratedCount">0 data</strong>
-                            </div>
-                            <div class="stage2-readiness-stat">
-                                <span>Terkunci</span>
-                                <strong id="stage2GeneratorLockedCount">0 data</strong>
-                            </div>
-                            <div class="stage2-readiness-stat">
-                                <span>Belum Dikunci</span>
-                                <strong id="stage2GeneratorUnlockedCount">0 data</strong>
-                            </div>
-                        </div>
 
-                        <div class="stage2-generator-grid" id="stage2GeneratorReadinessList">
-                            <div class="stage2-generator-note">Memuat status generator...</div>
+                            <div class="stage2-readiness-stats">
+                                <div class="stage2-readiness-stat">
+                                    <span>Ready</span>
+                                    <strong id="stage2GeneratorReadyCount">0 / 0</strong>
+                                </div>
+                                <div class="stage2-readiness-stat">
+                                    <span>Generated</span>
+                                    <strong id="stage2GeneratorGeneratedCount">0 data</strong>
+                                </div>
+                                <div class="stage2-readiness-stat">
+                                    <span>Terkunci</span>
+                                    <strong id="stage2GeneratorLockedCount">0 data</strong>
+                                </div>
+                                <div class="stage2-readiness-stat">
+                                    <span>Terbuka</span>
+                                    <strong id="stage2GeneratorUnlockedCount">0 data</strong>
+                                </div>
+                            </div>
+
+                            <div class="stage2-generator-grid" id="stage2GeneratorReadinessList">
+                                <div class="stage2-generator-note">Memuat status generator...</div>
+                            </div>
                         </div>
                     </div>
 
-                    <div
-                        class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-0 payroll-toolbar payroll-table-heading">
-                        <div class="payroll-table-title">
-                            <div class="payroll-kicker">Daftar Payroll</div>
-                            <h6 class="fw-bold mb-0" id="tableStageTitle">Hasil Generate Tahap 1</h6>
-                            <small class="payroll-muted-copy" id="tableStageSubtitle">Gaji pokok dan tunjangan pegawai
-                                periode aktif</small>
-                        </div>
-                        <div class="payroll-table-note">
-                            <i class="mdi mdi-database-check-outline"></i>
-                            <span>Data tersinkron dengan hasil generate</span>
-                        </div>
-                    </div>
-
-                    <div class="tab-content">
-                        <div class="tab-pane fade show active" id="paneTahap1" role="tabpanel">
-                            <div class="payroll-table-wrap">
-                                <table id="tablePenggajianTahap1"
-                                    class="table table-hover align-middle w-100 payroll-table">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th width="5%">No</th>
-                                            <th>Nama</th>
-                                            <th>Jabatan</th>
-                                            <th>Status</th>
-                                            <th class="text-end">Komponen Gaji</th>
-                                            <th class="text-end">Dibayarkan</th>
-                                            <th class="text-end">Tunjangan</th>
-                                            <th class="text-end">Total</th>
-                                            <th>Aksi</th>
-                                        </tr>
-                                    </thead>
-                                </table>
+                    <div class="payroll-table-card">
+                        <div class="payroll-table-heading">
+                            <div class="payroll-table-title">
+                                <div class="payroll-kicker">Daftar Payroll</div>
+                                <h6 class="fw-bold mb-0">Hasil Generate Tahap 2</h6>
+                                <small class="payroll-muted-copy">
+                                    Sisa gaji kontrak, premi generator, dan potongan periode aktif
+                                </small>
+                            </div>
+                            <div class="payroll-table-note">
+                                <i class="mdi mdi-table-large"></i>
+                                <span>Workspace tabel penuh</span>
                             </div>
                         </div>
 
-                        <div class="tab-pane fade" id="paneTahap2" role="tabpanel">
-                            <div class="payroll-table-wrap">
-                                <table id="tablePenggajianTahap2"
-                                    class="table table-hover align-middle w-100 payroll-table">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th width="5%">No</th>
-                                            <th>Nama</th>
-                                            <th>Jabatan</th>
-                                            <th>Status</th>
-                                            <th class="text-end">Gaji Pokok</th>
-                                            <th class="text-end">Dibayarkan</th>
-                                            <th class="text-end">Premi</th>
-                                            <th class="text-end">Potongan</th>
-                                            <th class="text-center">Sumber</th>
-                                            <th class="text-end">Total</th>
-                                            <th>Aksi</th>
-                                        </tr>
-                                    </thead>
-                                </table>
-                            </div>
+                        <div class="payroll-table-wrap">
+                            <table id="tablePenggajianTahap2" class="table table-hover align-middle w-100 payroll-table">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="5%">No</th>
+                                        <th>Nama</th>
+                                        <th>Jabatan</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Gaji Pokok</th>
+                                        <th class="text-end">Dibayarkan</th>
+                                        <th class="text-end">Premi</th>
+                                        <th class="text-end">Potongan</th>
+                                        <th class="text-center">Sumber</th>
+                                        <th class="text-end">Total</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 @endsection
 
@@ -1698,6 +2291,11 @@
                     })
                     .columns.adjust();
             }, 150);
+        });
+
+        $(document).on('click', '.payroll-stage-card[data-stage-shortcut]', function() {
+            const tahap = String($(this).data('stage-shortcut'));
+            $('#payrollStageTabs .nav-link[data-tahap="' + tahap + '"]').trigger('click');
         });
 
         function getActivePayrollTableId() {

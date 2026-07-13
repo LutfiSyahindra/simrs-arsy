@@ -18,6 +18,19 @@ use RuntimeException;
 
 class penggajianService
 {
+    private const STAGE1_DOCTOR_STR_TYPE = 'upah_str';
+
+    private const STAGE1_DOCTOR_PREMIUM_TYPES = [
+        self::STAGE1_DOCTOR_STR_TYPE => 'Upah STR',
+        'kebersamaan' => 'Kebersamaan',
+        'jasa_operasi' => 'Jasa Operasi',
+        'jasa_rawat_jalan' => 'Jasa Rawat Jalan',
+        'jasa_poli' => 'Jasa Poli',
+        'jasa_ecg' => 'Jasa ECG',
+        'konsul_wa' => 'Konsul WA',
+        'jasa_igd' => 'Jasa IGD',
+    ];
+
     private const STAGE2_DOCTOR_PREMIUM_TYPES = [
         'kebersamaan' => 'Kebersamaan',
         'jasa_operasi' => 'Jasa Operasi',
@@ -29,7 +42,56 @@ class penggajianService
         'kehadiran' => 'Kehadiran',
     ];
 
+    private const ROUNDING_CONFIG_DEFAULTS = [
+        'premium_received_enabled' => false,
+        'premium_received_base' => 1000,
+        'premium_received_mode' => 'up',
+        'stage1_total_enabled' => true,
+        'stage1_total_base' => 1000,
+        'stage1_total_mode' => 'up',
+        'stage2_total_enabled' => true,
+        'stage2_total_base' => 1000,
+        'stage2_total_mode' => 'up',
+    ];
+
+    private const DOCTOR_SLIP_ALLOWANCE_ROWS = [
+        'jabatan' => 'TUNJANGAN JABATAN',
+        'profesi' => 'TUNJANGAN PROFESI',
+        'suami_istri' => 'TUNJANGAN SUAMI/ISTRI',
+        'anak' => 'TUNJANGAN ANAK',
+        'khusus' => 'TUNJANGAN KHUSUS',
+        'masa_kerja' => 'T. MASA KERJA',
+        'fungsional' => 'T. FUNGSIONAL',
+    ];
+
+    private const DOCTOR_SLIP_JASA_ROWS = [
+        'kehadiran' => 'KEHADIRAN',
+        'str' => 'STR',
+        'kebersamaan' => 'KEBERSAMAAN',
+    ];
+
+    private const DOCTOR_SLIP_ACTION_ROWS = [
+        'ok' => 'OK',
+        'rawat_jalan' => 'RAWAT JALAN',
+        'visite' => 'VISITE',
+        'poli' => 'POLI',
+        'igd' => 'IGD',
+        'ecg' => 'ECG',
+        'radiologi' => 'RADIOLOGI',
+        'laborat' => 'LABORAT',
+    ];
+
+    private const DOCTOR_SLIP_DEDUCTION_ROWS = [
+        'dana_sehat' => 'Potongan Dana Sehat',
+        'infaq' => 'Potongan Infaq',
+        'bpjs' => 'Pot BPJS',
+        'tabungan_hari_tua' => 'Tabungan Hari Tua',
+        'lain_lain' => 'Potongan lain-lain',
+    ];
+
     protected $penggajianRepository;
+
+    private $payrollRoundingConfig = null;
 
     public function __construct()
     {
@@ -45,11 +107,17 @@ class penggajianService
             'jumlah_tetap' => $data->where('status', 'T')->count(),
             'jumlah_kontrak' => $data->where('status', 'FT')->count(),
             'total_gaji' => $data->sum(function ($row) {
-                return (int) $row->gaji_dibayar + (int) $row->tunjangan;
+                $componentTotal = (int) $row->gaji_dibayar
+                    + (int) $row->tunjangan
+                    + (int) ($row->premi ?? 0);
+                $storedTotal = (int) ($row->total ?? 0);
+
+                return $storedTotal !== 0 ? $storedTotal : $componentTotal;
             }),
             'total_gapok' => $data->sum('gaji_dibayar'),
             'total_tunjangan' => $data->sum('tunjangan'),
-            'total_premi' => 0,
+            'total_premi' => $data->sum('premi'),
+            'total_pembulatan' => $data->sum('pembulatan'),
             'jumlah_lainnya' => $data->whereNotIn('status', ['T', 'FT'])->count(),
             'periode' => $periode,
         ];
@@ -69,6 +137,7 @@ class penggajianService
             'total_tunjangan' => 0,
             'total_premi' => $data->sum('total_premi'),
             'total_potongan' => $data->sum('total_potongan'),
+            'total_pembulatan' => $data->sum('pembulatan'),
             'jumlah_sumber_premi' => $data->sum('jumlah_sumber_premi'),
             'periode' => $periode,
         ];
@@ -82,19 +151,66 @@ class penggajianService
     public function generateGajiTahap1(string $periode)
     {
         return DB::transaction(function () use ($periode) {
+            $roundingConfig = $this->roundingConfig();
+            $stage1DoctorConfig = $this->penggajianRepository
+                ->getGajiTahap1DoctorConfigs()
+                ->keyBy(fn ($row) => (string) $row->kd_dokter);
+            $premiDokterByNik = $this->penggajianRepository
+                ->collectPremiDokterByPeriod($periode, $stage1DoctorConfig->keys()->values())
+                ->pipe(fn (Collection $details) => $this->applyPremiumRoundingToDetails($details, $roundingConfig))
+                ->groupBy('nik');
             $pegawaiList = $this->penggajianRepository->getPegawaiUntukGajiTahap1();
 
+            $generatedNiks = [];
             $jumlahPegawai = 0;
             $jumlahTetap = 0;
             $jumlahKontrak = 0;
+            $jumlahLainnya = 0;
             $totalGaji = 0;
 
             foreach ($pegawaiList as $pegawai) {
                 $gajiPokok = (int) ($pegawai->nominal_gaji_pokok ?? 0);
                 $tunjangan = (int) ($pegawai->nominal_tunjangan ?? 0);
-                $status = strtoupper(trim($pegawai->status ?? ''));
+                $status = $this->normalizeStatus($pegawai->status ?? null);
+                $isUgdContractDoctor = PayrollComponentLabel::isUgdContractDoctor($pegawai->jbtn ?? null, $status);
+                $doctorConfig = $isUgdContractDoctor
+                    ? $stage1DoctorConfig->get((string) $pegawai->nik)
+                    : null;
+                $tunjanganBreakdown = null;
+                $premiDibayar = 0;
+                $premiBreakdown = null;
+                $pendapatanTambahan = 0;
 
-                if ($status === 'T') {
+                if ($isUgdContractDoctor && ! $doctorConfig) {
+                    continue;
+                }
+
+                if ($doctorConfig) {
+                    $upahStr = (int) ($pegawai->nominal_gaji_pokok ?? 0);
+                    $doctorPremiDetails = collect($premiDokterByNik->get((string) $pegawai->nik, []))->values();
+                    $components = $this->stage1UgdContractComponents(
+                        $upahStr,
+                        $tunjangan,
+                        $doctorPremiDetails,
+                        $doctorConfig
+                    );
+                    $gajiPokok = $components['gaji_pokok'];
+                    $gajiDibayar = $components['gaji_dibayar'];
+                    $tunjanganDibayar = $components['tunjangan'];
+                    $premiDibayar = $components['premi'];
+                    $premiBreakdown = $components['premi_breakdown'];
+                    $pendapatanTambahan = $components['upah_str_dibayar'];
+
+                    if ($doctorConfig->include_salary && $gajiDibayar <= 0) {
+                        throw ValidationException::withMessages([
+                            'periode' => [
+                                'Data kehadiran generator premi dokter untuk '.$pegawai->nama.' belum tersedia atau belum dikunci.',
+                            ],
+                        ]);
+                    }
+
+                    $jumlahKontrak++;
+                } elseif ($status === 'T') {
                     $gajiDibayar = $gajiPokok;
                     $tunjanganDibayar = $tunjangan;
                     $jumlahTetap++;
@@ -105,27 +221,48 @@ class penggajianService
                 } else {
                     $gajiDibayar = 0;
                     $tunjanganDibayar = 0;
+                    $jumlahLainnya++;
                 }
+
+                $totalSebelumPembulatan = $pendapatanTambahan
+                    + $gajiDibayar
+                    + $tunjanganDibayar
+                    + $premiDibayar;
+                $totalDibayarkan = $this->applyRoundingConfig(
+                    $totalSebelumPembulatan,
+                    'stage1_total',
+                    $roundingConfig
+                );
+                $pembulatan = $totalDibayarkan - $totalSebelumPembulatan;
 
                 $this->penggajianRepository->updateOrCreateGajiTahap1([
                     'periode' => $periode,
                     'nik' => $pegawai->nik,
                     'nama' => $pegawai->nama,
                     'jabatan' => $pegawai->jbtn,
-                    'status' => $pegawai->status,
+                    'status' => $status,
                     'gaji_pokok' => $gajiPokok,
                     'gaji_dibayar' => $gajiDibayar,
                     'tunjangan' => $tunjanganDibayar,
+                    'premi' => $premiDibayar,
+                    'premi_breakdown' => $premiBreakdown,
+                    'pembulatan' => $pembulatan,
+                    'total' => $totalDibayarkan,
+                    'tunjangan_breakdown' => $tunjanganBreakdown,
                 ]);
 
+                $generatedNiks[] = (string) $pegawai->nik;
                 $jumlahPegawai++;
-                $totalGaji += $gajiDibayar + $tunjanganDibayar;
+                $totalGaji += $totalDibayarkan;
             }
+
+            $this->penggajianRepository->deleteGajiTahap1ExceptNik($periode, $generatedNiks);
 
             return [
                 'jumlah_pegawai' => $jumlahPegawai,
                 'jumlah_tetap' => $jumlahTetap,
                 'jumlah_kontrak' => $jumlahKontrak,
+                'jumlah_lainnya' => $jumlahLainnya,
                 'total_gaji' => $totalGaji,
             ];
         });
@@ -140,8 +277,12 @@ class penggajianService
         foreach ($gajiTahap1Table as $gajiTahap1) {
             $gajiDibayarkan = (int) $gajiTahap1->gaji_dibayar;
             $tunjangan = (int) $gajiTahap1->tunjangan;
+            $premi = (int) ($gajiTahap1->premi ?? 0);
+            $componentTotal = $gajiDibayarkan + $tunjangan + $premi;
+            $storedTotal = (int) ($gajiTahap1->total ?? 0);
+            $total = $storedTotal !== 0 ? $storedTotal : $componentTotal;
             $komponenGajiLabel = PayrollComponentLabel::salaryLabel($gajiTahap1->jabatan, $gajiTahap1->status);
-            $canExportSlip = ! $this->isDoctorEmployee($gajiTahap1->nik, $doctorNikLookup);
+            $isDoctorSlip = $this->isDoctorEmployee($gajiTahap1->nik, $doctorNikLookup);
 
             $dataGajiTahap1Table[] = [
                 'id' => $gajiTahap1->id,
@@ -154,10 +295,13 @@ class penggajianService
                 'gaji_dibayarkan' => $gajiDibayarkan,
                 'komponen_gaji_dibayar_label' => PayrollComponentLabel::paidSalaryLabel($gajiTahap1->jabatan, $gajiTahap1->status),
                 'tunjangan' => $tunjangan,
-                'total' => $gajiDibayarkan + $tunjangan,
+                'premi' => $premi,
+                'pembulatan' => (int) ($gajiTahap1->pembulatan ?? ($total - $componentTotal)),
+                'total' => $total,
                 'periode' => $gajiTahap1->periode,
-                'can_export_slip' => $canExportSlip,
-                'slip_unavailable_message' => $canExportSlip ? null : 'Slip gaji dokter belum tersedia.',
+                'is_doctor_slip' => $isDoctorSlip,
+                'can_export_slip' => true,
+                'slip_unavailable_message' => null,
             ];
         }
 
@@ -169,6 +313,10 @@ class penggajianService
         $this->ensureGajiTahap2GeneratorsReady($periode);
 
         return DB::transaction(function () use ($periode) {
+            $roundingConfig = $this->roundingConfig();
+            $stage1DoctorConfig = $this->penggajianRepository
+                ->getGajiTahap1DoctorConfigs()
+                ->keyBy(fn ($row) => (string) $row->kd_dokter);
             $stage2DoctorConfig = $this->penggajianRepository
                 ->getGajiTahap2DoctorConfigs()
                 ->keyBy(fn ($row) => (string) $row->kd_dokter);
@@ -194,6 +342,7 @@ class penggajianService
                 ->values();
             $premiByNik = $this->penggajianRepository
                 ->collectPremiTahap2ByPeriod($periode, $premiumEligibleNik)
+                ->pipe(fn (Collection $details) => $this->applyPremiumRoundingToDetails($details, $roundingConfig))
                 ->groupBy('nik');
             $stage1TotalsByNik = $this->penggajianRepository->getGajiTahap1TotalsByNik($periode);
             $potonganByNik = $this->penggajianRepository->getPotonganPegawaiForStage2(
@@ -222,6 +371,10 @@ class penggajianService
                         collect($premiByNik->get((string) $pegawai->nik, []))->values(),
                         $doctorConfig->premium_types
                     );
+                    $premiDetails = $this->excludeStage1DoctorPremiumDetails(
+                        $premiDetails,
+                        $stage1DoctorConfig->get((string) $pegawai->nik)
+                    );
 
                     if ($doctorConfig->include_salary) {
                         $gajiDibayar = $this->stage2SalaryAmount($status, $gajiPokok, $pegawai->jbtn ?? null);
@@ -241,7 +394,7 @@ class penggajianService
                     $jumlahLainnya++;
                 }
 
-                $pegawaiTotalPremi = (int) round((float) $premiDetails->sum('nominal'));
+                $pegawaiTotalPremi = (int) $premiDetails->sum('nominal');
                 $totalBruto = $gajiDibayar + $pegawaiTotalPremi;
                 $potonganDetails = $this->calculateStage2Potongan(
                     collect($potonganByNik->get((string) $pegawai->nik, []))->values(),
@@ -250,7 +403,13 @@ class penggajianService
                     $totalBruto
                 );
                 $totalPotongan = (int) $potonganDetails->sum('nominal');
-                $total = max(0, $totalBruto - $totalPotongan);
+                $totalSebelumPembulatan = max(0, $totalBruto - $totalPotongan);
+                $total = $this->applyRoundingConfig(
+                    $totalSebelumPembulatan,
+                    'stage2_total',
+                    $roundingConfig
+                );
+                $pembulatan = $total - $totalSebelumPembulatan;
                 $breakdown = $this->premiumBreakdown($premiDetails);
 
                 $gaji = $this->penggajianRepository->updateOrCreateGajiTahap2([
@@ -263,6 +422,7 @@ class penggajianService
                     'gaji_dibayar' => $gajiDibayar,
                     'total_premi' => $pegawaiTotalPremi,
                     'total_potongan' => $totalPotongan,
+                    'pembulatan' => $pembulatan,
                     'total' => $total,
                     'jumlah_sumber_premi' => $premiDetails->count(),
                     'premi_breakdown' => $breakdown,
@@ -303,7 +463,7 @@ class penggajianService
         return $rows
             ->map(function ($row) use ($doctorNikLookup) {
                 $salaryLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
-                $canExportSlip = ! $this->isDoctorEmployee($row->nik, $doctorNikLookup);
+                $isDoctorSlip = $this->isDoctorEmployee($row->nik, $doctorNikLookup);
 
                 return [
                     'id' => $row->id,
@@ -318,34 +478,43 @@ class penggajianService
                     'komponen_gaji_dibayar_label' => $this->stage2PaidSalaryLabel($row->jabatan, $row->status, (int) $row->gaji_dibayar),
                     'total_premi' => (int) $row->total_premi,
                     'total_potongan' => (int) ($row->total_potongan ?? 0),
+                    'pembulatan' => (int) ($row->pembulatan ?? 0),
                     'jumlah_sumber_premi' => (int) $row->jumlah_sumber_premi,
                     'total_bruto' => (int) $row->gaji_dibayar + (int) $row->total_premi,
                     'total' => (int) $row->total,
                     'premi_breakdown' => $row->premi_breakdown ?? [],
                     'potongan_breakdown' => $row->potongan_breakdown ?? [],
                     'periode' => $row->periode,
-                    'can_export_slip' => $canExportSlip,
-                    'slip_unavailable_message' => $canExportSlip ? null : 'Slip gaji dokter belum tersedia.',
+                    'is_doctor_slip' => $isDoctorSlip,
+                    'can_export_slip' => true,
+                    'slip_unavailable_message' => null,
                 ];
             })
             ->values();
     }
 
+    public function getPenerimaSlipWhatsapp(string $periode, int $tahap = 1)
+    {
+        return $this->normalizeSlipWhatsappTahap($tahap) === 2
+            ? $this->getPenerimaSlipWhatsappTahap2($periode)
+            : $this->getPenerimaSlipWhatsappTahap1($periode);
+    }
+
     public function getPenerimaSlipWhatsappTahap1(string $periode)
     {
-        $requestedRows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode);
-        $doctorNikLookup = $this->doctorNikLookup($requestedRows);
-        $rows = $requestedRows
-            ->reject(fn ($row) => $this->isDoctorEmployee($row->nik, $doctorNikLookup))
-            ->values();
+        $rows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode);
+        $doctorNikLookup = $this->doctorNikLookup($rows);
         $stage2ByNik = $this->penggajianRepository
             ->getGajiTahap2RowsByNik($periode, $rows->pluck('nik')->all());
 
         return $rows
-            ->map(function ($row) use ($stage2ByNik) {
+            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $tunjangan = (int) $row->tunjangan;
-                $totalTahap1 = $gajiDibayar + $tunjangan;
+                $premi = (int) ($row->premi ?? 0);
+                $componentTotal = $gajiDibayar + $tunjangan + $premi;
+                $storedTotal = (int) ($row->total ?? 0);
+                $totalTahap1 = $storedTotal !== 0 ? $storedTotal : $componentTotal;
                 $stage2 = $stage2ByNik->get((string) $row->nik);
                 $totalTahap2 = $stage2 ? (int) $stage2->total : 0;
                 $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
@@ -363,13 +532,71 @@ class penggajianService
                     'no_whatsapp' => $this->normalizeWhatsappNumber($row->no_telp),
                     'gaji_dibayar' => $gajiDibayar,
                     'tunjangan' => $tunjangan,
+                    'premi' => $premi,
+                    'pembulatan' => (int) ($row->pembulatan ?? ($totalTahap1 - $componentTotal)),
                     'total_tahap1' => $totalTahap1,
                     'total_tahap2' => $totalTahap2,
                     'total' => $totalTahap1 + $totalTahap2,
                     'periode' => $row->periode,
+                    'tahap' => 1,
+                    'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
                 ];
             })
             ->values();
+    }
+
+    public function getPenerimaSlipWhatsappTahap2(string $periode)
+    {
+        $rows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap2($periode);
+        $doctorNikLookup = $this->doctorNikLookup($rows);
+        $stage1TotalsByNik = $this->penggajianRepository->getGajiTahap1TotalsByNik($periode);
+
+        return $rows
+            ->map(function ($row) use ($doctorNikLookup, $stage1TotalsByNik) {
+                $gajiDibayar = (int) $row->gaji_dibayar;
+                $totalPremi = (int) ($row->total_premi ?? 0);
+                $totalPotongan = (int) ($row->total_potongan ?? 0);
+                $componentTotal = $gajiDibayar + $totalPremi - $totalPotongan;
+                $totalTahap2 = (int) ($row->total ?? $componentTotal);
+                $totalTahap1 = (int) ($stage1TotalsByNik[(string) $row->nik] ?? 0);
+                $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
+
+                return [
+                    'id' => $row->id,
+                    'nik' => $row->nik,
+                    'nama' => $row->nama,
+                    'jabatan' => $row->jabatan,
+                    'status' => $row->status,
+                    'status_label' => $this->getStatusLabel($row->status),
+                    'komponen_gaji_label' => $komponenGajiLabel,
+                    'komponen_gaji_dibayar_label' => $this->stage2PaidSalaryLabel($row->jabatan, $row->status, $gajiDibayar),
+                    'no_telp' => $row->no_telp,
+                    'no_whatsapp' => $this->normalizeWhatsappNumber($row->no_telp),
+                    'gaji_dibayar' => $gajiDibayar,
+                    'total_premi' => $totalPremi,
+                    'total_potongan' => $totalPotongan,
+                    'pembulatan' => (int) ($row->pembulatan ?? ($totalTahap2 - $componentTotal)),
+                    'total_tahap1' => $totalTahap1,
+                    'total_tahap2' => $totalTahap2,
+                    'total' => $totalTahap1 + $totalTahap2,
+                    'periode' => $row->periode,
+                    'tahap' => 2,
+                    'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
+                ];
+            })
+            ->values();
+    }
+
+    private function getPenerimaSlipWhatsappRows(string $periode, array $ids, int $tahap): Collection
+    {
+        return $this->normalizeSlipWhatsappTahap($tahap) === 2
+            ? $this->penggajianRepository->getPenerimaSlipWhatsappTahap2($periode, $ids)
+            : $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode, $ids);
+    }
+
+    private function normalizeSlipWhatsappTahap(int $tahap): int
+    {
+        return $tahap === 2 ? 2 : 1;
     }
 
     private function ensureGajiTahap2GeneratorsReady(string $periode): void
@@ -385,8 +612,9 @@ class penggajianService
         ]);
     }
 
-    public function kirimSlipGajiWhatsappTahap1(string $periode, array $gajiIds)
+    public function kirimSlipGajiWhatsappTahap1(string $periode, array $gajiIds, int $tahap = 1)
     {
+        $tahap = $this->normalizeSlipWhatsappTahap($tahap);
         $ids = collect($gajiIds)
             ->filter()
             ->map(fn ($id) => (int) $id)
@@ -404,15 +632,11 @@ class penggajianService
         $baseUrl = $this->getGoWaBaseUrl();
         $this->checkGoWaHealth($baseUrl);
 
-        $requestedRows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode, $ids);
-        $doctorNikLookup = $this->doctorNikLookup($requestedRows);
-        $rows = $requestedRows
-            ->reject(fn ($row) => $this->isDoctorEmployee($row->nik, $doctorNikLookup))
-            ->values();
+        $rows = $this->getPenerimaSlipWhatsappRows($periode, $ids, $tahap);
 
         if ($rows->isEmpty()) {
             throw ValidationException::withMessages([
-                'gaji_ids' => ['Tidak ada pegawai non-dokter terpilih yang memiliki nomor Whatsapp pada periode ini.'],
+                'gaji_ids' => ['Tidak ada pegawai terpilih yang memiliki nomor Whatsapp pada periode ini.'],
             ]);
         }
 
@@ -429,31 +653,32 @@ class penggajianService
         $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
 
         foreach ($validRows as $index => $row) {
-            KirimSlipGajiWhatsappJob::dispatch((int) $row->id, $periode)
+            KirimSlipGajiWhatsappJob::dispatch((int) $row->id, $periode, $tahap)
                 ->delay(now()->addSeconds($index * $delaySeconds));
         }
 
         return [
             'queued' => $validRows->count(),
-            'skipped' => $requestedRows->count() - $validRows->count(),
+            'skipped' => count($ids) - $validRows->count(),
             'requested' => count($ids),
             'periode' => $periode,
+            'tahap' => $tahap,
             'delay_seconds' => $delaySeconds,
         ];
     }
 
-    public function sendSingleSlipWhatsappTahap1(int $gajiId, string $periode)
+    public function sendSingleSlipWhatsappTahap1(int $gajiId, string $periode, int $tahap = 1)
     {
-        $row = $this->penggajianRepository
-            ->getPenerimaSlipWhatsappTahap1($periode, [$gajiId])
-            ->first();
+        return $this->sendSingleSlipWhatsapp($gajiId, $periode, $tahap);
+    }
+
+    public function sendSingleSlipWhatsapp(int $gajiId, string $periode, int $tahap = 1)
+    {
+        $tahap = $this->normalizeSlipWhatsappTahap($tahap);
+        $row = $this->getPenerimaSlipWhatsappRows($periode, [$gajiId], $tahap)->first();
 
         if (! $row) {
             throw new RuntimeException('Data slip atau nomor Whatsapp pegawai tidak ditemukan.');
-        }
-
-        if ($this->isDoctorEmployee($row->nik)) {
-            throw new RuntimeException('Slip gaji dokter belum tersedia.');
         }
 
         $number = $this->normalizeWhatsappNumber($row->no_telp);
@@ -462,14 +687,19 @@ class penggajianService
             throw new RuntimeException('Nomor Whatsapp pegawai tidak valid.');
         }
 
-        $detail = $this->detailSlipGajiTahap1($row->id);
+        $detail = $tahap === 2
+            ? $this->detailSlipGajiTahap2($row->id)
+            : $this->detailSlipGajiTahap1($row->id);
+        $view = ($detail['is_doctor_slip'] ?? false)
+            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
+            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
         $fileName = $this->makeSlipPdfFilename($row->nik, $periode);
         $tempDir = storage_path('app/slip-gaji-whatsapp');
         $filePath = $tempDir.DIRECTORY_SEPARATOR.Str::uuid().'-'.$fileName;
 
         File::ensureDirectoryExists($tempDir);
 
-        Pdf::loadView('simrs.backOffice.keuangan.penggajian.slipGaji', [
+        Pdf::loadView($view, [
             'data' => $detail,
         ])->setPaper('a4', 'portrait')->save($filePath);
 
@@ -504,6 +734,7 @@ class penggajianService
             'nama' => $row->nama,
             'phone' => $number,
             'periode' => $periode,
+            'tahap' => $tahap,
             'response' => $response->json() ?? $response->body(),
         ];
     }
@@ -516,30 +747,31 @@ class penggajianService
             abort(404, 'Data gaji tahap 1 tidak ditemukan');
         }
 
-        $tunjanganList = $this->penggajianRepository
-            ->getTunjanganPegawai($gaji->nik)
-            ->map(function ($tunjangan) use ($gaji) {
-                return [
-                    'nama' => $tunjangan->nama_tunjangan ?? 'Tunjangan',
-                    'nominal' => $gaji->status ? (int) $tunjangan->nominal : 0,
-                ];
-            })
-            ->values();
-
         $gajiDibayar = (int) $gaji->gaji_dibayar;
         $tunjangan = (int) $gaji->tunjangan;
+        $premi = (int) ($gaji->premi ?? 0);
+        $tunjanganList = $this->stage1TunjanganDetail($gaji);
+        $premiList = $this->stage1PremiDetail($gaji);
         $komponenGajiLabel = PayrollComponentLabel::salaryLabel($gaji->jabatan, $gaji->status);
-        $canExportSlip = ! $this->isDoctorEmployee($gaji->nik);
+        $isDoctorSlip = $this->isDoctorEmployee($gaji->nik);
         $stage2Gaji = $this->penggajianRepository
             ->findGajiTahap2ByPeriodNik($gaji->periode, (string) $gaji->nik);
         $stage2Detail = $stage2Gaji ? $this->stage2DetailPayload($stage2Gaji) : null;
-        $totalTahap1 = $gajiDibayar + $tunjangan;
+        $pendapatanTambahan = PayrollComponentLabel::isUgdContractDoctor($gaji->jabatan, $gaji->status)
+            && $this->stage1DoctorIncludesStrForNik($gaji->nik)
+                ? (int) $gaji->gaji_pokok
+                : 0;
+        $totalSebelumPembulatan = $pendapatanTambahan + $gajiDibayar + $tunjangan + $premi;
+        $storedTotal = (int) ($gaji->total ?? 0);
+        $totalTahap1 = $storedTotal !== 0 ? $storedTotal : $totalSebelumPembulatan;
+        $pembulatan = (int) ($gaji->pembulatan ?? ($totalTahap1 - $totalSebelumPembulatan));
 
-        return [
+        $payload = [
             'id' => $gaji->id,
             'periode' => $gaji->periode,
             'nik' => $gaji->nik,
             'nama' => $gaji->nama,
+            'unit_kerja' => $this->unitKerjaLabelForNik($gaji->nik, $gaji->jabatan),
             'jabatan' => $gaji->jabatan,
             'status' => $gaji->status,
             'status_label' => $this->getStatusLabel($gaji->status),
@@ -548,13 +780,19 @@ class penggajianService
             'gaji_dibayar' => $gajiDibayar,
             'komponen_gaji_dibayar_label' => PayrollComponentLabel::paidSalaryLabel($gaji->jabatan, $gaji->status),
             'tunjangan' => $tunjangan,
+            'premi' => $premi,
+            'pembulatan' => $pembulatan,
             'tunjangan_detail' => $tunjanganList,
+            'premi_detail' => $premiList,
             'total' => $totalTahap1,
             'tahap2' => $stage2Detail,
             'total_slip' => $totalTahap1 + (int) ($stage2Detail['total'] ?? 0),
-            'can_export_slip' => $canExportSlip,
-            'slip_unavailable_message' => $canExportSlip ? null : 'Slip gaji dokter belum tersedia.',
+            'is_doctor_slip' => $isDoctorSlip,
+            'can_export_slip' => true,
+            'slip_unavailable_message' => null,
         ];
+
+        return $this->withDoctorSlipPayload($payload);
     }
 
     public function detailSlipGajiTahap1($id): array
@@ -574,10 +812,6 @@ class penggajianService
 
         if (! $gajiTahap2) {
             abort(404, 'Data gaji tahap 2 tidak ditemukan');
-        }
-
-        if ($this->isDoctorEmployee($gajiTahap2->nik)) {
-            abort(404, 'Slip gaji dokter belum tersedia.');
         }
 
         $gajiTahap1 = $this->penggajianRepository
@@ -609,13 +843,14 @@ class penggajianService
     {
         $stage2Detail = $this->stage2DetailPayload($gaji);
         $salaryLabel = PayrollComponentLabel::salaryLabel($gaji->jabatan, $gaji->status);
-        $canExportSlip = ! $this->isDoctorEmployee($gaji->nik);
+        $isDoctorSlip = $this->isDoctorEmployee($gaji->nik);
 
-        return [
+        $payload = [
             'id' => $gaji->id,
             'periode' => $gaji->periode,
             'nik' => $gaji->nik,
             'nama' => $gaji->nama,
+            'unit_kerja' => $this->unitKerjaLabelForNik($gaji->nik, $gaji->jabatan),
             'jabatan' => $gaji->jabatan,
             'status' => $gaji->status,
             'status_label' => $this->getStatusLabel($gaji->status),
@@ -624,13 +859,17 @@ class penggajianService
             'gaji_dibayar' => 0,
             'komponen_gaji_dibayar_label' => PayrollComponentLabel::paidSalaryLabel($gaji->jabatan, $gaji->status),
             'tunjangan' => 0,
+            'pembulatan' => 0,
             'tunjangan_detail' => collect(),
             'total' => 0,
             'tahap2' => $stage2Detail,
             'total_slip' => (int) ($stage2Detail['total'] ?? 0),
-            'can_export_slip' => $canExportSlip,
-            'slip_unavailable_message' => $canExportSlip ? null : 'Slip gaji dokter belum tersedia.',
+            'is_doctor_slip' => $isDoctorSlip,
+            'can_export_slip' => true,
+            'slip_unavailable_message' => null,
         ];
+
+        return $this->withDoctorSlipPayload($payload);
     }
 
     private function stage2DetailPayload($gaji): array
@@ -639,15 +878,32 @@ class penggajianService
         $totalTahap1 = (int) ($this->penggajianRepository
             ->getGajiTahap1TotalsByNik($gaji->periode)[(string) $gaji->nik] ?? 0);
         $totalTahap2Bruto = (int) $gaji->gaji_dibayar + (int) $gaji->total_premi;
+        $premiDokterSourceIds = $gaji->details
+            ->filter(fn ($detail) => (string) $detail->source_table === 'generate_premi_dokter_detail')
+            ->pluck('source_id');
+        $premiDokterCounts = $premiDokterSourceIds->isEmpty()
+            ? collect()
+            : $this->penggajianRepository->getPremiDokterDetailCountsByIds($premiDokterSourceIds->all());
         $premiDetails = $gaji->details
-            ->map(fn ($detail) => [
-                'nama' => trim($detail->source_label.' - '.($detail->role_label ?: ''), ' -'),
-                'source_key' => $detail->source_key,
-                'source_label' => $detail->source_label,
-                'source_table' => $detail->source_table,
-                'role_label' => $detail->role_label,
-                'nominal' => (int) $detail->nominal,
-            ])
+            ->map(function ($detail) use ($premiDokterCounts) {
+                $sourceId = (int) ($detail->source_id ?? 0);
+                $counts = $premiDokterCounts->get($sourceId, []);
+
+                return [
+                    'nama' => $this->stage2PremiumDetailName($detail),
+                    'source_key' => $detail->source_key,
+                    'source_label' => $detail->source_label,
+                    'source_table' => $detail->source_table,
+                    'source_id' => $sourceId,
+                    'role_label' => $detail->role_label,
+                    'source_periode' => $detail->source_periode ?? null,
+                    'source_period_mode' => $detail->source_period_mode ?? null,
+                    'source_period_label' => $this->stage2PremiumSourcePeriodLabel($detail),
+                    'source_jumlah_data' => (int) ($counts['jumlah_data'] ?? 0),
+                    'source_jumlah_pasien' => (int) ($counts['jumlah_pasien'] ?? 0),
+                    'nominal' => (int) $detail->nominal,
+                ];
+            })
             ->values();
 
         return [
@@ -655,6 +911,7 @@ class penggajianService
             'periode' => $gaji->periode,
             'nik' => $gaji->nik,
             'nama' => $gaji->nama,
+            'unit_kerja' => $this->unitKerjaLabelForNik($gaji->nik, $gaji->jabatan),
             'jabatan' => $gaji->jabatan,
             'status' => $gaji->status,
             'status_label' => $this->getStatusLabel($gaji->status),
@@ -664,6 +921,7 @@ class penggajianService
             'komponen_gaji_dibayar_label' => $this->stage2PaidSalaryLabel($gaji->jabatan, $gaji->status, (int) $gaji->gaji_dibayar),
             'total_premi' => (int) $gaji->total_premi,
             'total_potongan' => (int) ($gaji->total_potongan ?? 0),
+            'pembulatan' => (int) ($gaji->pembulatan ?? 0),
             'total_bruto' => $totalTahap2Bruto,
             'premi_detail' => $premiDetails,
             'slip_pendapatan_umum' => $this->stage2SlipPendapatanUmum($gaji->details),
@@ -694,22 +952,38 @@ class penggajianService
             'umum' => 0,
             'bpjs' => 0,
         ];
+        $jasaTindakanSourcePeriods = [
+            'umum' => collect(),
+            'bpjs' => collect(),
+        ];
         $premiBersama = 0;
+        $premiBersamaSourcePeriods = collect();
 
-        $details->each(function ($detail) use (&$jasaTindakan, &$premiBersama) {
+        $details->each(function ($detail) use (&$jasaTindakan, &$jasaTindakanSourcePeriods, &$premiBersama, $premiBersamaSourcePeriods) {
             $nominal = (int) $detail->nominal;
 
             if ($nominal <= 0) {
                 return;
             }
 
+            $serviceType = $this->stage2PremiumServiceType($detail);
+            $sourcePeriodLabel = $this->stage2PremiumSourcePeriodLabel($detail);
+
             if ($this->isStage2PremiBersamaDetail($detail)) {
                 $premiBersama += $nominal;
+
+                if ($serviceType === 'bpjs' && $sourcePeriodLabel) {
+                    $premiBersamaSourcePeriods->push($sourcePeriodLabel);
+                }
 
                 return;
             }
 
-            $jasaTindakan[$this->stage2PremiumServiceType($detail)] += $nominal;
+            $jasaTindakan[$serviceType] += $nominal;
+
+            if ($serviceType === 'bpjs' && $sourcePeriodLabel) {
+                $jasaTindakanSourcePeriods[$serviceType]->push($sourcePeriodLabel);
+            }
         });
 
         $items = collect([
@@ -720,6 +994,7 @@ class penggajianService
                 'key' => $key,
                 'label' => $label,
                 'nominal' => (int) $jasaTindakan[$key],
+                'source_period_labels' => $jasaTindakanSourcePeriods[$key]->unique()->values()->all(),
             ])
             ->values();
 
@@ -734,6 +1009,7 @@ class penggajianService
             'premi_bersama' => [
                 'label' => 'PREMI BERSAMA',
                 'nominal' => $premiBersama,
+                'source_period_labels' => $premiBersamaSourcePeriods->unique()->values()->all(),
             ],
             'total_premi' => $totalJasaTindakan + $premiBersama,
         ];
@@ -741,9 +1017,9 @@ class penggajianService
 
     private function isStage2PremiBersamaDetail($detail): bool
     {
-        $sourceTable = strtolower((string) $detail->source_table);
-        $sourceKey = strtolower((string) $detail->source_key);
-        $sourceLabel = strtolower((string) $detail->source_label);
+        $sourceTable = strtolower((string) (is_array($detail) ? ($detail['source_table'] ?? '') : ($detail->source_table ?? '')));
+        $sourceKey = strtolower((string) (is_array($detail) ? ($detail['source_key'] ?? '') : ($detail->source_key ?? '')));
+        $sourceLabel = strtolower((string) (is_array($detail) ? ($detail['source_label'] ?? '') : ($detail->source_label ?? '')));
 
         return $sourceTable === 'generate_premi_bersama_distribution'
             || str_starts_with($sourceKey, 'premi_bersama')
@@ -752,10 +1028,13 @@ class penggajianService
 
     private function stage2PremiumServiceType($detail): string
     {
+        $sourceKey = is_array($detail) ? ($detail['source_key'] ?? '') : ($detail->source_key ?? '');
+        $sourceLabel = is_array($detail) ? ($detail['source_label'] ?? '') : ($detail->source_label ?? '');
+        $sourceTable = is_array($detail) ? ($detail['source_table'] ?? '') : ($detail->source_table ?? '');
         $text = strtolower(trim(
-            (string) $detail->source_key.' '.
-            (string) $detail->source_label.' '.
-            (string) $detail->source_table
+            (string) $sourceKey.' '.
+            (string) $sourceLabel.' '.
+            (string) $sourceTable
         ));
 
         if (preg_match('/(^|[^a-z])bpjs([^a-z]|$)/', $text) || str_contains($text, 'casemix')) {
@@ -763,6 +1042,70 @@ class penggajianService
         }
 
         return 'umum';
+    }
+
+    private function stage2PremiumDetailName($detail): string
+    {
+        $sourceKey = strtolower(trim((string) ($detail->source_key ?? '')));
+        $sourceLabel = trim((string) ($detail->source_label ?? ''));
+        $sourceTable = (string) ($detail->source_table ?? '');
+
+        if ($sourceTable === 'generate_premi_dokter_detail') {
+            $premiumType = preg_replace(
+                '/_(umum|bpjs|manual|all)$/',
+                '',
+                Str::after($sourceKey, 'premi_dokter_')
+            );
+            $doctorPremiumLabels = array_merge(
+                ['visite' => 'Jasa Visite'],
+                self::STAGE2_DOCTOR_PREMIUM_TYPES
+            );
+
+            if (isset($doctorPremiumLabels[$premiumType])) {
+                return $this->stage2PremiumNameWithServiceMarker(
+                    $doctorPremiumLabels[$premiumType],
+                    $detail
+                );
+            }
+        }
+
+        if ($sourceLabel !== '') {
+            return $this->stage2PremiumNameWithServiceMarker($sourceLabel, $detail);
+        }
+
+        $fallbackLabel = Str::of($sourceKey)
+            ->replace('_', ' ')
+            ->title()
+            ->value() ?: 'Premi';
+
+        return $this->stage2PremiumNameWithServiceMarker($fallbackLabel, $detail);
+    }
+
+    private function stage2PremiumNameWithServiceMarker(string $label, $detail): string
+    {
+        if ($this->stage2PremiumServiceType($detail) !== 'bpjs'
+            || preg_match('/(^|[^a-z])bpjs([^a-z]|$)/i', $label)) {
+            return $label;
+        }
+
+        return trim($label).' BPJS';
+    }
+
+    private function stage2PremiumSourcePeriodLabel($detail): ?string
+    {
+        if ($this->stage2PremiumServiceType($detail) !== 'bpjs') {
+            return null;
+        }
+
+        $sourcePeriode = is_array($detail)
+            ? ($detail['source_periode'] ?? null)
+            : ($detail->source_periode ?? null);
+
+        if (! $sourcePeriode) {
+            return null;
+        }
+
+        return $this->formatPeriode($sourcePeriode);
     }
 
     public function getGajiTahap2ExportPayload(string $periode): array
@@ -783,6 +1126,29 @@ class penggajianService
             ->values();
     }
 
+    public function dokterUgdKontrakTahap1Options(?string $keyword = null)
+    {
+        return $this->penggajianRepository
+            ->dokterUgdKontrakOptions($keyword)
+            ->map(fn ($row) => $this->dokterUmumPayload($row))
+            ->values();
+    }
+
+    public function getGajiTahap1DoctorConfig(): array
+    {
+        return [
+            'premium_type_options' => $this->stage1DoctorPremiumTypeOptions(),
+            'salary_component' => [
+                'id' => 'include_salary',
+                'label' => 'Gaji Pokok (Kehadiran)',
+            ],
+            'rows' => $this->penggajianRepository
+                ->getGajiTahap1DoctorConfigs(false)
+                ->map(fn ($row) => $this->doctorConfigPayload($row, self::STAGE1_DOCTOR_PREMIUM_TYPES))
+                ->values(),
+        ];
+    }
+
     public function getGajiTahap2DoctorConfig(): array
     {
         return [
@@ -793,14 +1159,39 @@ class penggajianService
             ],
             'rows' => $this->penggajianRepository
                 ->getGajiTahap2DoctorConfigs(false)
-                ->map(fn ($row) => $this->doctorConfigPayload($row))
+                ->map(fn ($row) => $this->doctorConfigPayload($row, self::STAGE2_DOCTOR_PREMIUM_TYPES))
+                ->values(),
+        ];
+    }
+
+    public function updateGajiTahap1DoctorConfig(array $rows): array
+    {
+        $normalizedRows = $this->normalizeDoctorConfigRows(
+            $rows,
+            self::STAGE1_DOCTOR_PREMIUM_TYPES,
+            'tahap 1'
+        );
+        $savedRows = $this->penggajianRepository->saveGajiTahap1DoctorConfigs($normalizedRows);
+
+        return [
+            'premium_type_options' => $this->stage1DoctorPremiumTypeOptions(),
+            'salary_component' => [
+                'id' => 'include_salary',
+                'label' => 'Gaji Pokok (Kehadiran)',
+            ],
+            'rows' => $savedRows
+                ->map(fn ($row) => $this->doctorConfigPayload($row, self::STAGE1_DOCTOR_PREMIUM_TYPES))
                 ->values(),
         ];
     }
 
     public function updateGajiTahap2DoctorConfig(array $rows): array
     {
-        $normalizedRows = $this->normalizeDoctorConfigRows($rows);
+        $normalizedRows = $this->normalizeDoctorConfigRows(
+            $rows,
+            self::STAGE2_DOCTOR_PREMIUM_TYPES,
+            'tahap 2'
+        );
         $savedRows = $this->penggajianRepository->saveGajiTahap2DoctorConfigs($normalizedRows);
 
         return [
@@ -810,9 +1201,23 @@ class penggajianService
                 'label' => 'STR/Gaji Pokok',
             ],
             'rows' => $savedRows
-                ->map(fn ($row) => $this->doctorConfigPayload($row))
+                ->map(fn ($row) => $this->doctorConfigPayload($row, self::STAGE2_DOCTOR_PREMIUM_TYPES))
                 ->values(),
         ];
+    }
+
+    public function getPayrollRoundingConfig(): array
+    {
+        return $this->roundingConfig();
+    }
+
+    public function updatePayrollRoundingConfig(array $data): array
+    {
+        $payload = $this->normalizeRoundingConfig($data);
+        $saved = $this->penggajianRepository->savePayrollRoundingConfig($payload);
+        $this->payrollRoundingConfig = $this->normalizeRoundingConfig($saved);
+
+        return $this->payrollRoundingConfig;
     }
 
     private function getStatusLabel(?string $status)
@@ -824,6 +1229,97 @@ class penggajianService
             'MT' => 'Mitra',
             default => '-',
         };
+    }
+
+    private function roundingConfig(): array
+    {
+        if ($this->payrollRoundingConfig !== null) {
+            return $this->payrollRoundingConfig;
+        }
+
+        $this->payrollRoundingConfig = $this->normalizeRoundingConfig(
+            $this->penggajianRepository->getPayrollRoundingConfig()
+        );
+
+        return $this->payrollRoundingConfig;
+    }
+
+    private function normalizeRoundingConfig(array $data): array
+    {
+        $config = array_merge(self::ROUNDING_CONFIG_DEFAULTS, $data);
+
+        foreach (['premium_received', 'stage1_total', 'stage2_total'] as $key) {
+            $enabledKey = $key.'_enabled';
+            $baseKey = $key.'_base';
+            $modeKey = $key.'_mode';
+
+            $config[$enabledKey] = filter_var($config[$enabledKey] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $config[$baseKey] = max(1, (int) ($config[$baseKey] ?? 1));
+            $config[$modeKey] = in_array($config[$modeKey] ?? null, ['nearest', 'up', 'down'], true)
+                ? $config[$modeKey]
+                : self::ROUNDING_CONFIG_DEFAULTS[$modeKey];
+        }
+
+        foreach (['stage1_total', 'stage2_total'] as $key) {
+            $config[$key.'_enabled'] = true;
+            $config[$key.'_base'] = 1000;
+            $config[$key.'_mode'] = 'up';
+        }
+
+        return collect(self::ROUNDING_CONFIG_DEFAULTS)
+            ->mapWithKeys(fn ($default, string $key) => [$key => $config[$key]])
+            ->all();
+    }
+
+    private function applyPremiumRoundingToDetails(Collection $details, ?array $config = null): Collection
+    {
+        $config ??= $this->roundingConfig();
+
+        return $details
+            ->map(function (array $detail) use ($config) {
+                $detail['nominal'] = $this->applyRoundingConfig(
+                    $detail['nominal'] ?? 0,
+                    'premium_received',
+                    $config
+                );
+
+                return $detail;
+            })
+            ->filter(fn (array $detail) => (int) ($detail['nominal'] ?? 0) > 0)
+            ->values();
+    }
+
+    private function applyRoundingConfig($amount, string $key, ?array $config = null): int
+    {
+        $config ??= $this->roundingConfig();
+        $amount = (int) round((float) $amount);
+
+        if (! ($config[$key.'_enabled'] ?? false)) {
+            return $amount;
+        }
+
+        $base = max(1, (int) ($config[$key.'_base'] ?? 1));
+
+        if ($base <= 1) {
+            return $amount;
+        }
+
+        return match ($config[$key.'_mode'] ?? 'nearest') {
+            'up' => $this->roundUpToBase($amount, $base),
+            'down' => (int) (floor($amount / $base) * $base),
+            default => (int) (round($amount / $base) * $base),
+        };
+    }
+
+    private function roundUpToBase(int $amount, int $base): int
+    {
+        if ($amount === 0) {
+            return 0;
+        }
+
+        $rounded = (int) (ceil(abs($amount) / $base) * $base);
+
+        return $amount < 0 ? -$rounded : $rounded;
     }
 
     private function calculateStage2Potongan(
@@ -969,7 +1465,741 @@ class penggajianService
             : 0;
     }
 
+    private function stageDoctorAttendanceAmount(Collection $details): int
+    {
+        return (int) round((float) $details
+            ->filter(fn (array $detail) => ($detail['source_table'] ?? null) === 'generate_premi_dokter_detail'
+                && ($detail['source_premium_type'] ?? null) === 'kehadiran')
+            ->sum('nominal'));
+    }
+
+    private function stage1UgdContractComponents(
+        int $upahStr,
+        int $mappedAllowance,
+        Collection $doctorPremiumDetails,
+        object $doctorConfig
+    ): array
+    {
+        $premiumDetails = $this->filterDoctorPremiumDetails(
+            $doctorPremiumDetails,
+            $doctorConfig->premium_types ?? []
+        );
+
+        return [
+            'gaji_pokok' => $upahStr,
+            'gaji_dibayar' => $doctorConfig->include_salary
+                ? $this->stageDoctorAttendanceAmount($doctorPremiumDetails)
+                : 0,
+            'upah_str_dibayar' => $this->stage1DoctorIncludesStr($doctorConfig) ? $upahStr : 0,
+            'tunjangan' => $mappedAllowance,
+            'premi' => (int) $premiumDetails->sum('nominal'),
+            'premi_breakdown' => $this->stage1DoctorPremiumBreakdown($premiumDetails),
+        ];
+    }
+
+    private function stage1DoctorPremiumBreakdown(Collection $details): array
+    {
+        return $details
+            ->map(fn (array $detail) => [
+                'nama' => trim(($detail['source_label'] ?? 'Premi Dokter').' - '.($detail['role_label'] ?? 'Dokter'), ' -'),
+                'source_key' => $detail['source_key'] ?? null,
+                'source_label' => $detail['source_label'] ?? null,
+                'source_table' => $detail['source_table'] ?? null,
+                'source_id' => $detail['source_id'] ?? null,
+                'role_label' => $detail['role_label'] ?? null,
+                'source_premium_type' => $detail['source_premium_type'] ?? null,
+                'source_jumlah_data' => (int) ($detail['source_jumlah_data'] ?? $detail['jumlah_data'] ?? 0),
+                'source_jumlah_pasien' => (int) ($detail['source_jumlah_pasien'] ?? $detail['jumlah_pasien'] ?? 0),
+                'nominal' => (int) ($detail['nominal'] ?? 0),
+            ])
+            ->filter(fn (array $detail) => $detail['nominal'] > 0)
+            ->values()
+            ->all();
+    }
+
+    private function stage1DoctorIncludesStr($doctorConfig): bool
+    {
+        return collect($doctorConfig->premium_types ?? [])
+            ->contains(self::STAGE1_DOCTOR_STR_TYPE);
+    }
+
+    private function stage1TunjanganDetail($gaji): Collection
+    {
+        if ($gaji->tunjangan_breakdown !== null) {
+            return collect($gaji->tunjangan_breakdown)
+                ->map(fn (array $detail) => [
+                    'nama' => $detail['nama'] ?? $detail['source_label'] ?? 'Premi Dokter',
+                    'nominal' => (int) ($detail['nominal'] ?? 0),
+                ])
+                ->values();
+        }
+
+        return $this->penggajianRepository
+            ->getTunjanganPegawai($gaji->nik)
+            ->map(function ($tunjangan) use ($gaji) {
+                return [
+                    'nama' => $tunjangan->nama_tunjangan ?? 'Tunjangan',
+                    'nominal' => $gaji->status ? (int) $tunjangan->nominal : 0,
+                ];
+            })
+            ->values();
+    }
+
+    private function unitKerjaLabelForNik(?string $nik, ?string $fallback = null): string
+    {
+        $unitKerja = $this->penggajianRepository->getUnitKerjaByNik((string) $nik);
+
+        if (filled($unitKerja)) {
+            return $unitKerja;
+        }
+
+        $fallback = trim((string) $fallback);
+
+        return $fallback !== '' ? $fallback : '-';
+    }
+
+    private function stage1PremiDetail($gaji): Collection
+    {
+        $details = collect($gaji->premi_breakdown ?? []);
+        $premiDokterSourceIds = $details
+            ->filter(fn (array $detail) => (string) ($detail['source_table'] ?? '') === 'generate_premi_dokter_detail')
+            ->pluck('source_id');
+        $premiDokterCounts = $premiDokterSourceIds->isEmpty()
+            ? collect()
+            : $this->penggajianRepository->getPremiDokterDetailCountsByIds($premiDokterSourceIds->all());
+
+        return $details
+            ->map(function (array $detail) use ($premiDokterCounts) {
+                $premiumType = (string) ($detail['source_premium_type'] ?? '');
+                $sourceId = (int) ($detail['source_id'] ?? 0);
+                $counts = $premiDokterCounts->get($sourceId, []);
+
+                return [
+                    'nama' => self::STAGE1_DOCTOR_PREMIUM_TYPES[$premiumType]
+                        ?? $detail['nama']
+                        ?? $detail['source_label']
+                        ?? 'Premi Dokter',
+                    'source_key' => $detail['source_key'] ?? null,
+                    'source_label' => $detail['source_label'] ?? null,
+                    'source_table' => $detail['source_table'] ?? null,
+                    'source_premium_type' => $detail['source_premium_type'] ?? null,
+                    'source_id' => $sourceId,
+                    'source_jumlah_data' => (int) ($detail['source_jumlah_data'] ?? $detail['jumlah_data'] ?? $counts['jumlah_data'] ?? 0),
+                    'source_jumlah_pasien' => (int) ($detail['source_jumlah_pasien'] ?? $detail['jumlah_pasien'] ?? $counts['jumlah_pasien'] ?? 0),
+                    'nominal' => (int) ($detail['nominal'] ?? 0),
+                ];
+            })
+            ->values();
+    }
+
+    private function withDoctorSlipPayload(array $payload): array
+    {
+        if (! ($payload['is_doctor_slip'] ?? false)) {
+            return $payload;
+        }
+
+        $payload['doctor_slip'] = $this->doctorSlipPayload($payload);
+
+        return $payload;
+    }
+
+    private function doctorSlipPayload(array $data): array
+    {
+        $stage2 = is_array($data['tahap2'] ?? null) ? $data['tahap2'] : [];
+        $isUgdContract = PayrollComponentLabel::isUgdContractDoctor(
+            $data['jabatan'] ?? null,
+            $data['status'] ?? null
+        );
+
+        $salaryAmount = $isUgdContract
+            ? 0
+            : (int) ($data['gaji_dibayar'] ?? 0) + (int) ($stage2['gaji_dibayar'] ?? 0);
+
+        $allowanceRows = $this->doctorSlipRows(self::DOCTOR_SLIP_ALLOWANCE_ROWS);
+        $jasaRows = $this->doctorSlipRows(self::DOCTOR_SLIP_JASA_ROWS);
+        $actionRows = $this->doctorSlipRows(self::DOCTOR_SLIP_ACTION_ROWS, 0);
+        $deductionRows = $this->doctorSlipRows(self::DOCTOR_SLIP_DEDUCTION_ROWS);
+        $otherIncomeRows = [];
+        $bpjsPeriods = collect();
+        $bpjsPremiBersama = 0;
+        $bpjsPremiBersamaJml = null;
+        $bpjsPremiBersamaSourceTexts = collect();
+        $stage1Rounding = (int) ($data['pembulatan'] ?? 0);
+        $stage2Rounding = (int) ($stage2['pembulatan'] ?? 0);
+        $slipPeriod = $data['periode'] ?? null;
+
+        if ($isUgdContract) {
+            $this->doctorSlipAddRowAmount(
+                $jasaRows['kehadiran'],
+                (int) ($data['gaji_dibayar'] ?? 0),
+                $this->doctorSlipGeneratorJml(
+                    $data['periode'] ?? null,
+                    $data['nik'] ?? null,
+                    'kehadiran'
+                )
+            );
+
+            if ($this->stage1DoctorIncludesStrForNik($data['nik'] ?? null)) {
+                $this->doctorSlipAddRowAmount($jasaRows['str'], (int) ($data['gaji_pokok'] ?? 0));
+            }
+        }
+
+        collect($data['tunjangan_detail'] ?? [])->each(function (array $detail) use (&$allowanceRows, &$otherIncomeRows) {
+            $nominal = (int) ($detail['nominal'] ?? 0);
+            $label = (string) ($detail['nama'] ?? 'TUNJANGAN');
+            $key = $this->doctorSlipAllowanceKey($label);
+
+            if ($key && isset($allowanceRows[$key])) {
+                $allowanceRows[$key]['nominal'] += $nominal;
+
+                return;
+            }
+
+            if ($nominal > 0) {
+                $otherIncomeRows[] = $this->doctorSlipRow(
+                    'tunjangan_lain_'.count($otherIncomeRows),
+                    strtoupper($label),
+                    $nominal
+                );
+            }
+        });
+
+        $premiumDetails = collect($data['premi_detail'] ?? [])
+            ->map(fn (array $detail) => array_merge($detail, ['_slip_stage' => 'stage1']))
+            ->merge(
+                collect($stage2['premi_detail'] ?? [])
+                    ->map(fn (array $detail) => array_merge($detail, ['_slip_stage' => 'stage2']))
+            );
+
+        $premiumDetails->each(function (array $detail) use (
+            &$jasaRows,
+            &$actionRows,
+            &$otherIncomeRows,
+            &$bpjsPeriods,
+            &$bpjsPremiBersama,
+            &$bpjsPremiBersamaJml,
+            $bpjsPremiBersamaSourceTexts,
+            $slipPeriod
+        ) {
+            $nominal = (int) ($detail['nominal'] ?? 0);
+            $jml = $this->doctorSlipDetailJml($detail);
+
+            if ($nominal <= 0) {
+                return;
+            }
+
+            $isBpjs = $this->stage2PremiumServiceType($detail) === 'bpjs';
+            $category = $this->doctorSlipPremiumCategory($detail);
+            $bpjsSourcePeriodText = null;
+
+            if ($category === 'kebersamaan') {
+                $jml = null;
+            }
+
+            if ($isBpjs) {
+                $sourcePeriodLabel = $detail['source_period_label']
+                    ?? $this->stage2PremiumSourcePeriodLabel($detail);
+
+                if ($sourcePeriodLabel) {
+                    $bpjsPeriods->push($sourcePeriodLabel);
+                }
+
+                $bpjsSourcePeriodText = $this->doctorSlipBpjsSourcePeriodText(
+                    $detail,
+                    $slipPeriod,
+                    $sourcePeriodLabel
+                );
+
+                if ($this->isStage2PremiBersamaDetail($detail)) {
+                    $bpjsPremiBersama += $nominal;
+                    $this->doctorSlipAddJml($bpjsPremiBersamaJml, $jml);
+                    $this->doctorSlipAddSourcePeriodTextToCollection($bpjsPremiBersamaSourceTexts, $bpjsSourcePeriodText);
+
+                    return;
+                }
+            }
+
+            if (isset($jasaRows[$category])) {
+                $this->doctorSlipAddRowAmount($jasaRows[$category], $nominal, $jml);
+
+                return;
+            }
+
+            if (isset($actionRows[$category])) {
+                $this->doctorSlipAddRowAmount($actionRows[$category], $nominal, $jml);
+                $this->doctorSlipAddTypedActionRow(
+                    $actionRows[$category],
+                    $this->doctorSlipActionServiceType($detail),
+                    $nominal,
+                    $jml,
+                    $bpjsSourcePeriodText
+                );
+
+                return;
+            }
+
+            $otherIncomeRows[] = $this->doctorSlipRow(
+                'pendapatan_lain_'.count($otherIncomeRows),
+                $this->doctorSlipPremiumFallbackLabel($detail),
+                $nominal,
+                $jml
+            );
+        });
+
+        collect($stage2['potongan_detail'] ?? [])->each(function (array $detail) use (&$deductionRows) {
+            $nominal = (int) ($detail['nominal'] ?? 0);
+            $key = $this->doctorSlipDeductionKey((string) ($detail['nama'] ?? ''));
+
+            $deductionRows[$key]['nominal'] += $nominal;
+        });
+
+        $totalPotongan = (int) ($stage2['total_potongan'] ?? collect($deductionRows)->sum('nominal'));
+        $deductionDifference = $totalPotongan - (int) collect($deductionRows)->sum('nominal');
+
+        if ($deductionDifference !== 0) {
+            $deductionRows['lain_lain']['nominal'] += $deductionDifference;
+        }
+
+        $totalPendapatan = ((int) ($data['total'] ?? 0) - $stage1Rounding)
+            + (int) ($stage2['total_bruto'] ?? ((int) ($stage2['gaji_dibayar'] ?? 0) + (int) ($stage2['total_premi'] ?? 0)));
+
+        $totalBersih = array_key_exists('total_slip', $data)
+            ? (int) $data['total_slip'] - $stage1Rounding - $stage2Rounding
+            : max(0, $totalPendapatan - $totalPotongan);
+        $bpjsPeriodText = $bpjsPeriods
+            ->filter()
+            ->unique()
+            ->map(fn ($period) => strtoupper((string) $period))
+            ->implode(', ');
+        $bpjsPremiBersamaRow = $this->doctorSlipRow(
+            'bpjs_premi_bersama',
+            'PREMI BERSAMA',
+            $bpjsPremiBersama,
+            $bpjsPremiBersamaJml
+        );
+        $bpjsPremiBersamaSourceTexts
+            ->unique()
+            ->each(fn (string $text) => $this->doctorSlipAddSourcePeriodText($bpjsPremiBersamaRow, $text));
+
+        return [
+            'bulan' => strtoupper($this->formatPeriode($data['periode'] ?? null)),
+            'nik' => $data['nik'] ?? '-',
+            'nama' => $data['nama'] ?? '-',
+            'unit_kerja' => $data['unit_kerja'] ?? ($data['jabatan'] ?? '-'),
+            'status' => $data['status_label'] ?? $data['status'] ?? '-',
+            'gaji_pokok' => $this->doctorSlipRow('gaji_pokok', 'GAJI POKOK', $salaryAmount),
+            'tunjangan_rows' => array_values($allowanceRows),
+            'jasa_rows' => array_values($jasaRows),
+            'action_rows' => $this->doctorSlipActionRows($actionRows),
+            'other_income_rows' => array_values($otherIncomeRows),
+            'bpjs_title' => trim('BPJS '.$bpjsPeriodText),
+            'bpjs_rows' => collect([
+                $bpjsPremiBersamaRow,
+            ])
+                ->filter(fn (array $row) => (int) ($row['nominal'] ?? 0) > 0 || (int) ($row['jml'] ?? 0) > 0)
+                ->values()
+                ->all(),
+            'deduction_rows' => array_values($deductionRows),
+            'total_pendapatan' => $totalPendapatan,
+            'total_potongan' => $totalPotongan,
+            'total_bersih' => $totalBersih,
+            'disimpan_arsy' => null,
+            'total_diterima' => $totalBersih,
+        ];
+    }
+
+    private function doctorSlipRows(array $labels, $defaultJml = null): array
+    {
+        return collect($labels)
+            ->mapWithKeys(fn (string $label, string $key) => [
+                $key => $this->doctorSlipRow($key, $label, 0, $defaultJml),
+            ])
+            ->all();
+    }
+
+    private function doctorSlipRow(string $key, string $label, int $nominal = 0, $jml = null): array
+    {
+        return [
+            'key' => $key,
+            'label' => $label,
+            'jml' => $jml,
+            'nominal' => $nominal,
+            'detail_rows' => [],
+            'source_period_texts' => [],
+            'source_period_text' => null,
+        ];
+    }
+
+    private function doctorSlipAddRowAmount(array &$row, int $nominal, $jml = null): void
+    {
+        $row['nominal'] = (int) ($row['nominal'] ?? 0) + $nominal;
+        $this->doctorSlipAddJml($row['jml'], $jml);
+    }
+
+    private function doctorSlipAddJml(&$currentJml, $jml): void
+    {
+        if ($jml === null || $jml === '') {
+            return;
+        }
+
+        $currentJml = (int) ($currentJml ?? 0) + (int) $jml;
+    }
+
+    private function doctorSlipAddSourcePeriodText(array &$row, ?string $sourcePeriodText): void
+    {
+        $sourcePeriodText = trim((string) $sourcePeriodText);
+
+        if ($sourcePeriodText === '') {
+            return;
+        }
+
+        $row['source_period_texts'] = collect($row['source_period_texts'] ?? [])
+            ->push($sourcePeriodText)
+            ->unique()
+            ->values()
+            ->all();
+        $row['source_period_text'] = implode(', ', $row['source_period_texts']);
+    }
+
+    private function doctorSlipAddSourcePeriodTextToCollection(Collection $texts, ?string $sourcePeriodText): void
+    {
+        $sourcePeriodText = trim((string) $sourcePeriodText);
+
+        if ($sourcePeriodText !== '') {
+            $texts->push($sourcePeriodText);
+        }
+    }
+
+    private function doctorSlipDetailJml(array $detail): ?int
+    {
+        foreach (['jml', 'source_jumlah_data', 'jumlah_data', 'source_jumlah_pasien', 'jumlah_pasien'] as $key) {
+            if (array_key_exists($key, $detail) && $detail[$key] !== null && $detail[$key] !== '') {
+                return (int) $detail[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function doctorSlipAddTypedActionRow(
+        array &$row,
+        string $serviceType,
+        int $nominal,
+        $jml = null,
+        ?string $sourcePeriodText = null
+    ): void
+    {
+        $serviceType = in_array($serviceType, ['umum', 'bpjs'], true) ? $serviceType : 'umum';
+
+        if (! isset($row['detail_rows'][$serviceType])) {
+            $row['detail_rows'][$serviceType] = $this->doctorSlipRow(
+                $serviceType,
+                strtoupper($serviceType),
+                0,
+                null
+            );
+        }
+
+        $this->doctorSlipAddRowAmount($row['detail_rows'][$serviceType], $nominal, $jml);
+        $this->doctorSlipAddSourcePeriodText($row['detail_rows'][$serviceType], $sourcePeriodText);
+    }
+
+    private function doctorSlipActionRows(array $rows): array
+    {
+        return collect($rows)
+            ->map(function (array $row) {
+                $detailRows = collect($row['detail_rows'] ?? [])
+                    ->filter(fn (array $detail) => (int) ($detail['nominal'] ?? 0) > 0 || (int) ($detail['jml'] ?? 0) > 0);
+                $hasBpjsDetail = $detailRows->has('bpjs');
+
+                $row['detail_rows'] = $hasBpjsDetail
+                    ? $detailRows
+                        ->sortBy(fn (array $detail) => $detail['key'] === 'umum' ? 0 : 1)
+                        ->values()
+                        ->all()
+                    : [];
+
+                return $row;
+            })
+            ->values()
+            ->all();
+    }
+
+    private function doctorSlipActionServiceType(array $detail): string
+    {
+        return $this->stage2PremiumServiceType($detail) === 'bpjs' ? 'bpjs' : 'umum';
+    }
+
+    private function doctorSlipBpjsSourcePeriodText(
+        array $detail,
+        ?string $slipPeriod = null,
+        ?string $sourcePeriodLabel = null
+    ): ?string {
+        if ($this->stage2PremiumServiceType($detail) !== 'bpjs') {
+            return null;
+        }
+
+        $sourcePeriod = trim((string) ($detail['source_periode'] ?? ''));
+        $sourcePeriodLabel = trim((string) ($sourcePeriodLabel ?? ($detail['source_period_label'] ?? '')));
+
+        if ($sourcePeriodLabel === '' && $sourcePeriod !== '') {
+            $sourcePeriodLabel = $this->formatPeriode($sourcePeriod);
+        }
+
+        if ($sourcePeriodLabel === '') {
+            return null;
+        }
+
+        $mode = strtolower(trim((string) ($detail['source_period_mode'] ?? '')));
+
+        if (! in_array($mode, ['current', 'previous'], true)) {
+            $mode = $this->doctorSlipInferBpjsSourcePeriodMode($slipPeriod, $sourcePeriod);
+        }
+
+        $modeLabel = match ($mode) {
+            'current' => 'Periode berjalan',
+            'previous' => 'Periode sebelumnya',
+            default => 'Periode sumber',
+        };
+
+        return $modeLabel.' - '.$sourcePeriodLabel;
+    }
+
+    private function doctorSlipInferBpjsSourcePeriodMode(?string $slipPeriod, ?string $sourcePeriod): ?string
+    {
+        $slipPeriod = trim((string) $slipPeriod);
+        $sourcePeriod = trim((string) $sourcePeriod);
+
+        if ($slipPeriod === '' || $sourcePeriod === '') {
+            return null;
+        }
+
+        if ($sourcePeriod === $slipPeriod) {
+            return 'current';
+        }
+
+        if ($sourcePeriod < $slipPeriod) {
+            return 'previous';
+        }
+
+        return null;
+    }
+
+    private function doctorSlipGeneratorJml(?string $periode, ?string $nik, string $premiumType): ?int
+    {
+        $periode = trim((string) $periode);
+        $nik = trim((string) $nik);
+        $premiumType = strtolower(trim($premiumType));
+
+        if ($periode === '' || $nik === '' || $premiumType === '') {
+            return null;
+        }
+
+        $counts = $this->penggajianRepository
+            ->getPremiDokterDetailCountsByPeriodNik($periode, $nik, [$premiumType])
+            ->get($premiumType);
+
+        if (! $counts) {
+            return null;
+        }
+
+        return (int) ($counts['jumlah_data'] ?? 0);
+    }
+
+    private function doctorSlipAllowanceKey(string $label): ?string
+    {
+        $text = $this->doctorSlipSearchText($label);
+
+        if (str_contains($text, 'jabatan')) {
+            return 'jabatan';
+        }
+
+        if (str_contains($text, 'profesi')) {
+            return 'profesi';
+        }
+
+        if (str_contains($text, 'suami') || str_contains($text, 'istri')) {
+            return 'suami_istri';
+        }
+
+        if (str_contains($text, 'anak')) {
+            return 'anak';
+        }
+
+        if (str_contains($text, 'khusus')) {
+            return 'khusus';
+        }
+
+        if (str_contains($text, 'masa kerja')) {
+            return 'masa_kerja';
+        }
+
+        if (str_contains($text, 'fungsional')) {
+            return 'fungsional';
+        }
+
+        return null;
+    }
+
+    private function doctorSlipDeductionKey(string $label): string
+    {
+        $text = $this->doctorSlipSearchText($label);
+
+        if (str_contains($text, 'dana sehat')) {
+            return 'dana_sehat';
+        }
+
+        if (str_contains($text, 'infaq') || str_contains($text, 'infak')) {
+            return 'infaq';
+        }
+
+        if (str_contains($text, 'bpjs')) {
+            return 'bpjs';
+        }
+
+        if (str_contains($text, 'tabungan') || str_contains($text, 'hari tua')) {
+            return 'tabungan_hari_tua';
+        }
+
+        return 'lain_lain';
+    }
+
+    private function doctorSlipPremiumCategory(array $detail): string
+    {
+        $sourceKey = strtolower((string) ($detail['source_key'] ?? ''));
+        $premiumType = strtolower((string) ($detail['source_premium_type'] ?? ''));
+
+        if ($premiumType === '' && str_starts_with($sourceKey, 'premi_dokter_')) {
+            $premiumType = preg_replace(
+                '/_(umum|bpjs|manual|all)$/',
+                '',
+                Str::after($sourceKey, 'premi_dokter_')
+            );
+        }
+
+        $text = $this->doctorSlipSearchText(
+            $premiumType,
+            $sourceKey,
+            $detail['source_label'] ?? '',
+            $detail['nama'] ?? '',
+            $detail['source_table'] ?? ''
+        );
+
+        if (in_array($premiumType, ['upah_str', 'str'], true) || preg_match('/(^| )str($| )/', $text)) {
+            return 'str';
+        }
+
+        if ($premiumType === 'kehadiran' || str_contains($text, 'kehadiran')) {
+            return 'kehadiran';
+        }
+
+        if ($premiumType === 'kebersamaan' || str_contains($text, 'kebersamaan')) {
+            return 'kebersamaan';
+        }
+
+        if ($premiumType === 'jasa_operasi' || str_contains($text, 'operasi') || preg_match('/(^| )ok($| )/', $text)) {
+            return 'ok';
+        }
+
+        if ($premiumType === 'jasa_rawat_jalan' || str_contains($text, 'rawat jalan')) {
+            return 'rawat_jalan';
+        }
+
+        if ($premiumType === 'visite' || str_contains($text, 'visite')) {
+            return 'visite';
+        }
+
+        if ($premiumType === 'jasa_poli' || str_contains($text, 'poli')) {
+            return 'poli';
+        }
+
+        if ($premiumType === 'jasa_igd' || str_contains($text, 'igd')) {
+            return 'igd';
+        }
+
+        if ($premiumType === 'jasa_ecg' || str_contains($text, 'ecg')) {
+            return 'ecg';
+        }
+
+        if (str_contains($text, 'radiologi')) {
+            return 'radiologi';
+        }
+
+        if (str_contains($text, 'laboratorium') || str_contains($text, 'laborat')) {
+            return 'laborat';
+        }
+
+        return 'lain_lain';
+    }
+
+    private function doctorSlipPremiumFallbackLabel(array $detail): string
+    {
+        $label = $detail['nama'] ?? $detail['source_label'] ?? null;
+
+        if (filled($label)) {
+            return strtoupper((string) $label);
+        }
+
+        return 'JASA LAIN-LAIN';
+    }
+
+    private function doctorSlipSearchText(...$values): string
+    {
+        $text = strtolower(implode(' ', array_map(fn ($value) => (string) $value, $values)));
+        $text = preg_replace('/[^a-z0-9]+/', ' ', $text);
+
+        return trim(preg_replace('/\s+/', ' ', $text));
+    }
+
+    private function stage1DoctorIncludesStrForNik(?string $nik): bool
+    {
+        $nik = trim((string) $nik);
+
+        if ($nik === '') {
+            return false;
+        }
+
+        $config = $this->penggajianRepository
+            ->getGajiTahap1DoctorConfigs()
+            ->firstWhere('kd_dokter', $nik);
+
+        return $config ? $this->stage1DoctorIncludesStr($config) : false;
+    }
+
+    private function excludeStage1DoctorPremiumDetails(Collection $details, $stage1Config): Collection
+    {
+        if (! $stage1Config) {
+            return $details->values();
+        }
+
+        $excludedTypes = collect($stage1Config->premium_types ?? []);
+
+        if ($stage1Config->include_salary) {
+            $excludedTypes->push('kehadiran');
+        }
+
+        $excludedTypes = $excludedTypes
+            ->filter()
+            ->map(fn ($type) => (string) $type)
+            ->unique()
+            ->values();
+
+        if ($excludedTypes->isEmpty()) {
+            return $details->values();
+        }
+
+        return $details
+            ->reject(fn (array $detail) => ($detail['source_table'] ?? null) === 'generate_premi_dokter_detail'
+                && $excludedTypes->contains((string) ($detail['source_premium_type'] ?? '')))
+            ->values();
+    }
+
     private function filterStage2DoctorPremiumDetails($details, array $premiumTypes): Collection
+    {
+        return $this->filterDoctorPremiumDetails($details, $premiumTypes);
+    }
+
+    private function filterDoctorPremiumDetails($details, array $premiumTypes): Collection
     {
         $premiumTypes = collect($premiumTypes)
             ->filter()
@@ -986,12 +2216,16 @@ class penggajianService
             ->values();
     }
 
-    private function normalizeDoctorConfigRows(array $rows): array
+    private function normalizeDoctorConfigRows(
+        array $rows,
+        array $allowedPremiumTypeLabels,
+        string $stageLabel
+    ): array
     {
-        $allowedPremiumTypes = array_keys(self::STAGE2_DOCTOR_PREMIUM_TYPES);
+        $allowedPremiumTypes = array_keys($allowedPremiumTypeLabels);
 
         return collect($rows)
-            ->map(function (array $row) use ($allowedPremiumTypes) {
+            ->map(function (array $row) use ($allowedPremiumTypes, $stageLabel) {
                 $premiumTypes = collect($row['premium_types'] ?? [])
                     ->map(fn ($type) => (string) $type)
                     ->filter(fn ($type) => in_array($type, $allowedPremiumTypes, true))
@@ -1002,7 +2236,7 @@ class penggajianService
 
                 if (! $includeSalary && empty($premiumTypes)) {
                     throw ValidationException::withMessages([
-                        'rows' => ['Setiap dokter tahap 2 wajib memiliki minimal satu komponen.'],
+                        'rows' => ['Setiap dokter '.$stageLabel.' wajib memiliki minimal satu komponen.'],
                     ]);
                 }
 
@@ -1021,11 +2255,11 @@ class penggajianService
             ->all();
     }
 
-    private function doctorConfigPayload(object $row): array
+    private function doctorConfigPayload(object $row, array $allowedPremiumTypeLabels): array
     {
         $premiumTypes = collect($row->premium_types ?? [])
             ->map(fn ($type) => (string) $type)
-            ->filter(fn ($type) => isset(self::STAGE2_DOCTOR_PREMIUM_TYPES[$type]))
+            ->filter(fn ($type) => isset($allowedPremiumTypeLabels[$type]))
             ->values()
             ->all();
 
@@ -1053,9 +2287,19 @@ class penggajianService
         ];
     }
 
+    private function stage1DoctorPremiumTypeOptions(): array
+    {
+        return $this->doctorPremiumTypeOptions(self::STAGE1_DOCTOR_PREMIUM_TYPES);
+    }
+
     private function stage2DoctorPremiumTypeOptions(): array
     {
-        return collect(self::STAGE2_DOCTOR_PREMIUM_TYPES)
+        return $this->doctorPremiumTypeOptions(self::STAGE2_DOCTOR_PREMIUM_TYPES);
+    }
+
+    private function doctorPremiumTypeOptions(array $premiumTypes): array
+    {
+        return collect($premiumTypes)
             ->map(fn (string $label, string $id) => [
                 'id' => $id,
                 'label' => $label,

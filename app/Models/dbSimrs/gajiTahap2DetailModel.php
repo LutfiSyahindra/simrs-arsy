@@ -18,6 +18,8 @@ class gajiTahap2DetailModel extends Model
         'source_label',
         'source_table',
         'source_id',
+        'source_periode',
+        'source_period_mode',
         'role_label',
         'nominal',
     ];

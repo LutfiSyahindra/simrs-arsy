@@ -32,9 +32,56 @@
         // ======= END KONFIGURASI AJAX =======
 
         let slipWhatsappRecipients = [];
-        let stage2DoctorConfigRows = [];
-        let stage2DoctorPremiumOptions = [];
-        let stage2DoctorConfigLoaded = false;
+        let payrollDoctorConfigState = {
+            stage1: {
+                label: 'tahap 1',
+                rows: [],
+                premiumOptions: [],
+                salaryComponent: {
+                    id: 'include_salary',
+                    label: 'Gaji Pokok (Kehadiran)'
+                },
+                loaded: false,
+                configUrl: "{{ route("backOffice.keuangan.penggajian.gajiTahap1DoctorConfig") }}",
+                saveUrl: "{{ route("backOffice.keuangan.penggajian.updateGajiTahap1DoctorConfig") }}",
+                optionsUrl: "{{ route("backOffice.keuangan.penggajian.dokterUgdKontrakTahap1Options") }}",
+                select: '#configStage1DoctorSelect',
+                rowsWrap: '#stage1DoctorConfigRows',
+                empty: '#stage1DoctorConfigEmpty',
+                loading: '#stage1DoctorConfigLoading',
+                doctorCount: '#stage1DoctorConfigCount',
+                premiumCount: '#stage1DoctorPremiumCount',
+                salaryLabel: '#stage1DoctorSalaryLabel',
+                defaultIncludeSalary: true
+            },
+            stage2: {
+                label: 'tahap 2',
+                rows: [],
+                premiumOptions: [],
+                salaryComponent: {
+                    id: 'include_salary',
+                    label: 'STR/Gaji Pokok'
+                },
+                loaded: false,
+                configUrl: "{{ route("backOffice.keuangan.penggajian.gajiTahap2DoctorConfig") }}",
+                saveUrl: "{{ route("backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig") }}",
+                optionsUrl: "{{ route("backOffice.keuangan.penggajian.dokterUmumTahap2Options") }}",
+                select: '#configStage2DoctorSelect',
+                rowsWrap: '#stage2DoctorConfigRows',
+                empty: '#stage2DoctorConfigEmpty',
+                loading: '#stage2DoctorConfigLoading',
+                doctorCount: '#stage2DoctorConfigCount',
+                premiumCount: '#stage2DoctorPremiumCount',
+                salaryLabel: '#stage2DoctorSalaryLabel',
+                defaultIncludeSalary: false
+            }
+        };
+        let payrollRoundingConfigState = {
+            loaded: false,
+            configUrl: "{{ route("backOffice.keuangan.penggajian.payrollRoundingConfig") }}",
+            saveUrl: "{{ route("backOffice.keuangan.penggajian.updatePayrollRoundingConfig") }}",
+            data: {}
+        };
         let stage2GeneratorReadiness = {
             ready: false,
             message: 'Status generator tahap 2 belum dimuat.'
@@ -45,8 +92,10 @@
             processing: true,
             serverSide: true,
             responsive: false,
-            pageLength: 10,
-            lengthMenu: [10, 25, 50, 100],
+            autoWidth: false,
+            deferRender: true,
+            pageLength: 15,
+            lengthMenu: [15, 25, 50, 100],
             dom: "<'row g-2 align-items-center mb-2'<'col-12 col-md-6'l><'col-12 col-md-6 text-md-end'i>>" +
                 "rt" +
                 "<'row g-2 align-items-center mt-3'<'col-12 col-md-6'i><'col-12 col-md-6 d-flex justify-content-md-end'p>>",
@@ -142,6 +191,11 @@
                     className: 'text-end currency-cell'
                 },
                 {
+                    data: 'premi',
+                    name: 'premi',
+                    className: 'text-end currency-cell'
+                },
+                {
                     data: 'total',
                     name: 'total',
                     className: 'text-end currency-cell',
@@ -162,8 +216,10 @@
             processing: true,
             serverSide: true,
             responsive: false,
-            pageLength: 10,
-            lengthMenu: [10, 25, 50, 100],
+            autoWidth: false,
+            deferRender: true,
+            pageLength: 15,
+            lengthMenu: [15, 25, 50, 100],
             dom: "<'row g-2 align-items-center mb-2'<'col-12 col-md-6'l><'col-12 col-md-6 text-md-end'i>>" +
                 "rt" +
                 "<'row g-2 align-items-center mt-3'<'col-12 col-md-6'i><'col-12 col-md-6 d-flex justify-content-md-end'p>>",
@@ -307,6 +363,7 @@
                     $('#summaryTahap1Total').text(formatRupiah(data.total_gaji || 0));
                     $('#summaryTahap1Gapok').text(formatRupiah(data.total_gapok || 0));
                     $('#summaryTahap1Tunjangan').text(formatRupiah(data.total_tunjangan || 0));
+                    $('#summaryTahap1Premi').text(formatRupiah(data.total_premi || 0));
 
                     if ($('#tahapGaji').val() == '1') {
                         renderActiveSummary(data, '1');
@@ -362,34 +419,21 @@
             const periode = $('#periodeGaji').val() || '-';
             const isTahap2 = tahap == '2';
             const stageLabel = 'Tahap ' + (isTahap2 ? '2' : '1');
-            const description = isTahap2 ?
-                'Premi generator dan komponen terpilih' :
-                'Gaji pokok dan tunjangan';
+            const actionHint = isTahap2 ?
+                'Export Excel dan Slip WhatsApp tersedia untuk tahap 2.' :
+                'Slip WhatsApp tersedia untuk tahap 1.';
 
             $('#commandPeriodeText').text(periode);
-            $('#activePeriodeBadge').text(periode);
-            $('#activeStageBadge').text(stageLabel);
-            $('#activeStageDescription').text(description);
-            $('#tableStageTitle').text('Hasil Generate ' + stageLabel);
-            $('#tableStageSubtitle').text(isTahap2 ?
-                'Sisa gaji kontrak, premi generator, dan konfigurasi dokter tahap 2' :
-                'Gaji pokok dan tunjangan pegawai periode aktif'
-            );
             $('#stage2GeneratorReadinessPanel').toggleClass('d-none', !isTahap2);
+            $('#btnExportGajiTahap2').toggleClass('d-none', !isTahap2);
+            $('#stageActionHint').text(actionHint);
+            $('#btnGenerateGaji .payroll-action-label').text('Generate ' + stageLabel);
+            $('.payroll-stage-card').removeClass('is-active');
+            $('.payroll-stage-card[data-stage-shortcut="' + (isTahap2 ? '2' : '1') + '"]').addClass('is-active');
         }
 
         function renderActiveSummary(data, tahap) {
             syncPayrollContext(tahap);
-            $('#summaryPegawai').text(data.jumlah_pegawai || 0);
-            $('#summaryStatusPegawai').text(summaryStatusText(data));
-            $('#summaryTotalGaji').text(formatRupiah(data.total_gaji || 0));
-            $('#summaryGapok').text(formatRupiah(data.total_gapok || 0));
-            $('#summaryTunjangan').text(formatRupiah(
-                tahap == '2' ? (data.total_premi || 0) : (data.total_tunjangan || 0)
-            ));
-            $('#summaryExtraLabel').text(tahap == '2' ? 'Premi' : 'Tunjangan');
-            $('#summaryExtraNote').text(tahap == '2' ? 'Dari generator premi' : 'Masuk komponen gaji');
-            $('#summaryPeriode').text((data.periode || '-') + ' / Tahap ' + tahap);
         }
 
         function reloadActivePayrollTable() {
@@ -564,30 +608,37 @@
             });
         }
 
-        $('#configStage2DoctorSelect').select2({
-            dropdownParent: $('#modalGajiTahap2DoctorConfig'),
-            width: '100%',
-            placeholder: 'Pilih dokter...',
-            allowClear: true,
-            ajax: {
-                url: "{{ route("backOffice.keuangan.penggajian.dokterUmumTahap2Options") }}",
-                type: "GET",
-                dataType: 'json',
-                delay: 250,
-                data: function(params) {
-                    return {
-                        q: params.term || ''
-                    };
-                },
-                processResults: function(response) {
-                    return {
-                        results: response.data || []
-                    };
-                }
-            }
-        });
+        function initPayrollDoctorSelect(stage) {
+            const config = payrollDoctorConfigState[stage];
 
-        function normalizeStage2DoctorConfigRow(row) {
+            $(config.select).select2({
+                dropdownParent: $('#modalPayrollDoctorConfig'),
+                width: '100%',
+                placeholder: stage === 'stage1' ? 'Pilih dokter UGD kontrak...' : 'Pilih dokter...',
+                allowClear: true,
+                ajax: {
+                    url: config.optionsUrl,
+                    type: "GET",
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return {
+                            q: params.term || ''
+                        };
+                    },
+                    processResults: function(response) {
+                        return {
+                            results: response.data || []
+                        };
+                    }
+                }
+            });
+        }
+
+        initPayrollDoctorSelect('stage1');
+        initPayrollDoctorSelect('stage2');
+
+        function normalizeDoctorConfigRow(row) {
             return {
                 kd_dokter: row.kd_dokter || row.id || '',
                 nm_dokter: row.nm_dokter || '',
@@ -598,37 +649,41 @@
             };
         }
 
-        function stage2DoctorComponentCount(row) {
+        function doctorComponentCount(row) {
             return (row.include_salary ? 1 : 0) + ((row.premium_types || []).length);
         }
 
-        function updateStage2DoctorConfigMeta() {
-            $('#stage2DoctorConfigCount').text(stage2DoctorConfigRows.length + ' dokter');
-            $('#stage2DoctorPremiumCount').text(stage2DoctorPremiumOptions.length + ' opsi');
+        function updateDoctorConfigMeta(stage) {
+            const config = payrollDoctorConfigState[stage];
 
-            stage2DoctorConfigRows.forEach(function(row, index) {
-                $('.payroll-config-selected-count[data-index="' + index + '"]')
-                    .text(stage2DoctorComponentCount(row) + ' komponen');
+            $(config.doctorCount).text(config.rows.length + ' dokter');
+            $(config.premiumCount).text(config.premiumOptions.length + ' opsi');
+            $(config.salaryLabel).text(config.salaryComponent.label || '-');
+
+            config.rows.forEach(function(row, index) {
+                $('.payroll-config-selected-count[data-stage="' + stage + '"][data-index="' + index + '"]')
+                    .text(doctorComponentCount(row) + ' komponen');
             });
         }
 
-        function renderStage2DoctorConfigRows() {
-            const wrap = $('#stage2DoctorConfigRows');
+        function renderDoctorConfigRows(stage) {
+            const config = payrollDoctorConfigState[stage];
+            const wrap = $(config.rowsWrap);
             wrap.empty();
 
-            $('#stage2DoctorConfigEmpty').toggleClass('d-none', stage2DoctorConfigRows.length > 0);
-            updateStage2DoctorConfigMeta();
+            $(config.empty).toggleClass('d-none', config.rows.length > 0);
+            updateDoctorConfigMeta(stage);
 
-            stage2DoctorConfigRows.forEach(function(row, index) {
-                const premiumCheckboxes = stage2DoctorPremiumOptions.length > 0 ?
-                    stage2DoctorPremiumOptions.map(function(option) {
+            config.rows.forEach(function(row, index) {
+                const premiumCheckboxes = config.premiumOptions.length > 0 ?
+                    config.premiumOptions.map(function(option) {
                         const checked = (row.premium_types || []).indexOf(option.id) !== -1 ?
                             'checked' : '';
 
                         return `
                             <label class="form-check mb-0">
-                                <input class="form-check-input stage2-doctor-premium" type="checkbox"
-                                    data-index="${index}" value="${escapeHtml(option.id)}" ${checked}>
+                                <input class="form-check-input payroll-doctor-premium" type="checkbox"
+                                    data-stage="${stage}" data-index="${index}" value="${escapeHtml(option.id)}" ${checked}>
                                 <span class="form-check-label">${escapeHtml(option.label)}</span>
                             </label>
                         `;
@@ -636,18 +691,18 @@
                     '<div class="payroll-config-empty-mini">Opsi premi belum tersedia.</div>';
 
                 wrap.append(`
-                    <div class="payroll-config-row" data-index="${index}">
+                    <div class="payroll-config-row" data-stage="${stage}" data-index="${index}">
                         <div class="payroll-config-row-header">
                             <div>
                                 <span class="employee-name">${escapeHtml(row.nm_dokter || '-')}</span>
                                 <span class="employee-subtext">${escapeHtml(row.kd_dokter || '')} / ${escapeHtml(row.nm_sps || 'Umum')}</span>
                             </div>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="payroll-config-count payroll-config-selected-count" data-index="${index}">
-                                    ${stage2DoctorComponentCount(row)} komponen
+                                <span class="payroll-config-count payroll-config-selected-count" data-stage="${stage}" data-index="${index}">
+                                    ${doctorComponentCount(row)} komponen
                                 </span>
-                                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-stage2-doctor"
-                                    data-index="${index}" title="Hapus">
+                                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-payroll-doctor"
+                                    data-stage="${stage}" data-index="${index}" title="Hapus">
                                     <i class="mdi mdi-trash-can-outline"></i>
                                 </button>
                             </div>
@@ -655,9 +710,9 @@
 
                         <div class="payroll-config-components">
                             <label class="form-check mb-0">
-                                <input class="form-check-input stage2-doctor-salary" type="checkbox"
-                                    data-index="${index}" ${row.include_salary ? 'checked' : ''}>
-                                <span class="form-check-label">STR/Gaji Pokok</span>
+                                <input class="form-check-input payroll-doctor-salary" type="checkbox"
+                                    data-stage="${stage}" data-index="${index}" ${row.include_salary ? 'checked' : ''}>
+                                <span class="form-check-label">${escapeHtml(config.salaryComponent.label || 'Komponen Gaji')}</span>
                             </label>
                             ${premiumCheckboxes}
                         </div>
@@ -665,54 +720,177 @@
                 `);
             });
 
-            updateStage2DoctorConfigMeta();
+            updateDoctorConfigMeta(stage);
         }
 
-        function loadStage2DoctorConfig(force = false) {
-            if (stage2DoctorConfigLoaded && !force) {
-                renderStage2DoctorConfigRows();
-                return;
+        function setDoctorConfigLoading(stage, isLoading) {
+            const config = payrollDoctorConfigState[stage];
+
+            $(config.loading).toggleClass('d-none', !isLoading);
+            $(config.rowsWrap).toggleClass('d-none', isLoading);
+            if (isLoading) {
+                $(config.empty).addClass('d-none');
+            }
+        }
+
+        function loadDoctorConfig(stage, force = false) {
+            const config = payrollDoctorConfigState[stage];
+
+            if (config.loaded && !force) {
+                renderDoctorConfigRows(stage);
+                return $.Deferred().resolve().promise();
             }
 
-            $.ajax({
-                url: "{{ route("backOffice.keuangan.penggajian.gajiTahap2DoctorConfig") }}",
+            return $.ajax({
+                url: config.configUrl,
                 type: "GET",
                 beforeSend: function() {
-                    $('#stage2DoctorConfigLoading').removeClass('d-none');
-                    $('#stage2DoctorConfigRows').addClass('d-none');
-                    $('#stage2DoctorConfigEmpty').addClass('d-none');
+                    setDoctorConfigLoading(stage, true);
                 },
                 success: function(response) {
                     const data = response.data || {};
 
-                    stage2DoctorPremiumOptions = data.premium_type_options || [];
-                    stage2DoctorConfigRows = (data.rows || []).map(normalizeStage2DoctorConfigRow);
-                    stage2DoctorConfigLoaded = true;
-                    renderStage2DoctorConfigRows();
+                    config.premiumOptions = data.premium_type_options || [];
+                    config.salaryComponent = data.salary_component || config.salaryComponent;
+                    config.rows = (data.rows || []).map(normalizeDoctorConfigRow);
+                    config.loaded = true;
+                    renderDoctorConfigRows(stage);
                 },
                 error: function(xhr) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Gagal',
                         text: xhr.responseJSON?.message ||
-                            'Gagal memuat konfigurasi dokter tahap 2.'
+                            'Gagal memuat konfigurasi dokter ' + config.label + '.'
                     });
                 },
                 complete: function() {
-                    $('#stage2DoctorConfigLoading').addClass('d-none');
-                    $('#stage2DoctorConfigRows').removeClass('d-none');
+                    setDoctorConfigLoading(stage, false);
                 }
             });
         }
 
-        $('#btnOpenStage2DoctorConfig').on('click', function() {
-            const modal = new bootstrap.Modal(document.getElementById('modalGajiTahap2DoctorConfig'));
+        function loadPayrollDoctorConfigs(force = false) {
+            loadDoctorConfig('stage1', force);
+            loadDoctorConfig('stage2', force);
+            loadPayrollRoundingConfig(force);
+        }
+
+        function normalizePayrollRoundingConfig(data) {
+            data = data || {};
+
+            return {
+                premium_received_enabled: !!data.premium_received_enabled,
+                premium_received_base: Math.max(1, parseInt(data.premium_received_base || 1000, 10)),
+                premium_received_mode: ['nearest', 'up', 'down'].includes(data.premium_received_mode) ?
+                    data.premium_received_mode : 'up',
+                stage1_total_enabled: true,
+                stage1_total_base: 1000,
+                stage1_total_mode: 'up',
+                stage2_total_enabled: true,
+                stage2_total_base: 1000,
+                stage2_total_mode: 'up'
+            };
+        }
+
+        function fillPayrollRoundingForm(data) {
+            const config = normalizePayrollRoundingConfig(data);
+
+            $('#roundingPremiumEnabled').prop('checked', config.premium_received_enabled);
+            $('#roundingPremiumBase').val(config.premium_received_base);
+            $('#roundingPremiumMode').val(config.premium_received_mode);
+            $('#roundingStage1Enabled').prop('checked', config.stage1_total_enabled);
+            $('#roundingStage1Base').val(config.stage1_total_base);
+            $('#roundingStage1Mode').val(config.stage1_total_mode);
+            $('#roundingStage2Enabled').prop('checked', config.stage2_total_enabled);
+            $('#roundingStage2Base').val(config.stage2_total_base);
+            $('#roundingStage2Mode').val(config.stage2_total_mode);
+        }
+
+        function collectPayrollRoundingForm() {
+            return normalizePayrollRoundingConfig({
+                premium_received_enabled: $('#roundingPremiumEnabled').is(':checked'),
+                premium_received_base: $('#roundingPremiumBase').val(),
+                premium_received_mode: $('#roundingPremiumMode').val(),
+                stage1_total_enabled: $('#roundingStage1Enabled').is(':checked'),
+                stage1_total_base: $('#roundingStage1Base').val(),
+                stage1_total_mode: $('#roundingStage1Mode').val(),
+                stage2_total_enabled: $('#roundingStage2Enabled').is(':checked'),
+                stage2_total_base: $('#roundingStage2Base').val(),
+                stage2_total_mode: $('#roundingStage2Mode').val()
+            });
+        }
+
+        function setPayrollRoundingLoading(isLoading) {
+            $('#roundingConfigLoading').toggleClass('d-none', !isLoading);
+            $('#roundingConfigForm').toggleClass('d-none', isLoading);
+        }
+
+        function loadPayrollRoundingConfig(force = false) {
+            if (payrollRoundingConfigState.loaded && !force) {
+                fillPayrollRoundingForm(payrollRoundingConfigState.data);
+                return $.Deferred().resolve().promise();
+            }
+
+            return $.ajax({
+                url: payrollRoundingConfigState.configUrl,
+                type: "GET",
+                beforeSend: function() {
+                    setPayrollRoundingLoading(true);
+                },
+                success: function(response) {
+                    payrollRoundingConfigState.data = normalizePayrollRoundingConfig(response.data || {});
+                    payrollRoundingConfigState.loaded = true;
+                    fillPayrollRoundingForm(payrollRoundingConfigState.data);
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Gagal',
+                        text: xhr.responseJSON?.message ||
+                            'Gagal memuat konfigurasi pembulatan.'
+                    });
+                },
+                complete: function() {
+                    setPayrollRoundingLoading(false);
+                }
+            });
+        }
+
+        function savePayrollRoundingConfig() {
+            const payload = collectPayrollRoundingForm();
+
+            return $.ajax({
+                url: payrollRoundingConfigState.saveUrl,
+                type: "PUT",
+                contentType: 'application/json',
+                data: JSON.stringify(payload),
+                success: function(response) {
+                    payrollRoundingConfigState.data = normalizePayrollRoundingConfig(response.data || payload);
+                    payrollRoundingConfigState.loaded = true;
+                    fillPayrollRoundingForm(payrollRoundingConfigState.data);
+                }
+            });
+        }
+
+        $('#btnOpenPayrollDoctorConfig').on('click', function() {
+            const modal = new bootstrap.Modal(document.getElementById('modalPayrollDoctorConfig'));
+            const activeTab = document.querySelector($('#tahapGaji').val() == '2' ?
+                '#doctorConfigStage2Tab' :
+                '#doctorConfigStage1Tab');
+
+            if (activeTab) {
+                new bootstrap.Tab(activeTab).show();
+            }
+
             modal.show();
-            loadStage2DoctorConfig();
+            loadPayrollDoctorConfigs();
         });
 
-        $('#btnAddStage2DoctorConfig').on('click', function() {
-            const selected = $('#configStage2DoctorSelect').select2('data')[0];
+        $(document).on('click', '.btn-add-doctor-config', function() {
+            const stage = $(this).data('config-stage');
+            const config = payrollDoctorConfigState[stage];
+            const selected = $(config.select).select2('data')[0];
 
             if (!selected) {
                 Swal.fire({
@@ -723,72 +901,121 @@
                 return;
             }
 
-            if (stage2DoctorConfigRows.some(function(row) {
+            if (config.rows.some(function(row) {
                     return row.kd_dokter === selected.kd_dokter;
                 })) {
                 Swal.fire({
                     icon: 'info',
                     title: 'Sudah Ada',
-                    text: 'Dokter ini sudah masuk konfigurasi tahap 2.'
+                    text: 'Dokter ini sudah masuk konfigurasi ' + config.label + '.'
                 });
                 return;
             }
 
-            stage2DoctorConfigRows.push({
+            config.rows.push({
                 kd_dokter: selected.kd_dokter,
                 nm_dokter: selected.nm_dokter,
                 kd_sps: selected.kd_sps || null,
                 nm_sps: selected.nm_sps || null,
-                include_salary: false,
-                premium_types: stage2DoctorPremiumOptions.map(function(option) {
+                include_salary: !!config.defaultIncludeSalary,
+                premium_types: stage === 'stage2' ? config.premiumOptions.map(function(option) {
                     return option.id;
-                })
+                }) : []
             });
 
-            $('#configStage2DoctorSelect').val(null).trigger('change');
-            renderStage2DoctorConfigRows();
+            $(config.select).val(null).trigger('change');
+            renderDoctorConfigRows(stage);
         });
 
-        $(document).on('change', '.stage2-doctor-salary', function() {
+        $(document).on('change', '.payroll-doctor-salary', function() {
+            const stage = $(this).data('stage');
             const index = Number($(this).data('index'));
+            const config = payrollDoctorConfigState[stage];
 
-            if (stage2DoctorConfigRows[index]) {
-                stage2DoctorConfigRows[index].include_salary = $(this).is(':checked');
-                updateStage2DoctorConfigMeta();
+            if (config?.rows[index]) {
+                config.rows[index].include_salary = $(this).is(':checked');
+                updateDoctorConfigMeta(stage);
             }
         });
 
-        $(document).on('change', '.stage2-doctor-premium', function() {
+        $(document).on('change', '.payroll-doctor-premium', function() {
+            const stage = $(this).data('stage');
             const index = Number($(this).data('index'));
+            const config = payrollDoctorConfigState[stage];
 
-            if (!stage2DoctorConfigRows[index]) {
+            if (!config?.rows[index]) {
                 return;
             }
 
-            stage2DoctorConfigRows[index].premium_types = $('.stage2-doctor-premium[data-index="' + index + '"]:checked')
+            config.rows[index].premium_types = $('.payroll-doctor-premium[data-stage="' + stage + '"][data-index="' + index + '"]:checked')
                 .map(function() {
                     return $(this).val();
                 })
                 .get();
-            updateStage2DoctorConfigMeta();
+            updateDoctorConfigMeta(stage);
         });
 
-        $(document).on('click', '.btn-remove-stage2-doctor', function() {
+        $(document).on('click', '.btn-remove-payroll-doctor', function() {
+            const stage = $(this).data('stage');
             const index = Number($(this).data('index'));
-            stage2DoctorConfigRows.splice(index, 1);
-            renderStage2DoctorConfigRows();
+            const config = payrollDoctorConfigState[stage];
+
+            config.rows.splice(index, 1);
+            renderDoctorConfigRows(stage);
         });
 
-        $('#btnSaveStage2DoctorConfig').on('click', function() {
-            const invalidRow = stage2DoctorConfigRows.find(function(row) {
-                return !row.include_salary && (!row.premium_types || row.premium_types.length === 0);
-            });
+        function invalidDoctorConfigStage() {
+            return ['stage1', 'stage2'].find(function(stage) {
+                const config = payrollDoctorConfigState[stage];
 
-            if (invalidRow) {
+                return config.rows.some(function(row) {
+                    return !row.include_salary && (!row.premium_types || row.premium_types.length === 0);
+                });
+            });
+        }
+
+        function saveDoctorConfig(stage) {
+            const config = payrollDoctorConfigState[stage];
+
+            return $.ajax({
+                url: config.saveUrl,
+                type: "PUT",
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    rows: config.rows
+                }),
+                success: function(response) {
+                    const data = response.data || {};
+
+                    config.premiumOptions = data.premium_type_options || config.premiumOptions;
+                    config.salaryComponent = data.salary_component || config.salaryComponent;
+                    config.rows = (data.rows || []).map(normalizeDoctorConfigRow);
+                    config.loaded = true;
+                    renderDoctorConfigRows(stage);
+                }
+            });
+        }
+
+        $('#btnSavePayrollDoctorConfig').on('click', function() {
+            if (!payrollDoctorConfigState.stage1.loaded ||
+                !payrollDoctorConfigState.stage2.loaded ||
+                !payrollRoundingConfigState.loaded) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Masih Memuat',
+                    text: 'Tunggu konfigurasi tahap 1, tahap 2, dan pembulatan selesai dimuat.'
+                });
+                return;
+            }
+
+            const invalidStage = invalidDoctorConfigStage();
+
+            if (invalidStage) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Komponen belum dipilih',
-                    text: 'Setiap dokter wajib memiliki minimal satu komponen.'
+                    text: 'Setiap dokter ' + payrollDoctorConfigState[invalidStage].label +
+                        ' wajib memiliki minimal satu komponen.'
                 });
                 return;
             }
@@ -796,34 +1023,29 @@
             const btn = $(this);
             const btnHtml = btn.html();
 
-            $.ajax({
-                url: "{{ route("backOffice.keuangan.penggajian.updateGajiTahap2DoctorConfig") }}",
-                type: "PUT",
-                contentType: 'application/json',
-                data: JSON.stringify({
-                    rows: stage2DoctorConfigRows
-                }),
-                beforeSend: function() {
-                    btn.prop('disabled', true).html(
-                        '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
-                    );
-                },
-                success: function(response) {
-                    const data = response.data || {};
-                    stage2DoctorPremiumOptions = data.premium_type_options || stage2DoctorPremiumOptions;
-                    stage2DoctorConfigRows = (data.rows || []).map(normalizeStage2DoctorConfigRow);
-                    stage2DoctorConfigLoaded = true;
-                    renderStage2DoctorConfigRows();
+            btn.prop('disabled', true).html(
+                '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
+            );
 
+            saveDoctorConfig('stage1')
+                .then(function() {
+                    return saveDoctorConfig('stage2');
+                })
+                .then(function() {
+                    return savePayrollRoundingConfig();
+                })
+                .done(function() {
                     Swal.fire({
                         icon: 'success',
                         title: 'Berhasil',
-                        text: response.message || 'Konfigurasi berhasil disimpan.',
+                        text: 'Konfigurasi gaji dan pembulatan berhasil disimpan.',
                         timer: 1600,
                         showConfirmButton: false
                     });
-                },
-                error: function(xhr) {
+
+                    loadPayrollSummaries();
+                })
+                .fail(function(xhr) {
                     let message = xhr.responseJSON?.message || 'Gagal menyimpan konfigurasi.';
 
                     if (xhr.responseJSON?.errors) {
@@ -838,11 +1060,10 @@
                         title: 'Gagal',
                         text: message
                     });
-                },
-                complete: function() {
+                })
+                .always(function() {
                     btn.prop('disabled', false).html(btnHtml);
-                }
-            });
+                });
         });
 
         function setSlipWhatsappLoading(isLoading) {
@@ -862,6 +1083,21 @@
             $('#checkAllSlipWhatsapp')
                 .prop('checked', total > 0 && selected === total)
                 .prop('indeterminate', selected > 0 && selected < total);
+        }
+
+        function activeSlipWhatsappTahap() {
+            return $('#tahapGaji').val() == '2' ? 2 : 1;
+        }
+
+        function updateSlipWhatsappStageLabels(tahap) {
+            const label = 'Tahap ' + tahap;
+
+            $('#modalSlipWhatsappLabel').text('Kirim Slip Gaji WhatsApp ' + label);
+            $('#waSlipStageBadge').text(tahap === 2 ? 'Tahap 2' : 'Tahap 1 + 2');
+            $('#waSlipModalSubtitle').text(tahap === 2 ?
+                'Slip gaji tahap 2, termasuk dokter jika datanya tersedia.' :
+                'Slip gabungan tahap 1 + 2, termasuk dokter jika datanya tersedia.'
+            );
         }
 
         function renderSlipWhatsappRecipients(items) {
@@ -884,7 +1120,8 @@
                     item.nik,
                     item.jabatan,
                     item.no_telp,
-                    item.no_whatsapp
+                    item.no_whatsapp,
+                    item.is_doctor_slip ? 'dokter' : ''
                 ].join(' ').toLowerCase();
 
                 tbody.append(`
@@ -895,7 +1132,7 @@
                         </td>
                         <td>
                             <span class="employee-name">${escapeHtml(item.nama || '-')}</span>
-                            <span class="employee-subtext">${escapeHtml(item.nik || '')}</span>
+                            <span class="employee-subtext">${escapeHtml(item.nik || '')}${item.is_doctor_slip ? ' / Dokter' : ''}</span>
                         </td>
                         <td>${escapeHtml(item.jabatan || '-')}</td>
                         <td class="text-center">
@@ -926,7 +1163,9 @@
 
         function loadSlipWhatsappRecipients() {
             const periode = $('#periodeGaji').val();
+            const tahap = activeSlipWhatsappTahap();
 
+            updateSlipWhatsappStageLabels(tahap);
             $('#waSlipPeriode').text(periode || '-');
             $('#waSlipRecipientCount').text('0 penerima');
             $('#searchSlipWhatsappPegawai').val('');
@@ -937,7 +1176,8 @@
                 url: "{{ route("backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1") }}",
                 type: "GET",
                 data: {
-                    periode: periode
+                    periode: periode,
+                    tahap: tahap
                 },
                 beforeSend: function() {
                     setSlipWhatsappLoading(true);
@@ -1063,15 +1303,41 @@
             let html = '';
 
             items.forEach(function(item) {
+                const sourcePeriod = item.source_period_label ?
+                    `<span class="employee-subtext">Periode sumber: ${escapeHtml(item.source_period_label)}</span>` :
+                    '';
+
                 html += `
                     <div class="slip-detail-row">
-                        <span>${escapeHtml(item.nama || 'Tunjangan')}</span>
+                        <span>${escapeHtml(item.nama || 'Tunjangan')}${sourcePeriod}</span>
                         <strong>${formatRupiah(item.nominal || 0)}</strong>
                     </div>
                 `;
             });
 
             $('#slipTunjanganDetail').html(html);
+        }
+
+        function renderPremiTahap1Detail(items) {
+            if (!items || items.length === 0) {
+                $('#slipPremiDetail').html(
+                    '<div class="slip-empty-row">Tidak ada premi yang dipilih pada konfigurasi</div>'
+                );
+                return;
+            }
+
+            let html = '';
+
+            items.forEach(function(item) {
+                html += `
+                    <div class="slip-detail-row">
+                        <span>${escapeHtml(item.nama || 'Premi Dokter')}</span>
+                        <strong>${formatRupiah(item.nominal || 0)}</strong>
+                    </div>
+                `;
+            });
+
+            $('#slipPremiDetail').html(html);
         }
 
         function renderPotonganDetail(items, emptyText = 'Tidak ada potongan') {
@@ -1140,11 +1406,17 @@
                         'Gaji Dibayarkan');
                     $('#slipGajiPokok').text(formatRupiah(data.gaji_pokok));
                     $('#slipGajiDibayar').text(formatRupiah(data.gaji_dibayar));
+                    $('#slipPremiUtama').text(formatRupiah(data.premi || 0));
+                    $('#slipPremiUtamaRow').toggleClass('d-none', Number(data.premi || 0) <= 0);
                     $('#slipTunjangan').text(formatRupiah(data.tunjangan));
+                    $('#slipPremi').text(formatRupiah(data.premi || 0));
                     $('#slipTotal').text(formatRupiah(data.total));
+                    $('#slipPembulatan').text(formatRupiah(data.pembulatan || 0));
+                    $('#slipPembulatanRow').toggleClass('d-none', Number(data.pembulatan || 0) === 0);
                     $('#slipDetailListTitle').text('Rincian Tunjangan');
                     $('#slipTotalTunjanganLabel').text('Total Tunjangan');
                     $('#slipPotonganBox').addClass('d-none');
+                    $('#slipPremiBox').removeClass('d-none');
 
                     $('#slipStatus')
                         .removeClass('is-tetap is-kontrak is-unknown')
@@ -1152,6 +1424,7 @@
                             'is-kontrak' : 'is-unknown')
                         .text(data.status_label || '-');
                     renderTunjanganDetail(data.tunjangan_detail || []);
+                    renderPremiTahap1Detail(data.premi_detail || []);
 
                     const modal = new bootstrap.Modal(document.getElementById(
                         'modalSlipGajiTahap1'));
@@ -1187,12 +1460,16 @@
                         'Gaji Dibayarkan');
                     $('#slipGajiPokok').text(formatRupiah(data.gaji_pokok));
                     $('#slipGajiDibayar').text(formatRupiah(data.gaji_dibayar));
+                    $('#slipPremiUtamaRow').addClass('d-none');
                     $('#slipTunjangan').text(formatRupiah(data.total_premi));
                     $('#slipTotal').text(formatRupiah(data.total));
+                    $('#slipPembulatan').text(formatRupiah(data.pembulatan || 0));
+                    $('#slipPembulatanRow').toggleClass('d-none', Number(data.pembulatan || 0) === 0);
                     $('#slipDetailListTitle').text('Rincian Premi Generator');
                     $('#slipTotalTunjanganLabel').text('Total Premi');
                     $('#slipPotongan').text(formatRupiah(data.total_potongan || 0));
                     $('#slipPotonganBox').removeClass('d-none');
+                    $('#slipPremiBox').addClass('d-none');
 
                     $('#slipStatus')
                         .removeClass('is-tetap is-kontrak is-unknown')
@@ -1275,6 +1552,7 @@
 
         $('#btnSendSlipWhatsapp').on('click', function() {
             const periode = $('#periodeGaji').val();
+            const tahap = activeSlipWhatsappTahap();
             const selectedIds = $('.wa-slip-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
@@ -1292,7 +1570,8 @@
 
             Swal.fire({
                 title: 'Masukkan ke antrean?',
-                text: selectedIds.length + ' slip gaji akan dikirim bertahap lewat Whatsapp.',
+                text: selectedIds.length + ' slip gaji tahap ' + tahap +
+                    ' akan dikirim bertahap lewat Whatsapp.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, Antrekan',
@@ -1307,6 +1586,7 @@
                     type: "POST",
                     data: {
                         periode: periode,
+                        tahap: tahap,
                         gaji_ids: selectedIds
                     },
                     beforeSend: function() {

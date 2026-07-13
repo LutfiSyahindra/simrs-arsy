@@ -1,6 +1,6 @@
 <div class="modal fade" id="modalSlipGajiTahap1" tabindex="-1" aria-labelledby="modalSlipGajiTahap1Label"
     aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content payroll-modal">
             <div class="modal-header">
                 <div class="payroll-modal-title">
@@ -61,6 +61,10 @@
                             <span id="slipGajiDibayarLabel">Gaji Dibayarkan</span>
                             <strong id="slipGajiDibayar">Rp 0</strong>
                         </div>
+                        <div class="slip-detail-row d-none" id="slipPremiUtamaRow">
+                            <span>Premi Sesuai Konfigurasi</span>
+                            <strong id="slipPremiUtama">Rp 0</strong>
+                        </div>
                     </div>
 
                     <div class="slip-allowance-box mb-3">
@@ -69,6 +73,15 @@
                         <div class="slip-detail-row">
                             <span id="slipTotalTunjanganLabel">Total Tunjangan</span>
                             <strong id="slipTunjangan">Rp 0</strong>
+                        </div>
+                    </div>
+
+                    <div class="slip-allowance-box mb-3" id="slipPremiBox">
+                        <div class="slip-section-title">Rincian Premi Konfigurasi</div>
+                        <div id="slipPremiDetail"></div>
+                        <div class="slip-detail-row">
+                            <span>Total Premi</span>
+                            <strong id="slipPremi">Rp 0</strong>
                         </div>
                     </div>
 
@@ -82,6 +95,10 @@
                     </div>
 
                     <div class="slip-detail-list">
+                        <div class="slip-detail-row d-none" id="slipPembulatanRow">
+                            <span>Pembulatan</span>
+                            <strong id="slipPembulatan">Rp 0</strong>
+                        </div>
                         <div class="slip-detail-row total">
                             <span>Total Diterima</span>
                             <strong id="slipTotal">Rp 0</strong>

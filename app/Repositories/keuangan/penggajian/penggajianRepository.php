@@ -9,6 +9,7 @@ use App\Models\dbSimrs\gajiTahap2Model;
 use App\Models\dbSimrs\gapokModel;
 use App\Models\dbSimrs\potonganPegawaiModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
+use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,45 @@ use Illuminate\Support\Facades\Schema;
 
 class penggajianRepository
 {
+    public function getUnitKerjaByNik(string $nik): ?string
+    {
+        $nik = trim($nik);
+
+        if ($nik === '' || ! Schema::hasTable('unit_pegawai') || ! Schema::hasTable('master_unit')) {
+            return null;
+        }
+
+        $query = DB::table('unit_pegawai as up')
+            ->join('master_unit as mu', 'mu.id', '=', 'up.unit_id')
+            ->where('up.nik', $nik);
+
+        if (Schema::hasColumn('unit_pegawai', 'deleted_at')) {
+            $query->whereNull('up.deleted_at');
+        }
+
+        $units = $query
+            ->select([
+                'mu.kode',
+                'mu.keterangan',
+            ])
+            ->orderBy('mu.jenis')
+            ->orderBy('mu.keterangan')
+            ->get();
+
+        $label = $units
+            ->map(function ($unit) {
+                $kode = trim((string) ($unit->kode ?? ''));
+                $keterangan = trim((string) ($unit->keterangan ?? ''));
+
+                return $keterangan !== '' ? $keterangan : $kode;
+            })
+            ->filter()
+            ->unique()
+            ->implode(', ');
+
+        return $label !== '' ? $label : null;
+    }
+
     public function getTunjanganPegawai($nik)
     {
         return tunjanganPegawaiModel::query()
@@ -30,7 +70,28 @@ class penggajianRepository
 
     public function getGajiTahap1Table($periode)
     {
-        return gajiTahap1Model::select('id', 'nik', 'nama', 'jabatan', 'status', 'gaji_pokok', 'gaji_dibayar', 'tunjangan', 'periode')
+        $select = [
+            'id',
+            'nik',
+            'nama',
+            'jabatan',
+            'status',
+            'gaji_pokok',
+            'gaji_dibayar',
+            'tunjangan',
+            Schema::hasColumn('gaji_tahap1', 'premi')
+                ? 'premi'
+                : DB::raw('0 as premi'),
+            'periode',
+            Schema::hasColumn('gaji_tahap1', 'pembulatan')
+                ? 'pembulatan'
+                : DB::raw('0 as pembulatan'),
+            Schema::hasColumn('gaji_tahap1', 'total')
+                ? 'total'
+                : DB::raw('COALESCE(gaji_dibayar, 0) + COALESCE(tunjangan, 0) as total'),
+        ];
+
+        return gajiTahap1Model::select($select)
             ->where('periode', $periode)
             ->get();
     }
@@ -48,6 +109,15 @@ class penggajianRepository
                 'gaji_tahap1.gaji_pokok',
                 'gaji_tahap1.gaji_dibayar',
                 'gaji_tahap1.tunjangan',
+                Schema::hasColumn('gaji_tahap1', 'premi')
+                    ? 'gaji_tahap1.premi'
+                    : DB::raw('0 as premi'),
+                Schema::hasColumn('gaji_tahap1', 'pembulatan')
+                    ? 'gaji_tahap1.pembulatan'
+                    : DB::raw('0 as pembulatan'),
+                Schema::hasColumn('gaji_tahap1', 'total')
+                    ? 'gaji_tahap1.total'
+                    : DB::raw('COALESCE(gaji_tahap1.gaji_dibayar, 0) + COALESCE(gaji_tahap1.tunjangan, 0) as total'),
                 'gaji_tahap1.periode',
                 'gaji_pokok.no_telp',
             ])
@@ -58,6 +128,43 @@ class penggajianRepository
                 $query->whereIn('gaji_tahap1.id', $ids);
             })
             ->orderBy('gaji_tahap1.nama')
+            ->get();
+    }
+
+    public function getPenerimaSlipWhatsappTahap2($periode, array $ids = []): Collection
+    {
+        if (! Schema::hasTable('gaji_tahap2')) {
+            return collect();
+        }
+
+        return gajiTahap2Model::query()
+            ->join('gaji_pokok', 'gaji_pokok.nik', '=', 'gaji_tahap2.nik')
+            ->select([
+                'gaji_tahap2.id',
+                'gaji_tahap2.nik',
+                'gaji_tahap2.nama',
+                'gaji_tahap2.jabatan',
+                'gaji_tahap2.status',
+                'gaji_tahap2.gaji_pokok',
+                'gaji_tahap2.gaji_dibayar',
+                'gaji_tahap2.total_premi',
+                Schema::hasColumn('gaji_tahap2', 'total_potongan')
+                    ? 'gaji_tahap2.total_potongan'
+                    : DB::raw('0 as total_potongan'),
+                Schema::hasColumn('gaji_tahap2', 'pembulatan')
+                    ? 'gaji_tahap2.pembulatan'
+                    : DB::raw('0 as pembulatan'),
+                'gaji_tahap2.total',
+                'gaji_tahap2.periode',
+                'gaji_pokok.no_telp',
+            ])
+            ->where('gaji_tahap2.periode', $periode)
+            ->whereNotNull('gaji_pokok.no_telp')
+            ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''")
+            ->when(! empty($ids), function ($query) use ($ids) {
+                $query->whereIn('gaji_tahap2.id', $ids);
+            })
+            ->orderBy('gaji_tahap2.nama')
             ->get();
     }
 
@@ -148,6 +255,37 @@ class penggajianRepository
             ->get();
     }
 
+    public function dokterUgdKontrakOptions(?string $keyword = null): Collection
+    {
+        return DB::connection('mysql_khanza')
+            ->table('pegawai as p')
+            ->leftJoin('dokter as d', 'd.kd_dokter', '=', 'p.nik')
+            ->leftJoin('spesialis as s', 's.kd_sps', '=', 'd.kd_sps')
+            ->select([
+                'p.nik as kd_dokter',
+                DB::raw('COALESCE(d.nm_dokter, p.nama) as nm_dokter'),
+                'd.kd_sps',
+                's.nm_sps',
+            ])
+            ->where('p.stts_aktif', 'AKTIF')
+            ->whereRaw('LOWER(TRIM(p.jbtn)) = ?', ['dokter unit gawat darurat'])
+            ->whereRaw("UPPER(TRIM(p.stts_kerja)) IN ('FT', 'KONTRAK', 'PEGAWAI KONTRAK', 'FT>1')")
+            ->when($keyword, function ($query) use ($keyword) {
+                $keyword = '%'.$keyword.'%';
+                $query->where(function ($where) use ($keyword) {
+                    $where
+                        ->where('p.nik', 'like', $keyword)
+                        ->orWhere('p.nama', 'like', $keyword)
+                        ->orWhere('d.kd_dokter', 'like', $keyword)
+                        ->orWhere('d.nm_dokter', 'like', $keyword)
+                        ->orWhere('s.nm_sps', 'like', $keyword);
+                });
+            })
+            ->orderByRaw('COALESCE(d.nm_dokter, p.nama)')
+            ->limit(50)
+            ->get();
+    }
+
     public function getDoctorNikLookup(array $niks): Collection
     {
         $nikList = collect($niks)
@@ -168,82 +306,125 @@ class penggajianRepository
             ->mapWithKeys(fn ($nik) => ['nik:'.trim((string) $nik) => true]);
     }
 
+    public function getGajiTahap1DoctorConfigs(bool $activeOnly = true): Collection
+    {
+        return $this->getGajiDoctorConfigs('gaji_tahap1_dokter_config', $activeOnly);
+    }
+
     public function getGajiTahap2DoctorConfigs(bool $activeOnly = true): Collection
     {
-        if (! Schema::hasTable('gaji_tahap2_dokter_config')) {
-            return collect();
-        }
+        return $this->getGajiDoctorConfigs('gaji_tahap2_dokter_config', $activeOnly);
+    }
 
-        return DB::table('gaji_tahap2_dokter_config')
-            ->when($activeOnly, fn ($query) => $query->where('is_active', true))
-            ->orderBy('nm_dokter')
-            ->get()
-            ->map(function ($row) {
-                $row->include_salary = (bool) $row->include_salary;
-                $row->is_active = (bool) $row->is_active;
-                $row->premium_types = collect(json_decode($row->premium_types ?: '[]', true))
-                    ->filter()
-                    ->map(fn ($type) => (string) $type)
-                    ->unique()
-                    ->values()
-                    ->all();
+    public function saveGajiTahap1DoctorConfigs(array $rows): Collection
+    {
+        $this->saveGajiDoctorConfigs('gaji_tahap1_dokter_config', $rows);
 
-                return $row;
-            });
+        return $this->getGajiTahap1DoctorConfigs();
     }
 
     public function saveGajiTahap2DoctorConfigs(array $rows): Collection
     {
-        if (! Schema::hasTable('gaji_tahap2_dokter_config')) {
-            return collect();
-        }
-
-        DB::transaction(function () use ($rows) {
-            DB::table('gaji_tahap2_dokter_config')->delete();
-
-            if (empty($rows)) {
-                return;
-            }
-
-            $now = now();
-            DB::table('gaji_tahap2_dokter_config')->insert(
-                collect($rows)
-                    ->map(fn (array $row) => [
-                        'kd_dokter' => $row['kd_dokter'],
-                        'nm_dokter' => $row['nm_dokter'],
-                        'kd_sps' => $row['kd_sps'] ?? null,
-                        'nm_sps' => $row['nm_sps'] ?? null,
-                        'include_salary' => (bool) ($row['include_salary'] ?? false),
-                        'premium_types' => json_encode(array_values($row['premium_types'] ?? [])),
-                        'is_active' => true,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ])
-                    ->all()
-            );
-        });
+        $this->saveGajiDoctorConfigs('gaji_tahap2_dokter_config', $rows);
 
         return $this->getGajiTahap2DoctorConfigs();
+    }
+
+    public function getPayrollRoundingConfig(): array
+    {
+        if (! Schema::hasTable('penggajian_rounding_config')) {
+            return [];
+        }
+
+        $row = DB::table('penggajian_rounding_config')
+            ->orderBy('id')
+            ->first();
+
+        return $row ? $this->payrollRoundingConfigPayload($row) : [];
+    }
+
+    public function savePayrollRoundingConfig(array $data): array
+    {
+        if (! Schema::hasTable('penggajian_rounding_config')) {
+            return [];
+        }
+
+        $payload = $this->payrollRoundingConfigPayload((object) $data);
+        $now = now();
+        $id = (int) (DB::table('penggajian_rounding_config')->orderBy('id')->value('id') ?? 0);
+
+        if ($id > 0) {
+            DB::table('penggajian_rounding_config')
+                ->where('id', $id)
+                ->update(array_merge($payload, ['updated_at' => $now]));
+        } else {
+            DB::table('penggajian_rounding_config')
+                ->insert(array_merge($payload, [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]));
+        }
+
+        return $this->getPayrollRoundingConfig();
     }
 
     public function updateOrCreateGajiTahap1(array $data)
     {
         Log::info('Data untuk updateOrCreateGajiTahap1:', $data);
 
+        $values = [
+            'nama' => $data['nama'],
+            'jabatan' => $data['jabatan'],
+            'status' => $data['status'],
+            'gaji_pokok' => $data['gaji_pokok'],
+            'gaji_dibayar' => $data['gaji_dibayar'],
+            'tunjangan' => $data['tunjangan'],
+        ];
+
+        if (Schema::hasColumn('gaji_tahap1', 'premi')) {
+            $values['premi'] = $data['premi'] ?? 0;
+        }
+
+        if (Schema::hasColumn('gaji_tahap1', 'premi_breakdown')) {
+            $values['premi_breakdown'] = $data['premi_breakdown'] ?? null;
+        }
+
+        if (Schema::hasColumn('gaji_tahap1', 'pembulatan')) {
+            $values['pembulatan'] = $data['pembulatan'] ?? 0;
+        }
+
+        if (Schema::hasColumn('gaji_tahap1', 'total')) {
+            $values['total'] = $data['total'] ?? (
+                (int) ($data['gaji_dibayar'] ?? 0)
+                + (int) ($data['tunjangan'] ?? 0)
+                + (int) ($data['premi'] ?? 0)
+            );
+        }
+
+        if (Schema::hasColumn('gaji_tahap1', 'tunjangan_breakdown')) {
+            $values['tunjangan_breakdown'] = $data['tunjangan_breakdown'] ?? null;
+        }
+
         return gajiTahap1Model::updateOrCreate(
             [
                 'periode' => $data['periode'],
                 'nik' => $data['nik'],
             ],
-            [
-                'nama' => $data['nama'],
-                'jabatan' => $data['jabatan'],
-                'status' => $data['status'],
-                'gaji_pokok' => $data['gaji_pokok'],
-                'gaji_dibayar' => $data['gaji_dibayar'],
-                'tunjangan' => $data['tunjangan'],
-            ]
+            $values
         );
+    }
+
+    public function deleteGajiTahap1ExceptNik(string $periode, array $niks): int
+    {
+        $query = gajiTahap1Model::query()->where('periode', $periode);
+
+        if (empty($niks)) {
+            return $query->delete();
+        }
+
+        return $query
+            ->whereNotIn('nik', $niks)
+            ->delete();
     }
 
     public function findGajiTahap1ById($id)
@@ -275,6 +456,9 @@ class penggajianRepository
                 Schema::hasColumn('gaji_tahap2', 'total_potongan')
                     ? 'total_potongan'
                     : DB::raw('0 as total_potongan'),
+                Schema::hasColumn('gaji_tahap2', 'pembulatan')
+                    ? 'pembulatan'
+                    : DB::raw('0 as pembulatan'),
                 'total',
                 'jumlah_sumber_premi',
                 'premi_breakdown',
@@ -305,6 +489,10 @@ class penggajianRepository
             $values['total_potongan'] = $data['total_potongan'] ?? 0;
         }
 
+        if (Schema::hasColumn('gaji_tahap2', 'pembulatan')) {
+            $values['pembulatan'] = $data['pembulatan'] ?? 0;
+        }
+
         if (Schema::hasColumn('gaji_tahap2', 'potongan_breakdown')) {
             $values['potongan_breakdown'] = $data['potongan_breakdown'] ?? [];
         }
@@ -320,9 +508,13 @@ class penggajianRepository
 
     public function getGajiTahap1TotalsByNik(string $periode): Collection
     {
+        $totalExpression = Schema::hasColumn('gaji_tahap1', 'total')
+            ? 'CASE WHEN COALESCE(total, 0) <> 0 THEN total ELSE COALESCE(gaji_dibayar, 0) + COALESCE(tunjangan, 0) END'
+            : 'COALESCE(gaji_dibayar, 0) + COALESCE(tunjangan, 0)';
+
         return gajiTahap1Model::query()
             ->where('periode', $periode)
-            ->selectRaw('nik, COALESCE(gaji_dibayar, 0) + COALESCE(tunjangan, 0) as total_tahap1')
+            ->selectRaw('nik, '.$totalExpression.' as total_tahap1')
             ->pluck('total_tahap1', 'nik');
     }
 
@@ -363,18 +555,32 @@ class penggajianRepository
         }
 
         $now = now();
+        $hasSourcePeriode = Schema::hasColumn('gaji_tahap2_detail', 'source_periode');
+        $hasSourcePeriodMode = Schema::hasColumn('gaji_tahap2_detail', 'source_period_mode');
         $rows = $details
-            ->map(fn (array $detail) => [
-                'gaji_tahap2_id' => $gaji->id,
-                'source_key' => $detail['source_key'],
-                'source_label' => $detail['source_label'],
-                'source_table' => $detail['source_table'],
-                'source_id' => $detail['source_id'],
-                'role_label' => $detail['role_label'],
-                'nominal' => $detail['nominal'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ])
+            ->map(function (array $detail) use ($gaji, $now, $hasSourcePeriode, $hasSourcePeriodMode) {
+                $row = [
+                    'gaji_tahap2_id' => $gaji->id,
+                    'source_key' => $detail['source_key'],
+                    'source_label' => $detail['source_label'],
+                    'source_table' => $detail['source_table'],
+                    'source_id' => $detail['source_id'],
+                    'role_label' => $detail['role_label'],
+                    'nominal' => $detail['nominal'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+
+                if ($hasSourcePeriode) {
+                    $row['source_periode'] = $detail['source_periode'] ?? null;
+                }
+
+                if ($hasSourcePeriodMode) {
+                    $row['source_period_mode'] = $detail['source_period_mode'] ?? null;
+                }
+
+                return $row;
+            })
             ->values();
 
         gajiTahap2DetailModel::query()->insert($rows->all());
@@ -431,6 +637,79 @@ class penggajianRepository
             ->keyBy(fn ($row) => (string) $row->nik);
     }
 
+    public function getPremiDokterDetailCountsByIds(array $ids): Collection
+    {
+        if (! $this->hasTables(['generate_premi_dokter_detail'])
+            || ! $this->hasColumns('generate_premi_dokter_detail', ['id', 'jumlah_data', 'jumlah_pasien'])) {
+            return collect();
+        }
+
+        $idList = collect($ids)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($idList->isEmpty()) {
+            return collect();
+        }
+
+        return DB::table('generate_premi_dokter_detail')
+            ->whereIn('id', $idList->all())
+            ->select([
+                'id',
+                'jumlah_data',
+                'jumlah_pasien',
+            ])
+            ->get()
+            ->mapWithKeys(fn ($row) => [
+                (int) $row->id => [
+                    'jumlah_data' => (int) $row->jumlah_data,
+                    'jumlah_pasien' => (int) $row->jumlah_pasien,
+                ],
+            ]);
+    }
+
+    public function getPremiDokterDetailCountsByPeriodNik(
+        string $periode,
+        string $nik,
+        array $premiumTypes = []
+    ): Collection {
+        if (! $this->hasTables(['generate_premi_dokter', 'generate_premi_dokter_detail'])
+            || ! $this->hasColumns('generate_premi_dokter', ['id', 'periode', 'jenis_premi_dokter'])
+            || ! $this->hasColumns('generate_premi_dokter_detail', ['generate_premi_dokter_id', 'kd_dokter', 'jumlah_data', 'jumlah_pasien'])) {
+            return collect();
+        }
+
+        $premiumTypes = collect($premiumTypes)
+            ->filter()
+            ->map(fn ($type) => strtolower((string) $type))
+            ->unique()
+            ->values();
+
+        $query = DB::table('generate_premi_dokter_detail as d')
+            ->join('generate_premi_dokter as h', 'h.id', '=', 'd.generate_premi_dokter_id');
+
+        return $this->applyLockedSource($query, 'generate_premi_dokter', 'h')
+            ->where('h.periode', $periode)
+            ->where('d.kd_dokter', $nik)
+            ->when($premiumTypes->isNotEmpty(), function ($query) use ($premiumTypes) {
+                $query->whereIn(DB::raw('LOWER(h.jenis_premi_dokter)'), $premiumTypes->all());
+            })
+            ->selectRaw('LOWER(h.jenis_premi_dokter) as jenis_premi_dokter')
+            ->selectRaw('SUM(d.jumlah_data) as jumlah_data')
+            ->selectRaw('SUM(d.jumlah_pasien) as jumlah_pasien')
+            ->groupBy(DB::raw('LOWER(h.jenis_premi_dokter)'))
+            ->get()
+            ->mapWithKeys(fn ($row) => [
+                (string) $row->jenis_premi_dokter => [
+                    'jumlah_data' => (int) $row->jumlah_data,
+                    'jumlah_pasien' => (int) $row->jumlah_pasien,
+                ],
+            ]);
+    }
+
     public function getGajiTahap2DetailsByPeriod(string $periode): Collection
     {
         return gajiTahap2DetailModel::query()
@@ -444,6 +723,12 @@ class penggajianRepository
                 'gaji_tahap2_detail.source_label',
                 'gaji_tahap2_detail.role_label',
                 'gaji_tahap2_detail.nominal',
+                Schema::hasColumn('gaji_tahap2_detail', 'source_periode')
+                    ? 'gaji_tahap2_detail.source_periode'
+                    : DB::raw('NULL as source_periode'),
+                Schema::hasColumn('gaji_tahap2_detail', 'source_period_mode')
+                    ? 'gaji_tahap2_detail.source_period_mode'
+                    : DB::raw('NULL as source_period_mode'),
             ])
             ->where('gaji_tahap2.periode', $periode)
             ->orderBy('gaji_tahap2.nama')
@@ -571,6 +856,27 @@ class penggajianRepository
             ->values();
     }
 
+    public function collectPremiDokterByPeriod(string $periode, Collection $eligibleNik): Collection
+    {
+        $niks = $eligibleNik
+            ->filter()
+            ->map(fn ($nik) => (string) $nik)
+            ->unique()
+            ->values();
+
+        if ($niks->isEmpty()) {
+            return collect();
+        }
+
+        $rows = collect();
+
+        $this->appendPremiDokterPremium($rows, $niks->all(), $periode);
+
+        return $rows
+            ->filter(fn (array $row) => $row['nominal'] > 0)
+            ->values();
+    }
+
     private function appendPegawaiDetailPremium(
         Collection $rows,
         array $niks,
@@ -591,21 +897,31 @@ class penggajianRepository
 
         $query = DB::table($detailTable.' as d')
             ->join($headerTable.' as h', 'h.id', '=', 'd.'.$foreignKey);
+        $select = [
+            'd.id as source_id',
+            'd.pegawai_id as nik',
+            'd.role_label',
+            'd.total_received as nominal',
+            'h.'.$typeColumn.' as source_type',
+            Schema::hasColumn($headerTable, 'source_periode')
+                ? 'h.source_periode'
+                : DB::raw('NULL as source_periode'),
+            Schema::hasColumn($headerTable, 'source_period_mode')
+                ? 'h.source_period_mode'
+                : DB::raw('NULL as source_period_mode'),
+            Schema::hasColumn($headerTable, 'config_snapshot')
+                ? 'h.config_snapshot'
+                : DB::raw('NULL as config_snapshot'),
+        ];
 
         $this->applyLockedSource($query, $headerTable, 'h')
             ->where('h.periode', $periode)
             ->whereIn('d.pegawai_id', $niks)
             ->where('d.total_received', '>', 0)
-            ->select([
-                'd.id as source_id',
-                'd.pegawai_id as nik',
-                'd.role_label',
-                'd.total_received as nominal',
-                'h.'.$typeColumn.' as source_type',
-            ])
+            ->select($select)
             ->orderBy('d.pegawai_id')
             ->get()
-            ->each(function ($row) use ($rows, $detailTable, $label) {
+            ->each(function ($row) use ($rows, $detailTable, $label, $periode) {
                 $sourceType = strtoupper((string) ($row->source_type ?? ''));
                 $roleLabel = (string) ($row->role_label ?? $label);
 
@@ -616,6 +932,8 @@ class penggajianRepository
                     'source_table' => $detailTable,
                     'source_id' => (int) $row->source_id,
                     'role_label' => $roleLabel,
+                    'source_periode' => $this->resolvePremiumSourcePeriod($periode, $row->source_type ?? null, $row),
+                    'source_period_mode' => $this->resolvePremiumSourcePeriodMode($periode, $row->source_type ?? null, $row),
                     'nominal' => (int) round((float) $row->nominal),
                 ]);
             });
@@ -639,6 +957,7 @@ class penggajianRepository
                 'd.pegawai_id as nik',
                 'd.role_label',
                 'd.total_received as nominal',
+                'h.config_snapshot',
             ])
             ->get()
             ->each(fn ($row) => $rows->push([
@@ -648,6 +967,8 @@ class penggajianRepository
                 'source_table' => 'generate_casemix_detail',
                 'source_id' => (int) $row->source_id,
                 'role_label' => $row->role_label ?: 'Penerima',
+                'source_periode' => $this->resolvePremiumSourcePeriod($periode, 'bpjs', $row),
+                'source_period_mode' => $this->resolvePremiumSourcePeriodMode($periode, 'bpjs', $row),
                 'nominal' => (int) round((float) $row->nominal),
             ]));
     }
@@ -670,8 +991,10 @@ class penggajianRepository
                 'd.pegawai_id as nik',
                 'd.role_label',
                 'd.total_received as nominal',
+                'h.periode',
                 'h.jenis_fisio',
                 'h.nama_tindakan',
+                'h.config_snapshot',
             ])
             ->get()
             ->each(function ($row) use ($rows) {
@@ -682,6 +1005,8 @@ class penggajianRepository
                     'source_table' => 'generate_premi_fisio_detail',
                     'source_id' => (int) $row->source_id,
                     'role_label' => $row->role_label ?: 'Petugas',
+                    'source_periode' => $this->resolvePremiumSourcePeriod($row->periode ?? '', $row->jenis_fisio ?? null, $row),
+                    'source_period_mode' => $this->resolvePremiumSourcePeriodMode($row->periode ?? '', $row->jenis_fisio ?? null, $row),
                     'nominal' => (int) round((float) $row->nominal),
                 ]);
             });
@@ -701,8 +1026,10 @@ class penggajianRepository
             ->where('total_premi_pegawai', '>', 0)
             ->select([
                 'id as source_id',
+                'periode',
                 'pegawai_id as nik',
                 'total_premi_pegawai as nominal',
+                'config_snapshot',
             ])
             ->get()
             ->each(fn ($row) => $rows->push([
@@ -712,6 +1039,8 @@ class penggajianRepository
                 'source_table' => 'generate_premi_driver',
                 'source_id' => (int) $row->source_id,
                 'role_label' => 'Driver',
+                'source_periode' => $this->resolvePremiumSourcePeriod($periode, 'umum', $row),
+                'source_period_mode' => $this->resolvePremiumSourcePeriodMode($periode, 'umum', $row),
                 'nominal' => (int) round((float) $row->nominal),
             ]));
     }
@@ -750,6 +1079,7 @@ class penggajianRepository
                 'd.nik',
                 'd.distribution_mode',
                 'h.id as header_id',
+                'h.periode',
                 'h.jenis_pelayanan',
                 'h.total_final',
             ])
@@ -799,6 +1129,16 @@ class penggajianRepository
                         'source_table' => 'premi_pelayanan_non_medis_distribution',
                         'source_id' => (int) $row->source_id,
                         'role_label' => 'Penerima',
+                        'source_periode' => $this->resolvePremiumSourcePeriod(
+                            (string) $first->periode,
+                            $first->jenis_pelayanan ?? null,
+                            $first
+                        ),
+                        'source_period_mode' => $this->resolvePremiumSourcePeriodMode(
+                            (string) $first->periode,
+                            $first->jenis_pelayanan ?? null,
+                            $first
+                        ),
                         'nominal' => (int) round($amountCents / 100),
                     ]);
                 });
@@ -848,8 +1188,12 @@ class penggajianRepository
                 'd.id as source_id',
                 'd.nik',
                 'd.'.$nominalColumn.' as nominal',
+                'h.periode',
+                'h.source_periode',
+                'h.bpjs_source_mode',
                 'h.jenis_pelayanan',
                 'h.nama_premi',
+                'h.config_snapshot',
             ])
             ->get()
             ->each(fn ($row) => $rows->push([
@@ -859,6 +1203,8 @@ class penggajianRepository
                 'source_table' => 'generate_tindakan_medis_distribution',
                 'source_id' => (int) $row->source_id,
                 'role_label' => 'Penerima',
+                'source_periode' => $this->resolvePremiumSourcePeriod((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
+                'source_period_mode' => $this->resolvePremiumSourcePeriodMode((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
                 'nominal' => (int) round((float) $row->nominal),
             ]));
     }
@@ -880,8 +1226,13 @@ class penggajianRepository
                 'd.id as source_id',
                 'd.nik',
                 'd.total_received as nominal',
+                'h.periode',
+                'h.source_periode',
+                'h.bpjs_source_mode',
+                'h.bpjs_source_periode',
                 'h.jenis_pelayanan',
                 'h.nama_premi',
+                'h.config_snapshot',
             ])
             ->get()
             ->each(fn ($row) => $rows->push([
@@ -891,6 +1242,8 @@ class penggajianRepository
                 'source_table' => 'generate_premi_bersama_distribution',
                 'source_id' => (int) $row->source_id,
                 'role_label' => 'Penerima',
+                'source_periode' => $this->resolvePremiumSourcePeriod((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
+                'source_period_mode' => $this->resolvePremiumSourcePeriodMode((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
                 'nominal' => (int) round((float) $row->nominal),
             ]));
     }
@@ -912,9 +1265,15 @@ class penggajianRepository
                 'd.id as source_id',
                 'd.kd_dokter as nik',
                 'd.kategori',
+                'd.jumlah_data',
+                'd.jumlah_pasien',
                 'd.total_premi as nominal',
+                'h.periode',
+                'h.source_periode',
+                'h.source_period_mode',
                 'h.jenis_premi_dokter',
                 'h.jenis_pelayanan',
+                'h.config_snapshot',
             ])
             ->get()
             ->each(fn ($row) => $rows->push([
@@ -925,6 +1284,10 @@ class penggajianRepository
                 'source_id' => (int) $row->source_id,
                 'role_label' => 'Dokter',
                 'source_premium_type' => (string) $row->jenis_premi_dokter,
+                'source_jumlah_data' => (int) $row->jumlah_data,
+                'source_jumlah_pasien' => (int) $row->jumlah_pasien,
+                'source_periode' => $this->resolvePremiumSourcePeriod((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
+                'source_period_mode' => $this->resolvePremiumSourcePeriodMode((string) $row->periode, $row->jenis_pelayanan ?? null, $row),
                 'nominal' => (int) round((float) $row->nominal),
             ]));
     }
@@ -1178,6 +1541,155 @@ class penggajianRepository
         }
 
         return $query;
+    }
+
+    private function getGajiDoctorConfigs(string $table, bool $activeOnly = true): Collection
+    {
+        if (! Schema::hasTable($table)) {
+            return collect();
+        }
+
+        return DB::table($table)
+            ->when($activeOnly, fn ($query) => $query->where('is_active', true))
+            ->orderBy('nm_dokter')
+            ->get()
+            ->map(function ($row) {
+                $row->include_salary = (bool) $row->include_salary;
+                $row->is_active = (bool) $row->is_active;
+                $row->premium_types = collect(json_decode($row->premium_types ?: '[]', true))
+                    ->filter()
+                    ->map(fn ($type) => (string) $type)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                return $row;
+            });
+    }
+
+    private function saveGajiDoctorConfigs(string $table, array $rows): void
+    {
+        if (! Schema::hasTable($table)) {
+            return;
+        }
+
+        DB::transaction(function () use ($table, $rows) {
+            DB::table($table)->delete();
+
+            if (empty($rows)) {
+                return;
+            }
+
+            $now = now();
+            DB::table($table)->insert(
+                collect($rows)
+                    ->map(fn (array $row) => [
+                        'kd_dokter' => $row['kd_dokter'],
+                        'nm_dokter' => $row['nm_dokter'],
+                        'kd_sps' => $row['kd_sps'] ?? null,
+                        'nm_sps' => $row['nm_sps'] ?? null,
+                        'include_salary' => (bool) ($row['include_salary'] ?? false),
+                        'premium_types' => json_encode(array_values($row['premium_types'] ?? [])),
+                        'is_active' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])
+                    ->all()
+            );
+        });
+    }
+
+    private function payrollRoundingConfigPayload(object $row): array
+    {
+        return [
+            'premium_received_enabled' => (bool) ($row->premium_received_enabled ?? false),
+            'premium_received_base' => max(1, (int) ($row->premium_received_base ?? 1000)),
+            'premium_received_mode' => $this->normalizeRoundingMode($row->premium_received_mode ?? null),
+            'stage1_total_enabled' => (bool) ($row->stage1_total_enabled ?? true),
+            'stage1_total_base' => max(1, (int) ($row->stage1_total_base ?? 1000)),
+            'stage1_total_mode' => $this->normalizeRoundingMode($row->stage1_total_mode ?? null),
+            'stage2_total_enabled' => (bool) ($row->stage2_total_enabled ?? true),
+            'stage2_total_base' => max(1, (int) ($row->stage2_total_base ?? 1000)),
+            'stage2_total_mode' => $this->normalizeRoundingMode($row->stage2_total_mode ?? null),
+        ];
+    }
+
+    private function normalizeRoundingMode(?string $mode): string
+    {
+        return in_array($mode, ['nearest', 'up', 'down'], true)
+            ? $mode
+            : 'up';
+    }
+
+    private function resolvePremiumSourcePeriod(string $periode, ?string $jenis, ?object $row = null): ?string
+    {
+        if ($periode === '') {
+            return null;
+        }
+
+        $jenis = strtolower((string) $jenis);
+        $snapshot = $this->decodeSnapshot($row->config_snapshot ?? null);
+
+        if ($jenis === 'bpjs') {
+            $bpjsSource = $row->bpjs_source_periode
+                ?? data_get($snapshot, 'bpjs_source_periode')
+                ?? data_get($snapshot, 'raw_snapshot.bpjs_source_periode');
+
+            if (filled($bpjsSource)) {
+                return (string) $bpjsSource;
+            }
+        }
+
+        $source = $row->source_periode
+            ?? data_get($snapshot, 'source_periode')
+            ?? data_get($snapshot, 'raw_snapshot.source_periode');
+
+        if (filled($source)) {
+            return (string) $source;
+        }
+
+        return PremiSourcePeriod::resolve(
+            $periode,
+            $jenis === 'bpjs' ? 'bpjs' : 'umum',
+            $this->resolvePremiumSourcePeriodMode($periode, $jenis, $row)
+        );
+    }
+
+    private function resolvePremiumSourcePeriodMode(string $periode, ?string $jenis, ?object $row = null): ?string
+    {
+        if ($periode === '') {
+            return null;
+        }
+
+        $jenis = strtolower((string) $jenis);
+        $snapshot = $this->decodeSnapshot($row->config_snapshot ?? null);
+        $mode = $jenis === 'bpjs'
+            ? ($row->bpjs_source_mode
+                ?? data_get($snapshot, 'bpjs_source_mode')
+                ?? data_get($snapshot, 'raw_snapshot.bpjs_source_mode')
+                ?? $row->source_period_mode
+                ?? data_get($snapshot, 'source_period_mode'))
+            : ($row->source_period_mode ?? data_get($snapshot, 'source_period_mode'));
+
+        return PremiSourcePeriod::normalizeMode(
+            filled($mode) ? (string) $mode : null,
+            $jenis === 'bpjs' ? 'bpjs' : 'umum'
+        );
+    }
+
+    private function decodeSnapshot($snapshot): array
+    {
+        if (is_array($snapshot)) {
+            return $snapshot;
+        }
+
+        if (is_string($snapshot) && trim($snapshot) !== '') {
+            $decoded = json_decode($snapshot, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
     }
 
     private function hasTables(array $tables): bool

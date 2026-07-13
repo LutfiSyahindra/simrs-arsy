@@ -83,6 +83,9 @@ class penggajianController extends Controller
             ->editColumn('tunjangan', function ($row) {
                 return 'Rp '.number_format($row['tunjangan'], 0, ',', '.');
             })
+            ->editColumn('premi', function ($row) {
+                return 'Rp '.number_format($row['premi'], 0, ',', '.');
+            })
             ->editColumn('total', function ($row) {
                 return 'Rp '.number_format($row['total'], 0, ',', '.');
             })
@@ -193,6 +196,26 @@ class penggajianController extends Controller
         ]);
     }
 
+    public function dokterUgdKontrakTahap1Options(Request $request)
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->penggajianService->dokterUgdKontrakTahap1Options($validated['q'] ?? null),
+        ]);
+    }
+
+    public function gajiTahap1DoctorConfig()
+    {
+        return response()->json([
+            'status' => true,
+            'data' => $this->penggajianService->getGajiTahap1DoctorConfig(),
+        ]);
+    }
+
     public function gajiTahap2DoctorConfig()
     {
         return response()->json([
@@ -201,20 +224,60 @@ class penggajianController extends Controller
         ]);
     }
 
+    public function payrollRoundingConfig()
+    {
+        return response()->json([
+            'status' => true,
+            'data' => $this->penggajianService->getPayrollRoundingConfig(),
+        ]);
+    }
+
+    public function updateGajiTahap1DoctorConfig(Request $request)
+    {
+        $validated = $this->validateDoctorConfigRequest($request, $this->stage1DoctorPremiumTypes(), 'tahap 1');
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi dokter UGD kontrak tahap 1 berhasil disimpan.',
+            'data' => $this->penggajianService->updateGajiTahap1DoctorConfig($validated['rows']),
+        ]);
+    }
+
     public function updateGajiTahap2DoctorConfig(Request $request)
     {
-        $premiumTypes = [
-            'kebersamaan',
-            'jasa_operasi',
-            'jasa_rawat_jalan',
-            'jasa_poli',
-            'jasa_ecg',
-            'konsul_wa',
-            'jasa_igd',
-            'kehadiran',
-        ];
+        $validated = $this->validateDoctorConfigRequest($request, $this->stage2DoctorPremiumTypes(), 'tahap 2');
 
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi dokter umum tahap 2 berhasil disimpan.',
+            'data' => $this->penggajianService->updateGajiTahap2DoctorConfig($validated['rows']),
+        ]);
+    }
+
+    public function updatePayrollRoundingConfig(Request $request)
+    {
         $validated = $request->validate([
+            'premium_received_enabled' => ['required', 'boolean'],
+            'premium_received_base' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'premium_received_mode' => ['required', Rule::in(['nearest', 'up', 'down'])],
+            'stage1_total_enabled' => ['required', 'boolean'],
+            'stage1_total_base' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'stage1_total_mode' => ['required', Rule::in(['nearest', 'up', 'down'])],
+            'stage2_total_enabled' => ['required', 'boolean'],
+            'stage2_total_base' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'stage2_total_mode' => ['required', Rule::in(['nearest', 'up', 'down'])],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi pembulatan penggajian berhasil disimpan.',
+            'data' => $this->penggajianService->updatePayrollRoundingConfig($validated),
+        ]);
+    }
+
+    private function validateDoctorConfigRequest(Request $request, array $premiumTypes, string $stageLabel): array
+    {
+        return $request->validate([
             'rows' => ['present', 'array'],
             'rows.*.kd_dokter' => ['required', 'string', 'max:30', 'distinct'],
             'rows.*.nm_dokter' => ['required', 'string', 'max:255'],
@@ -224,16 +287,38 @@ class penggajianController extends Controller
             'rows.*.premium_types' => ['present', 'array'],
             'rows.*.premium_types.*' => ['required', 'string', Rule::in($premiumTypes)],
         ], [
-            'rows.present' => 'Konfigurasi dokter tahap 2 wajib dikirim.',
-            'rows.*.kd_dokter.distinct' => 'Dokter tahap 2 tidak boleh duplikat.',
-            'rows.*.premium_types.*.in' => 'Pilihan sub generate premi dokter tidak valid.',
+            'rows.present' => 'Konfigurasi dokter '.$stageLabel.' wajib dikirim.',
+            'rows.*.kd_dokter.distinct' => 'Dokter '.$stageLabel.' tidak boleh duplikat.',
+            'rows.*.premium_types.*.in' => 'Pilihan komponen dokter tidak valid.',
         ]);
+    }
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Konfigurasi dokter umum tahap 2 berhasil disimpan.',
-            'data' => $this->penggajianService->updateGajiTahap2DoctorConfig($validated['rows']),
-        ]);
+    private function stage1DoctorPremiumTypes(): array
+    {
+        return [
+            'upah_str',
+            'kebersamaan',
+            'jasa_operasi',
+            'jasa_rawat_jalan',
+            'jasa_poli',
+            'jasa_ecg',
+            'konsul_wa',
+            'jasa_igd',
+        ];
+    }
+
+    private function stage2DoctorPremiumTypes(): array
+    {
+        return [
+            'kebersamaan',
+            'jasa_operasi',
+            'jasa_rawat_jalan',
+            'jasa_poli',
+            'jasa_ecg',
+            'konsul_wa',
+            'jasa_igd',
+            'kehadiran',
+        ];
     }
 
     public function detailGajiTahap1($id)
@@ -290,9 +375,13 @@ class penggajianController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
+            'tahap' => ['nullable', Rule::in([1, 2, '1', '2'])],
         ]);
 
-        $data = $this->penggajianService->getPenerimaSlipWhatsappTahap1($validated['periode']);
+        $data = $this->penggajianService->getPenerimaSlipWhatsapp(
+            $validated['periode'],
+            (int) ($validated['tahap'] ?? 1)
+        );
 
         return response()->json([
             'status' => true,
@@ -304,6 +393,7 @@ class penggajianController extends Controller
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
+            'tahap' => ['nullable', Rule::in([1, 2, '1', '2'])],
             'gaji_ids' => ['required', 'array', 'min:1'],
             'gaji_ids.*' => ['required', 'integer'],
         ]);
@@ -311,7 +401,8 @@ class penggajianController extends Controller
         try {
             $result = $this->penggajianService->kirimSlipGajiWhatsappTahap1(
                 $validated['periode'],
-                $validated['gaji_ids']
+                $validated['gaji_ids'],
+                (int) ($validated['tahap'] ?? 1)
             );
 
             return response()->json([
@@ -332,8 +423,11 @@ class penggajianController extends Controller
     public function exportSlipGajiTahap1Pdf($id)
     {
         $data = $this->penggajianService->detailSlipGajiTahap1($id);
+        $view = ($data['is_doctor_slip'] ?? false)
+            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
+            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
 
-        $pdf = Pdf::loadView('simrs.backOffice.keuangan.penggajian.slipGaji', [
+        $pdf = Pdf::loadView($view, [
             'data' => $data,
         ])->setPaper('a4', 'portrait');
 
@@ -343,8 +437,11 @@ class penggajianController extends Controller
     public function exportSlipGajiTahap2Pdf($id)
     {
         $data = $this->penggajianService->detailSlipGajiTahap2($id);
+        $view = ($data['is_doctor_slip'] ?? false)
+            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
+            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
 
-        $pdf = Pdf::loadView('simrs.backOffice.keuangan.penggajian.slipGaji', [
+        $pdf = Pdf::loadView($view, [
             'data' => $data,
         ])->setPaper('a4', 'portrait');
 
