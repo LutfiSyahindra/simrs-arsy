@@ -255,9 +255,11 @@ class PenggajianServiceTest extends TestCase
         $this->assertSame(100000, $tunjanganRows->firstWhere('key', 'jabatan')['nominal']);
         $this->assertSame(200000, $tunjanganRows->firstWhere('key', 'masa_kerja')['nominal']);
         $this->assertSame(75000, $tunjanganRows->firstWhere('key', 'fungsional')['nominal']);
-        $this->assertNull(collect($result['other_income_rows'])->firstWhere('key', 'masa_kerja'));
-        $this->assertNull(collect($result['other_income_rows'])->firstWhere('key', 'fungsional'));
-        $this->assertNull(collect($result['other_income_rows'])->firstWhere('key', 'pendapatan_lain_adjustment'));
+        $otherIncomeRows = collect($result['other_income_rows']);
+        $this->assertNull($otherIncomeRows->firstWhere('key', 'masa_kerja'));
+        $this->assertNull($otherIncomeRows->firstWhere('key', 'fungsional'));
+        $this->assertNull($otherIncomeRows->firstWhere('key', 'pendapatan_lain_adjustment'));
+        $this->assertSame(6000, $otherIncomeRows->firstWhere('key', 'pembulatan')['nominal']);
         $this->assertSame(60000, collect($result['jasa_rows'])->firstWhere('key', 'kebersamaan')['nominal']);
         $this->assertNull(collect($result['jasa_rows'])->firstWhere('key', 'kebersamaan')['jml']);
         $this->assertSame(390000, collect($result['action_rows'])->firstWhere('key', 'igd')['nominal']);
@@ -278,9 +280,10 @@ class PenggajianServiceTest extends TestCase
         $this->assertEmpty($result['bpjs_rows']);
         $this->assertSame(2000, collect($result['deduction_rows'])->firstWhere('key', 'dana_sehat')['nominal']);
         $this->assertSame(50000, collect($result['deduction_rows'])->firstWhere('key', 'bpjs')['nominal']);
-        $this->assertSame(2195000, $result['total_pendapatan']);
+        $this->assertSame(2201000, $result['total_pendapatan']);
         $this->assertSame(52000, $result['total_potongan']);
-        $this->assertSame(2143000, $result['total_bersih']);
+        $this->assertSame(2149000, $result['total_bersih']);
+        $this->assertSame(2149000, $result['total_diterima']);
     }
 
     public function test_slip_unit_kerja_uses_mapping_with_position_fallback(): void

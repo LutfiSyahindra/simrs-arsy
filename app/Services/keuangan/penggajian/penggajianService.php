@@ -1662,6 +1662,7 @@ class penggajianService
         $bpjsPremiBersamaSourceTexts = collect();
         $stage1Rounding = (int) ($data['pembulatan'] ?? 0);
         $stage2Rounding = (int) ($stage2['pembulatan'] ?? 0);
+        $totalRounding = $stage1Rounding + $stage2Rounding;
         $slipPeriod = $data['periode'] ?? null;
 
         if ($isUgdContract) {
@@ -1796,11 +1797,19 @@ class penggajianService
             $deductionRows['lain_lain']['nominal'] += $deductionDifference;
         }
 
+        if ($totalRounding > 0) {
+            $otherIncomeRows[] = $this->doctorSlipRow('pembulatan', 'PEMBULATAN', $totalRounding);
+        } elseif ($totalRounding < 0) {
+            $deductionRows['pembulatan'] = $this->doctorSlipRow('pembulatan', 'PEMBULATAN', abs($totalRounding));
+            $totalPotongan += abs($totalRounding);
+        }
+
         $totalPendapatan = ((int) ($data['total'] ?? 0) - $stage1Rounding)
-            + (int) ($stage2['total_bruto'] ?? ((int) ($stage2['gaji_dibayar'] ?? 0) + (int) ($stage2['total_premi'] ?? 0)));
+            + (int) ($stage2['total_bruto'] ?? ((int) ($stage2['gaji_dibayar'] ?? 0) + (int) ($stage2['total_premi'] ?? 0)))
+            + max(0, $totalRounding);
 
         $totalBersih = array_key_exists('total_slip', $data)
-            ? (int) $data['total_slip'] - $stage1Rounding - $stage2Rounding
+            ? (int) $data['total_slip']
             : max(0, $totalPendapatan - $totalPotongan);
         $bpjsPeriodText = $bpjsPeriods
             ->filter()
