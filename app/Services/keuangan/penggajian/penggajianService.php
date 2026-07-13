@@ -2498,13 +2498,16 @@ class penggajianService
 
     private function slipPdfFitPaperSize(array $detail, string $mode = 'export'): array
     {
+        $mode = strtolower($mode);
+
         return ($detail['is_doctor_slip'] ?? false)
-            ? $this->doctorSlipPdfPaperSize($detail)
-            : $this->employeeSlipPdfPaperSize($detail, in_array(strtolower($mode), ['single', 'whatsapp'], true));
+            ? $this->doctorSlipPdfPaperSize($detail, $mode)
+            : $this->employeeSlipPdfPaperSize($detail, $mode);
     }
 
-    private function employeeSlipPdfPaperSize(array $detail, bool $singleSlip): array
+    private function employeeSlipPdfPaperSize(array $detail, string $mode): array
     {
+        $singleSlip = in_array($mode, ['single', 'whatsapp'], true);
         $tunjanganRows = collect($detail['tunjangan_detail'] ?? []);
         $stage2 = is_array($detail['tahap2'] ?? null) ? $detail['tahap2'] : [];
         $stage2PremiRows = collect($stage2['premi_detail'] ?? []);
@@ -2545,12 +2548,16 @@ class penggajianService
             + ($sourceRows * ($singleSlip ? 4.0 : 4.8));
 
         return [
-            'width_mm' => $singleSlip ? 148 : 210,
+            'width_mm' => match ($mode) {
+                'whatsapp' => 176,
+                'single' => 148,
+                default => 210,
+            },
             'height_mm' => (int) ceil(max(148, $heightMm)),
         ];
     }
 
-    private function doctorSlipPdfPaperSize(array $detail): array
+    private function doctorSlipPdfPaperSize(array $detail, string $mode): array
     {
         $slip = $detail['doctor_slip'] ?? [];
         $actionRows = collect($slip['action_rows'] ?? []);
@@ -2573,12 +2580,46 @@ class penggajianService
             + ($bpjsRows->isNotEmpty() ? 1 + $bpjsRows->count() : 0)
             + count($slip['deduction_rows'] ?? [])
             + 6;
-        $heightMm = 78 + ($tableRows * 4.6) + ($sourceRows * 4.4);
+        $wrappedRows = $this->doctorSlipEstimatedWrappedRows($slip);
+        $isWhatsapp = $mode === 'whatsapp';
+        $heightMm = ($isWhatsapp ? 96 : 84)
+            + (($tableRows + $wrappedRows) * ($isWhatsapp ? 6.4 : 5.4))
+            + ($sourceRows * ($isWhatsapp ? 5.6 : 4.8));
 
         return [
-            'width_mm' => 148,
-            'height_mm' => (int) ceil(max(230, $heightMm)),
+            'width_mm' => $isWhatsapp ? 170 : 148,
+            'height_mm' => (int) ceil(max($isWhatsapp ? 300 : 240, $heightMm)),
         ];
+    }
+
+    private function doctorSlipEstimatedWrappedRows(array $slip): int
+    {
+        $rows = collect()
+            ->merge($slip['tunjangan_rows'] ?? [])
+            ->merge($slip['jasa_rows'] ?? [])
+            ->merge($slip['other_income_rows'] ?? [])
+            ->merge($slip['bpjs_rows'] ?? [])
+            ->merge($slip['deduction_rows'] ?? []);
+
+        collect($slip['action_rows'] ?? [])->each(function (array $row) use ($rows) {
+            $rows->push($row);
+
+            foreach (($row['detail_rows'] ?? []) as $detailRow) {
+                $detailRow['label'] = trim(($row['label'] ?? '').' '.($detailRow['label'] ?? ''));
+                $rows->push($detailRow);
+            }
+        });
+
+        return (int) $rows->sum(function (array $row) {
+            $label = trim((string) ($row['label'] ?? ''));
+            $sourcePeriodText = trim((string) ($row['source_period_text'] ?? ''));
+            $labelRows = max(1, (int) ceil(Str::length($label) / 30));
+            $sourceRows = $sourcePeriodText === ''
+                ? 0
+                : max(1, (int) ceil(Str::length($sourcePeriodText) / 42));
+
+            return max(0, $labelRows - 1) + max(0, $sourceRows - 1);
+        });
     }
 
     private function dompdfPaperFromMillimeters(float $widthMm, float $heightMm): array
