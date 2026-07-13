@@ -2549,7 +2549,7 @@ class penggajianService
 
         return [
             'width_mm' => match ($mode) {
-                'whatsapp' => 176,
+                'whatsapp' => 190,
                 'single' => 148,
                 default => 210,
             },
@@ -2587,7 +2587,7 @@ class penggajianService
             + ($sourceRows * ($isWhatsapp ? 5.6 : 4.8));
 
         return [
-            'width_mm' => $isWhatsapp ? 170 : 148,
+            'width_mm' => $isWhatsapp ? 184 : 148,
             'height_mm' => (int) ceil(max($isWhatsapp ? 300 : 240, $heightMm)),
         ];
     }

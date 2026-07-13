@@ -29,9 +29,11 @@
     $paperSize = $paperSize ?? [];
     $hasCustomPaper = !empty($paperSize);
     $isSingleSlipPdf = in_array($pdfMode, ["single", "whatsapp"], true);
+    $isWhatsappPdf = $pdfMode === "whatsapp";
     $paperWidthMm = (float) ($paperSize["width_mm"] ?? 210);
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
-    $customPageMarginMm = $isSingleSlipPdf ? 5 : 3;
+    $customPageMarginVerticalMm = $isSingleSlipPdf ? 5 : 3;
+    $customPageMarginHorizontalMm = $isWhatsappPdf ? 12 : $customPageMarginVerticalMm;
     $copyLabels = $isSingleSlipPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
@@ -44,7 +46,7 @@
             @page {
                 @if ($hasCustomPaper)
                     size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
-                    margin: {{ $customPageMarginMm }}mm;
+                    margin: {{ $customPageMarginVerticalMm }}mm {{ $customPageMarginHorizontalMm }}mm;
                 @else
                     size: A4 portrait;
                     margin: 12mm 8mm;

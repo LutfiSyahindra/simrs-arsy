@@ -181,6 +181,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/premi/cetakPremiAllPdf', [premiController::class, 'cetakAllPremiPdf'])->name('backOffice.keuangan.premi.cetakPremiAllPdf');
 
         Route::get('/hitung-premi', [hitungPremiController::class, 'index'])->name('backOffice.keuangan.hitungPremi');
+        Route::get('/hitung-premi/generator-status', [hitungPremiController::class, 'generatorStatus'])->name('backOffice.keuangan.hitungPremi.generatorStatus');
         Route::get('/hitung-premi/generateBhp', [hitungPremiBhpController::class, 'generateBhp'])->name('backOffice.keuangan.hitungPremi.generateBhp');
         Route::get('/hitung-premi/generateBhp/table', [hitungPremiBhpController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateBhp.table');
         Route::get('/hitung-premi/generateBhp/summary', [hitungPremiBhpController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateBhp.summary');

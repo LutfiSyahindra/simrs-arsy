@@ -22,10 +22,13 @@
     };
     $paperSize = $paperSize ?? [];
     $hasCustomPaper = !empty($paperSize);
+    $pdfMode = $pdfMode ?? 'export';
+    $isWhatsappPdf = $pdfMode === 'whatsapp';
     $paperWidthMm = (float) ($paperSize['width_mm'] ?? 136);
     $paperHeightMm = (float) ($paperSize['height_mm'] ?? 172);
-    $customPageMarginMm = 3;
-    $customSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginMm * 2) + 8));
+    $customPageMarginVerticalMm = 3;
+    $customPageMarginHorizontalMm = $isWhatsappPdf ? 10 : $customPageMarginVerticalMm;
+    $customSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginHorizontalMm * 2) + 8));
 @endphp
 
 <!DOCTYPE html>
@@ -37,7 +40,7 @@
             @page {
                 @if ($hasCustomPaper)
                     size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
-                    margin: {{ $customPageMarginMm }}mm;
+                    margin: {{ $customPageMarginVerticalMm }}mm {{ $customPageMarginHorizontalMm }}mm;
                 @else
                     size: A4 portrait;
                     margin: 9mm 8mm;
