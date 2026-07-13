@@ -27,8 +27,9 @@
     $paperWidthMm = (float) ($paperSize['width_mm'] ?? 136);
     $paperHeightMm = (float) ($paperSize['height_mm'] ?? 172);
     $customPageMarginVerticalMm = 3;
-    $customPageMarginHorizontalMm = $isWhatsappPdf ? 10 : $customPageMarginVerticalMm;
-    $customSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginHorizontalMm * 2) + 8));
+    $customPageMarginHorizontalMm = $isWhatsappPdf ? 4 : $customPageMarginVerticalMm;
+    $customSlipSideGutterMm = $isWhatsappPdf ? 14 : 4;
+    $customSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginHorizontalMm * 2) + ($customSlipSideGutterMm * 2)));
 @endphp
 
 <!DOCTYPE html>
