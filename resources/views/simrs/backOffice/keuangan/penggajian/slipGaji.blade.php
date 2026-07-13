@@ -14,6 +14,7 @@
     $stage2JasaTindakanItems = collect($stage2JasaTindakan["items"] ?? []);
     $stage2JasaTindakanTotal = (int) ($stage2JasaTindakan["total"] ?? $stage2JasaTindakanItems->sum("nominal"));
     $stage2PremiBersama = (int) (($stage2SlipPendapatanUmum["premi_bersama"]["nominal"] ?? 0));
+    $stage2PremiBersamaSourcePeriods = collect($stage2SlipPendapatanUmum["premi_bersama"]["source_period_labels"] ?? []);
     $stage2HasGroupedPremi = $stage2JasaTindakanTotal > 0 || $stage2PremiBersama > 0;
     $stage2PotonganDetail = collect($stage2["potongan_detail"] ?? []);
     $stage2GajiDibayar = (int) ($stage2["gaji_dibayar"] ?? 0);
@@ -33,6 +34,7 @@
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
     $customPageMarginVerticalMm = $isCompactSinglePdf ? 5 : 3;
     $customPageMarginHorizontalMm = $customPageMarginVerticalMm;
+    $isWhatsappPdf = $pdfMode === "whatsapp";
     $copyLabels = $isSingleCopyPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
@@ -401,10 +403,18 @@
                                 </tr>
                             @endforeach
 
+                            @php
+                                $premiBersamaSourcePeriodText = $stage2PremiBersamaSourcePeriods->filter()->implode(", ");
+                            @endphp
                             <tr>
                                 <td></td>
                                 <td class="col-no">{{ $stage2IncomeNo++ }}.</td>
-                                <td class="col-name">PREMI BERSAMA</td>
+                                <td class="col-name">
+                                    PREMI BERSAMA
+                                    @if (! $isWhatsappPdf && $premiBersamaSourcePeriodText)
+                                        <span class="source-period">PERIODE SUMBER: {{ strtoupper($premiBersamaSourcePeriodText) }}</span>
+                                    @endif
+                                </td>
                                 <td class="col-rp">: Rp.</td>
                                 <td class="col-value">{{ $rupiahSlip($stage2PremiBersama) }}</td>
                             </tr>

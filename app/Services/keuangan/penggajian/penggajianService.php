@@ -2534,6 +2534,10 @@ class penggajianService
             ->filter(fn (array $item) => count(array_filter((array) ($item['source_period_labels'] ?? []))) > 0)
             ->count();
 
+        if ($mode !== 'whatsapp' && count(array_filter((array) ($stage2PremiBersama['source_period_labels'] ?? []))) > 0) {
+            $sourceRows++;
+        }
+
         $sourceRows += $stage2PremiRows
             ->filter(fn (array $item) => trim((string) ($item['source_period_label'] ?? '')) !== '')
             ->count();
