@@ -734,7 +734,7 @@ class penggajianService
 
     public function slipPdfPaperOptions(array $detail, string $mode = 'export'): array
     {
-        $paperSize = $this->slipPdfFitPaperSize($detail);
+        $paperSize = $this->slipPdfFitPaperSize($detail, $mode);
 
         return [
             'paper' => $this->dompdfPaperFromMillimeters(
@@ -2496,14 +2496,14 @@ class penggajianService
             ->all();
     }
 
-    private function slipPdfFitPaperSize(array $detail): array
+    private function slipPdfFitPaperSize(array $detail, string $mode = 'export'): array
     {
         return ($detail['is_doctor_slip'] ?? false)
             ? $this->doctorSlipPdfPaperSize($detail)
-            : $this->employeeWhatsappSlipPdfPaperSize($detail);
+            : $this->employeeSlipPdfPaperSize($detail, in_array(strtolower($mode), ['single', 'whatsapp'], true));
     }
 
-    private function employeeWhatsappSlipPdfPaperSize(array $detail): array
+    private function employeeSlipPdfPaperSize(array $detail, bool $singleSlip): array
     {
         $tunjanganRows = collect($detail['tunjangan_detail'] ?? []);
         $stage2 = is_array($detail['tahap2'] ?? null) ? $detail['tahap2'] : [];
@@ -2540,10 +2540,12 @@ class penggajianService
 
         $stage1Rows = 4 + $tunjanganRows->count();
         $stage2Rows = 7 + $stage2IncomeRows + max(1, $stage2PotonganRows->count());
-        $heightMm = 72 + (($stage1Rows + $stage2Rows) * 4.1) + ($sourceRows * 4.0);
+        $heightMm = ($singleSlip ? 72 : 80)
+            + (($stage1Rows + $stage2Rows) * ($singleSlip ? 4.1 : 4.8))
+            + ($sourceRows * ($singleSlip ? 4.0 : 4.8));
 
         return [
-            'width_mm' => 108,
+            'width_mm' => $singleSlip ? 148 : 210,
             'height_mm' => (int) ceil(max(148, $heightMm)),
         ];
     }

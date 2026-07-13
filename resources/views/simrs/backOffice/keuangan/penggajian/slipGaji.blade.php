@@ -28,7 +28,7 @@
     $pdfMode = $pdfMode ?? "export";
     $paperSize = $paperSize ?? [];
     $hasCustomPaper = !empty($paperSize);
-    $isSingleSlipPdf = in_array($pdfMode, ["single", "whatsapp"], true) || $hasCustomPaper;
+    $isSingleSlipPdf = in_array($pdfMode, ["single", "whatsapp"], true);
     $paperWidthMm = (float) ($paperSize["width_mm"] ?? 210);
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
     $copyLabels = $isSingleSlipPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
