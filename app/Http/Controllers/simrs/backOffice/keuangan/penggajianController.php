@@ -426,10 +426,12 @@ class penggajianController extends Controller
         $view = ($data['is_doctor_slip'] ?? false)
             ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
             : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+        $pdfOptions = $this->penggajianService->slipPdfPaperOptions($data);
 
         $pdf = Pdf::loadView($view, [
             'data' => $data,
-        ])->setPaper('a4', 'portrait');
+            'paperSize' => $pdfOptions['paper_size'],
+        ])->setPaper($pdfOptions['paper'], 'portrait');
 
         return $pdf->stream('slip-gaji-'.$data['nik'].'-'.$data['periode'].'.pdf');
     }
@@ -440,10 +442,12 @@ class penggajianController extends Controller
         $view = ($data['is_doctor_slip'] ?? false)
             ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
             : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+        $pdfOptions = $this->penggajianService->slipPdfPaperOptions($data);
 
         $pdf = Pdf::loadView($view, [
             'data' => $data,
-        ])->setPaper('a4', 'portrait');
+            'paperSize' => $pdfOptions['paper_size'],
+        ])->setPaper($pdfOptions['paper'], 'portrait');
 
         return $pdf->stream('slip-gaji-'.$data['nik'].'-'.$data['periode'].'.pdf');
     }

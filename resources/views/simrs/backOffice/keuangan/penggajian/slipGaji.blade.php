@@ -27,6 +27,12 @@
 
     $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
     $rupiahStage2 = static fn($angka) => $hasStage2 ? number_format((int) $angka, 0, ",", ".") : "-";
+    $pdfMode = $pdfMode ?? "export";
+    $paperSize = $paperSize ?? [];
+    $isWhatsappPdf = $pdfMode === "whatsapp";
+    $paperWidthMm = (float) ($paperSize["width_mm"] ?? 210);
+    $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
+    $copyLabels = $isWhatsappPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
 <!DOCTYPE html>
@@ -36,14 +42,20 @@
         <meta charset="utf-8">
         <style>
             @page {
-                size: A4 portrait;
-                margin: 12mm 8mm;
+                @if ($isWhatsappPdf)
+                    size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
+                    margin: 3mm;
+                @else
+                    size: A4 portrait;
+                    margin: 12mm 8mm;
+                @endif
             }
 
             body {
                 font-family: DejaVu Sans, Arial, sans-serif;
                 font-size: 8.5px;
                 color: #000;
+                margin: 0;
             }
 
             .sheet {
@@ -208,12 +220,50 @@
                 color: #2563eb;
                 font-weight: bold;
             }
+
+            @if ($isWhatsappPdf)
+                .sheet {
+                    display: block;
+                    table-layout: auto;
+                }
+
+                .slip-column {
+                    display: block;
+                    width: auto;
+                    padding: 0;
+                }
+
+                .slip-column:first-child {
+                    border-right: 0;
+                }
+
+                .copy-label {
+                    display: none;
+                }
+
+                .header {
+                    margin-bottom: 4px;
+                    min-height: 38px;
+                }
+
+                .hospital {
+                    font-size: 8.2px;
+                }
+
+                .title {
+                    font-size: 10.5px;
+                }
+
+                .signature {
+                    margin-top: 8px;
+                }
+            @endif
         </style>
     </head>
 
     <body>
         <div class="sheet">
-            @foreach (["PEGAWAI", "ARSIP"] as $copy)
+            @foreach ($copyLabels as $copy)
                 <div class="slip-column">
                     <div class="copy-label">{{ $copy }}</div>
 

@@ -693,15 +693,26 @@ class penggajianService
         $view = ($detail['is_doctor_slip'] ?? false)
             ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
             : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+        $pdfOptions = $this->slipPdfPaperOptions($detail, 'whatsapp');
         $fileName = $this->makeSlipPdfFilename($row->nik, $periode);
-        $tempDir = storage_path('app/slip-gaji-whatsapp');
+        $tempDir = storage_path('app'.DIRECTORY_SEPARATOR.'slip-gaji-whatsapp');
         $filePath = $tempDir.DIRECTORY_SEPARATOR.Str::uuid().'-'.$fileName;
 
         File::ensureDirectoryExists($tempDir);
 
         Pdf::loadView($view, [
             'data' => $detail,
-        ])->setPaper('a4', 'portrait')->save($filePath);
+            'pdfMode' => 'whatsapp',
+            'paperSize' => $pdfOptions['paper_size'],
+        ])->setPaper($pdfOptions['paper'], 'portrait')->save($filePath);
+
+        clearstatcache(true, $filePath);
+
+        if (! File::exists($filePath)) {
+            throw new RuntimeException('Gagal membuat file PDF slip gaji Whatsapp.');
+        }
+
+        $filePath = realpath($filePath) ?: $filePath;
 
         try {
             $response = $this->goWaHttpClient((int) config('services.go_wa.timeout', 60))
@@ -736,6 +747,31 @@ class penggajianService
             'periode' => $periode,
             'tahap' => $tahap,
             'response' => $response->json() ?? $response->body(),
+        ];
+    }
+
+    public function slipPdfPaperOptions(array $detail, string $mode = 'export'): array
+    {
+        $fitToSlip = strtolower($mode) === 'whatsapp' || ($detail['is_doctor_slip'] ?? false);
+
+        if (! $fitToSlip) {
+            return [
+                'paper' => 'a4',
+                'paper_size' => [
+                    'width_mm' => 210,
+                    'height_mm' => 297,
+                ],
+            ];
+        }
+
+        $paperSize = $this->slipPdfFitPaperSize($detail);
+
+        return [
+            'paper' => $this->dompdfPaperFromMillimeters(
+                $paperSize['width_mm'],
+                $paperSize['height_mm']
+            ),
+            'paper_size' => $paperSize,
         ];
     }
 
@@ -2352,6 +2388,104 @@ class penggajianService
             ->sortByDesc('total')
             ->values()
             ->all();
+    }
+
+    private function slipPdfFitPaperSize(array $detail): array
+    {
+        return ($detail['is_doctor_slip'] ?? false)
+            ? $this->doctorSlipPdfPaperSize($detail)
+            : $this->employeeWhatsappSlipPdfPaperSize($detail);
+    }
+
+    private function employeeWhatsappSlipPdfPaperSize(array $detail): array
+    {
+        $tunjanganRows = collect($detail['tunjangan_detail'] ?? []);
+        $stage2 = is_array($detail['tahap2'] ?? null) ? $detail['tahap2'] : [];
+        $stage2PremiRows = collect($stage2['premi_detail'] ?? []);
+        $stage2PotonganRows = collect($stage2['potongan_detail'] ?? []);
+        $stage2SlipPendapatan = $stage2['slip_pendapatan_umum'] ?? [];
+        $stage2JasaTindakan = $stage2SlipPendapatan['jasa_tindakan'] ?? [];
+        $stage2JasaItems = collect($stage2JasaTindakan['items'] ?? []);
+        $stage2PremiBersama = $stage2SlipPendapatan['premi_bersama'] ?? [];
+        $stage2HasGroupedPremi = (int) ($stage2JasaTindakan['total'] ?? $stage2JasaItems->sum('nominal')) > 0
+            || (int) ($stage2PremiBersama['nominal'] ?? 0) > 0;
+        $stage2GajiDibayar = (int) ($stage2['gaji_dibayar'] ?? 0);
+
+        $stage2IncomeRows = $stage2GajiDibayar > 0 ? 1 : 0;
+        $stage2IncomeRows += $stage2HasGroupedPremi
+            ? 2 + $stage2JasaItems->count()
+            : $stage2PremiRows->count();
+
+        if (empty($stage2) || ($stage2GajiDibayar <= 0 && ! $stage2HasGroupedPremi && $stage2PremiRows->isEmpty())) {
+            $stage2IncomeRows++;
+        }
+
+        $sourceRows = $stage2JasaItems
+            ->filter(fn (array $item) => count(array_filter((array) ($item['source_period_labels'] ?? []))) > 0)
+            ->count();
+
+        if (count(array_filter((array) ($stage2PremiBersama['source_period_labels'] ?? []))) > 0) {
+            $sourceRows++;
+        }
+
+        $sourceRows += $stage2PremiRows
+            ->filter(fn (array $item) => trim((string) ($item['source_period_label'] ?? '')) !== '')
+            ->count();
+
+        $stage1Rows = 4 + $tunjanganRows->count();
+        $stage2Rows = 7 + $stage2IncomeRows + max(1, $stage2PotonganRows->count());
+        $heightMm = 56 + (($stage1Rows + $stage2Rows) * 3.2) + ($sourceRows * 2.8);
+
+        return [
+            'width_mm' => 108,
+            'height_mm' => (int) ceil(max(126, $heightMm)),
+        ];
+    }
+
+    private function doctorSlipPdfPaperSize(array $detail): array
+    {
+        $slip = $detail['doctor_slip'] ?? [];
+        $actionRows = collect($slip['action_rows'] ?? []);
+        $actionDetailRows = $actionRows->sum(fn (array $row) => count($row['detail_rows'] ?? []));
+        $bpjsRows = collect($slip['bpjs_rows'] ?? []);
+
+        $sourceRows = $actionRows
+            ->flatMap(fn (array $row) => $row['detail_rows'] ?? [])
+            ->filter(fn (array $row) => trim((string) ($row['source_period_text'] ?? '')) !== '')
+            ->count();
+        $sourceRows += $bpjsRows
+            ->filter(fn (array $row) => trim((string) ($row['source_period_text'] ?? '')) !== '')
+            ->count();
+
+        $tableRows = 2
+            + count($slip['tunjangan_rows'] ?? [])
+            + 1 + count($slip['jasa_rows'] ?? [])
+            + 1 + $actionRows->count() + $actionDetailRows
+            + count($slip['other_income_rows'] ?? [])
+            + ($bpjsRows->isNotEmpty() ? 1 + $bpjsRows->count() : 0)
+            + count($slip['deduction_rows'] ?? [])
+            + 6;
+        $heightMm = 52 + ($tableRows * 3.35) + ($sourceRows * 2.6);
+
+        return [
+            'width_mm' => 136,
+            'height_mm' => (int) ceil(max(172, $heightMm)),
+        ];
+    }
+
+    private function dompdfPaperFromMillimeters(float $widthMm, float $heightMm): array
+    {
+        return [
+            0,
+            0,
+            $this->millimetersToPoints($widthMm),
+            $this->millimetersToPoints($heightMm),
+        ];
+    }
+
+    private function millimetersToPoints(float $millimeters): float
+    {
+        return $millimeters * 72 / 25.4;
     }
 
     private function getGoWaBaseUrl()

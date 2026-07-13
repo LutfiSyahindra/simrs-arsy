@@ -20,6 +20,10 @@
 
         return $nominal === 0 && ($jml === null || $jml === '' || (int) $jml === 0) ? ' row-muted' : '';
     };
+    $paperSize = $paperSize ?? [];
+    $hasCustomPaper = !empty($paperSize);
+    $paperWidthMm = (float) ($paperSize['width_mm'] ?? 136);
+    $paperHeightMm = (float) ($paperSize['height_mm'] ?? 172);
 @endphp
 
 <!DOCTYPE html>
@@ -29,14 +33,20 @@
         <meta charset="utf-8">
         <style>
             @page {
-                size: A4 portrait;
-                margin: 9mm 8mm;
+                @if ($hasCustomPaper)
+                    size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
+                    margin: 3mm;
+                @else
+                    size: A4 portrait;
+                    margin: 9mm 8mm;
+                @endif
             }
 
             body {
                 font-family: DejaVu Sans, Arial, sans-serif;
                 font-size: 7.4px;
                 color: #111827;
+                margin: 0;
             }
 
             .slip-wrap {
@@ -294,6 +304,27 @@
                 color: #111827;
                 font-weight: bold;
             }
+
+            @if ($hasCustomPaper)
+                .slip-wrap {
+                    box-sizing: border-box;
+                    width: 100%;
+                    margin: 0;
+                    padding: 3mm;
+                }
+
+                .header-table {
+                    margin-bottom: 1.6mm;
+                }
+
+                .meta-table {
+                    margin-bottom: 1.6mm;
+                }
+
+                .signature td {
+                    height: 18mm;
+                }
+            @endif
         </style>
     </head>
 
