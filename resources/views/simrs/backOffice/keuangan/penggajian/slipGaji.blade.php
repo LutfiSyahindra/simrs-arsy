@@ -4,7 +4,6 @@
     $periode = $data["periode"] ?? null;
     $bulanSlip = $periode ? strtoupper(Carbon::createFromFormat("Y-m", $periode)->translatedFormat("F Y")) : "-";
     $tunjanganDetail = collect($data["tunjangan_detail"] ?? []);
-    $pembulatanTahap1 = (int) ($data["pembulatan"] ?? 0);
     $totalTahap1 = (int) ($data["total"] ?? 0);
     $komponenGajiLabel = strtoupper($data["komponen_gaji_label"] ?? "Gaji Pokok");
     $stage2 = $data["tahap2"] ?? null;
@@ -22,7 +21,6 @@
     $stage2SalaryLabel = strtoupper($stage2["komponen_gaji_dibayar_label"] ?? ($data["komponen_gaji_dibayar_label"] ?? "Gaji Dibayarkan"));
     $totalTahap2Bruto = (int) ($stage2["total_bruto"] ?? ($stage2GajiDibayar + (int) ($stage2["total_premi"] ?? 0)));
     $totalTahap2Potongan = (int) ($stage2["total_potongan"] ?? 0);
-    $pembulatanTahap2 = (int) ($stage2["pembulatan"] ?? 0);
     $totalTahap2 = (int) ($stage2["total"] ?? 0);
 
     $rupiahSlip = static fn($angka) => number_format((int) $angka, 0, ",", ".");
@@ -329,16 +327,6 @@
                             </tr>
                         @endforeach
 
-                        @if ($pembulatanTahap1 !== 0)
-                            <tr>
-                                <td></td>
-                                <td class="col-no">{{ $tunjanganDetail->count() + 2 }}.</td>
-                                <td class="col-name">PEMBULATAN</td>
-                                <td class="col-rp">: Rp.</td>
-                                <td class="col-value">{{ $rupiahSlip($pembulatanTahap1) }}</td>
-                            </tr>
-                        @endif
-
                         <tr class="summary">
                             <td></td>
                             <td></td>
@@ -485,15 +473,6 @@
                             <td class="col-rp">: Rp.</td>
                             <td class="col-value">{{ $rupiahStage2($totalTahap2Potongan) }}</td>
                         </tr>
-                        @if ($hasStage2 && $pembulatanTahap2 !== 0)
-                            <tr>
-                                <td></td>
-                                <td></td>
-                                <td class="col-name center">PEMBULATAN</td>
-                                <td class="col-rp">: Rp.</td>
-                                <td class="col-value">{{ $rupiahSlip($pembulatanTahap2) }}</td>
-                            </tr>
-                        @endif
                         <tr class="summary">
                             <td></td>
                             <td></td>

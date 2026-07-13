@@ -427,6 +427,27 @@ class penggajianRepository
             ->delete();
     }
 
+    public function updateGajiTahap1Rounding(int $id, int $pembulatan, int $total): void
+    {
+        $values = [];
+
+        if (Schema::hasColumn('gaji_tahap1', 'pembulatan')) {
+            $values['pembulatan'] = $pembulatan;
+        }
+
+        if (Schema::hasColumn('gaji_tahap1', 'total')) {
+            $values['total'] = $total;
+        }
+
+        if ($values === []) {
+            return;
+        }
+
+        gajiTahap1Model::query()
+            ->whereKey($id)
+            ->update($values);
+    }
+
     public function findGajiTahap1ById($id)
     {
         return gajiTahap1Model::find($id);
@@ -504,6 +525,21 @@ class penggajianRepository
             ],
             $values
         );
+    }
+
+    public function updateGajiTahap2Rounding(int $id, int $pembulatan, int $total): void
+    {
+        $values = [
+            'total' => $total,
+        ];
+
+        if (Schema::hasColumn('gaji_tahap2', 'pembulatan')) {
+            $values['pembulatan'] = $pembulatan;
+        }
+
+        gajiTahap2Model::query()
+            ->whereKey($id)
+            ->update($values);
     }
 
     public function getGajiTahap1TotalsByNik(string $periode): Collection

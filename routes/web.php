@@ -446,6 +446,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/penggajian/gajitahap1/{id}/export-pdf', [penggajianController::class, 'exportSlipGajiTahap1Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap1Pdf');
         Route::get('/penggajian/gajitahap2/{id}/detail', [penggajianController::class, 'detailGajiTahap2'])->name('backOffice.keuangan.penggajian.detailGajiTahap2');
         Route::get('/penggajian/gajitahap2/{id}/export-pdf', [penggajianController::class, 'exportSlipGajiTahap2Pdf'])->name('backOffice.keuangan.penggajian.exportSlipGajiTahap2Pdf');
+        Route::get('/penggajian/export-excel', [penggajianController::class, 'exportGajiExcel'])->name('backOffice.keuangan.penggajian.exportGajiExcel');
         Route::get('/penggajian/gajitahap2/export-excel', [penggajianController::class, 'exportGajiTahap2Excel'])->name('backOffice.keuangan.penggajian.exportGajiTahap2Excel');
 
     });

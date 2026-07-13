@@ -266,6 +266,7 @@ class penggajianController extends Controller
             'stage2_total_enabled' => ['required', 'boolean'],
             'stage2_total_base' => ['required', 'integer', 'min:1', 'max:1000000'],
             'stage2_total_mode' => ['required', Rule::in(['nearest', 'up', 'down'])],
+            'periode' => ['nullable', 'date_format:Y-m'],
         ]);
 
         return response()->json([
@@ -452,18 +453,34 @@ class penggajianController extends Controller
         return $pdf->stream('slip-gaji-'.$data['nik'].'-'.$data['periode'].'.pdf');
     }
 
-    public function exportGajiTahap2Excel(Request $request)
+    public function exportGajiExcel(Request $request)
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
+            'jenis' => ['nullable', Rule::in(['tahap1', 'tahap2', 'keseluruhan'])],
         ]);
 
         $periode = $validated['periode'];
-        $payload = $this->penggajianService->getGajiTahap2ExportPayload($periode);
+        $jenis = $validated['jenis'] ?? 'tahap2';
+        $payload = $this->penggajianService->getGajiExcelExportPayload($periode, $jenis);
+        $filenameLabel = match ($jenis) {
+            'tahap1' => 'tahap-1',
+            'keseluruhan' => 'keseluruhan',
+            default => 'tahap-2',
+        };
 
         return Excel::download(
             new GajiTahap2Export($payload),
-            'gaji-tahap-2-'.$periode.'.xlsx'
+            'gaji-'.$filenameLabel.'-'.$periode.'.xlsx'
         );
+    }
+
+    public function exportGajiTahap2Excel(Request $request)
+    {
+        $request->merge([
+            'jenis' => $request->input('jenis', 'tahap2'),
+        ]);
+
+        return $this->exportGajiExcel($request);
     }
 }

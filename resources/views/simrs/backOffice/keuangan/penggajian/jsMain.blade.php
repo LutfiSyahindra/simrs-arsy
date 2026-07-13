@@ -420,12 +420,11 @@
             const isTahap2 = tahap == '2';
             const stageLabel = 'Tahap ' + (isTahap2 ? '2' : '1');
             const actionHint = isTahap2 ?
-                'Export Excel dan Slip WhatsApp tersedia untuk tahap 2.' :
-                'Slip WhatsApp tersedia untuk tahap 1.';
+                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WhatsApp tersedia untuk tahap 2.' :
+                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WhatsApp tersedia untuk tahap 1.';
 
             $('#commandPeriodeText').text(periode);
             $('#stage2GeneratorReadinessPanel').toggleClass('d-none', !isTahap2);
-            $('#btnExportGajiTahap2').toggleClass('d-none', !isTahap2);
             $('#stageActionHint').text(actionHint);
             $('#btnGenerateGaji .payroll-action-label').text('Generate ' + stageLabel);
             $('.payroll-stage-card').removeClass('is-active');
@@ -778,18 +777,35 @@
 
         function normalizePayrollRoundingConfig(data) {
             data = data || {};
+            const boolValue = (value, fallback = false) => {
+                if (typeof value === 'boolean') {
+                    return value;
+                }
+
+                if (value === 1 || value === '1' || value === 'true') {
+                    return true;
+                }
+
+                if (value === 0 || value === '0' || value === 'false') {
+                    return false;
+                }
+
+                return fallback;
+            };
 
             return {
-                premium_received_enabled: !!data.premium_received_enabled,
+                premium_received_enabled: boolValue(data.premium_received_enabled, false),
                 premium_received_base: Math.max(1, parseInt(data.premium_received_base || 1000, 10)),
                 premium_received_mode: ['nearest', 'up', 'down'].includes(data.premium_received_mode) ?
                     data.premium_received_mode : 'up',
-                stage1_total_enabled: true,
-                stage1_total_base: 1000,
-                stage1_total_mode: 'up',
-                stage2_total_enabled: true,
-                stage2_total_base: 1000,
-                stage2_total_mode: 'up'
+                stage1_total_enabled: boolValue(data.stage1_total_enabled, true),
+                stage1_total_base: Math.max(1, parseInt(data.stage1_total_base || 1000, 10)),
+                stage1_total_mode: ['nearest', 'up', 'down'].includes(data.stage1_total_mode) ?
+                    data.stage1_total_mode : 'up',
+                stage2_total_enabled: boolValue(data.stage2_total_enabled, true),
+                stage2_total_base: Math.max(1, parseInt(data.stage2_total_base || 1000, 10)),
+                stage2_total_mode: ['nearest', 'up', 'down'].includes(data.stage2_total_mode) ?
+                    data.stage2_total_mode : 'up'
             };
         }
 
@@ -859,6 +875,11 @@
 
         function savePayrollRoundingConfig() {
             const payload = collectPayrollRoundingForm();
+            const periode = $('#periodeGaji').val();
+
+            if (periode) {
+                payload.periode = periode;
+            }
 
             return $.ajax({
                 url: payrollRoundingConfigState.saveUrl,
@@ -1043,6 +1064,7 @@
                         showConfirmButton: false
                     });
 
+                    reloadActivePayrollTable();
                     loadPayrollSummaries();
                 })
                 .fail(function(xhr) {
@@ -1411,8 +1433,6 @@
                     $('#slipTunjangan').text(formatRupiah(data.tunjangan));
                     $('#slipPremi').text(formatRupiah(data.premi || 0));
                     $('#slipTotal').text(formatRupiah(data.total));
-                    $('#slipPembulatan').text(formatRupiah(data.pembulatan || 0));
-                    $('#slipPembulatanRow').toggleClass('d-none', Number(data.pembulatan || 0) === 0);
                     $('#slipDetailListTitle').text('Rincian Tunjangan');
                     $('#slipTotalTunjanganLabel').text('Total Tunjangan');
                     $('#slipPotonganBox').addClass('d-none');
@@ -1463,8 +1483,6 @@
                     $('#slipPremiUtamaRow').addClass('d-none');
                     $('#slipTunjangan').text(formatRupiah(data.total_premi));
                     $('#slipTotal').text(formatRupiah(data.total));
-                    $('#slipPembulatan').text(formatRupiah(data.pembulatan || 0));
-                    $('#slipPembulatanRow').toggleClass('d-none', Number(data.pembulatan || 0) === 0);
                     $('#slipDetailListTitle').text('Rincian Premi Generator');
                     $('#slipTotalTunjanganLabel').text('Total Premi');
                     $('#slipPotongan').text(formatRupiah(data.total_potongan || 0));
@@ -1505,7 +1523,7 @@
             loadPayrollSummaries();
         });
 
-        $('#btnExportGajiTahap2').on('click', function() {
+        $('#btnExportGajiExcel').on('click', function() {
             const periode = $('#periodeGaji').val();
 
             if (!periode) {
@@ -1517,9 +1535,35 @@
                 return;
             }
 
-            window.location.href =
-                "{{ route("backOffice.keuangan.penggajian.exportGajiTahap2Excel") }}" +
-                '?periode=' + encodeURIComponent(periode);
+            Swal.fire({
+                icon: 'question',
+                title: 'Export Excel Penggajian',
+                text: 'Pilih data gaji yang ingin diexport.',
+                input: 'select',
+                inputOptions: {
+                    tahap1: 'Tahap 1',
+                    tahap2: 'Tahap 2',
+                    keseluruhan: 'Keseluruhan Tahap 1 + Tahap 2'
+                },
+                inputValue: $('#tahapGaji').val() == '2' ? 'tahap2' : 'tahap1',
+                showCancelButton: true,
+                confirmButtonText: 'Export',
+                cancelButtonText: 'Batal',
+                inputValidator: function(value) {
+                    if (!value) {
+                        return 'Pilih jenis export terlebih dahulu.';
+                    }
+                }
+            }).then(function(result) {
+                if (!result.isConfirmed) {
+                    return;
+                }
+
+                window.location.href =
+                    "{{ route("backOffice.keuangan.penggajian.exportGajiExcel") }}" +
+                    '?periode=' + encodeURIComponent(periode) +
+                    '&jenis=' + encodeURIComponent(result.value);
+            });
         });
 
         $('#btnOpenSlipWhatsapp').on('click', function() {

@@ -95,10 +95,6 @@
                     </div>
 
                     <div class="slip-detail-list">
-                        <div class="slip-detail-row d-none" id="slipPembulatanRow">
-                            <span>Pembulatan</span>
-                            <strong id="slipPembulatan">Rp 0</strong>
-                        </div>
                         <div class="slip-detail-row total">
                             <span>Total Diterima</span>
                             <strong id="slipTotal">Rp 0</strong>

@@ -2067,9 +2067,9 @@
                         <span>Konfig Gaji</span>
                     </button>
 
-                    <button type="button" id="btnExportGajiTahap2" class="btn btn-outline-success btn-sm d-none">
+                    <button type="button" id="btnExportGajiExcel" class="btn btn-outline-success btn-sm">
                         <i class="mdi mdi-file-excel-outline me-1"></i>
-                        <span>Export T2</span>
+                        <span>Export Excel</span>
                     </button>
 
                     <button type="button" id="btnRefreshPenggajian" class="btn btn-light btn-sm" title="Refresh">

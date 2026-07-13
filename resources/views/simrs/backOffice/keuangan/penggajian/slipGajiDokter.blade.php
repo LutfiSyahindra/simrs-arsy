@@ -24,6 +24,8 @@
     $hasCustomPaper = !empty($paperSize);
     $paperWidthMm = (float) ($paperSize['width_mm'] ?? 136);
     $paperHeightMm = (float) ($paperSize['height_mm'] ?? 172);
+    $customPageMarginMm = 3;
+    $customSlipWidthMm = max(110, $paperWidthMm - (($customPageMarginMm * 2) + 8));
 @endphp
 
 <!DOCTYPE html>
@@ -35,7 +37,7 @@
             @page {
                 @if ($hasCustomPaper)
                     size: {{ $paperWidthMm }}mm {{ $paperHeightMm }}mm;
-                    margin: 3mm;
+                    margin: {{ $customPageMarginMm }}mm;
                 @else
                     size: A4 portrait;
                     margin: 9mm 8mm;
@@ -308,9 +310,10 @@
             @if ($hasCustomPaper)
                 .slip-wrap {
                     box-sizing: border-box;
-                    width: 100%;
-                    margin: 0;
-                    padding: 3mm;
+                    width: {{ $customSlipWidthMm }}mm;
+                    max-width: {{ $customSlipWidthMm }}mm;
+                    margin: 0 auto;
+                    padding: 2.5mm;
                 }
 
                 .header-table {
