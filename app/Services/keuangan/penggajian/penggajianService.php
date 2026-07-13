@@ -675,7 +675,8 @@ class penggajianService
         $view = ($detail['is_doctor_slip'] ?? false)
             ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
             : 'simrs.backOffice.keuangan.penggajian.slipGaji';
-        $pdfOptions = $this->slipPdfPaperOptions($detail, 'whatsapp');
+        $pdfMode = ($detail['is_doctor_slip'] ?? false) ? 'export' : 'whatsapp';
+        $pdfOptions = $this->slipPdfPaperOptions($detail, $pdfMode);
         $fileName = $this->makeSlipPdfFilename($row->nik, $periode);
         $tempDir = storage_path('app'.DIRECTORY_SEPARATOR.'slip-gaji-whatsapp');
         $filePath = $tempDir.DIRECTORY_SEPARATOR.Str::uuid().'-'.$fileName;
@@ -684,7 +685,7 @@ class penggajianService
 
         Pdf::loadView($view, [
             'data' => $detail,
-            'pdfMode' => 'whatsapp',
+            'pdfMode' => $pdfMode,
             'paperSize' => $pdfOptions['paper_size'],
         ])->setPaper($pdfOptions['paper'], 'portrait')->save($filePath);
 
@@ -2507,7 +2508,7 @@ class penggajianService
 
     private function employeeSlipPdfPaperSize(array $detail, string $mode): array
     {
-        $singleSlip = in_array($mode, ['single', 'whatsapp'], true);
+        $singleSlip = $mode === 'single';
         $tunjanganRows = collect($detail['tunjangan_detail'] ?? []);
         $stage2 = is_array($detail['tahap2'] ?? null) ? $detail['tahap2'] : [];
         $stage2PremiRows = collect($stage2['premi_detail'] ?? []);
@@ -2549,7 +2550,7 @@ class penggajianService
 
         return [
             'width_mm' => match ($mode) {
-                'whatsapp' => 190,
+                'whatsapp' => 108,
                 'single' => 148,
                 default => 210,
             },

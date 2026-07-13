@@ -28,14 +28,13 @@
     $pdfMode = $pdfMode ?? "export";
     $paperSize = $paperSize ?? [];
     $hasCustomPaper = !empty($paperSize);
-    $isSingleSlipPdf = in_array($pdfMode, ["single", "whatsapp"], true);
-    $isWhatsappPdf = $pdfMode === "whatsapp";
+    $isSingleCopyPdf = in_array($pdfMode, ["single", "whatsapp"], true);
+    $isCompactSinglePdf = $pdfMode === "single";
     $paperWidthMm = (float) ($paperSize["width_mm"] ?? 210);
     $paperHeightMm = (float) ($paperSize["height_mm"] ?? 297);
-    $customPageMarginVerticalMm = $isSingleSlipPdf ? 5 : 3;
-    $customPageMarginHorizontalMm = $isWhatsappPdf ? 4 : $customPageMarginVerticalMm;
-    $whatsappContentPaddingMm = $isWhatsappPdf ? 18 : 0;
-    $copyLabels = $isSingleSlipPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
+    $customPageMarginVerticalMm = $isCompactSinglePdf ? 5 : 3;
+    $customPageMarginHorizontalMm = $customPageMarginVerticalMm;
+    $copyLabels = $isSingleCopyPdf ? ["PEGAWAI"] : ["PEGAWAI", "ARSIP"];
 @endphp
 
 <!DOCTYPE html>
@@ -226,7 +225,7 @@
                 font-weight: bold;
             }
 
-            @if ($isSingleSlipPdf)
+            @if ($isSingleCopyPdf)
                 .sheet {
                     display: block;
                     table-layout: auto;
@@ -236,40 +235,38 @@
                 .slip-column {
                     display: block;
                     width: auto;
-                    padding: 0;
                 }
 
                 .slip-column:first-child {
                     border-right: 0;
                 }
 
-                @if ($isWhatsappPdf)
+                @if ($isCompactSinglePdf)
                     .slip-column {
-                        padding-left: {{ $whatsappContentPaddingMm }}mm;
-                        padding-right: {{ $whatsappContentPaddingMm }}mm;
+                        padding: 0;
+                    }
+
+                    .copy-label {
+                        display: none;
+                    }
+
+                    .header {
+                        margin-bottom: 4px;
+                        min-height: 38px;
+                    }
+
+                    .hospital {
+                        font-size: 8.2px;
+                    }
+
+                    .title {
+                        font-size: 10.5px;
+                    }
+
+                    .signature {
+                        margin-top: 8px;
                     }
                 @endif
-
-                .copy-label {
-                    display: none;
-                }
-
-                .header {
-                    margin-bottom: 4px;
-                    min-height: 38px;
-                }
-
-                .hospital {
-                    font-size: 8.2px;
-                }
-
-                .title {
-                    font-size: 10.5px;
-                }
-
-                .signature {
-                    margin-top: 8px;
-                }
             @endif
         </style>
     </head>
