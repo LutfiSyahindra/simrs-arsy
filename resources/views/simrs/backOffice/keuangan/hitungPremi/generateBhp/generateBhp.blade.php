@@ -1086,7 +1086,7 @@
                                     <i class="mdi mdi-calendar-month-outline text-primary"></i>
                                 </span>
                                 <input type="text" id="periodeBhp" class="form-control fw-semibold"
-                                    value="{{ date("Y-m") }}" autocomplete="off">
+                                    value="{{ request("periode", date("Y-m")) }}" autocomplete="off">
                             </div>
                             <small class="text-muted d-block mt-2" id="periodeSourceHelp">
                                 Data dibaca berdasarkan bulan tanggal registrasi pasien.

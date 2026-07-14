@@ -131,6 +131,12 @@
         }
 
         function setDefaultPeriod() {
+            const queryPeriod = new URLSearchParams(window.location.search).get('periode');
+            if (/^\d{4}-\d{2}$/.test(queryPeriod || '')) {
+                $('#periodeApotek').val(queryPeriod);
+                return;
+            }
+
             const now = new Date();
             $('#periodeApotek').val(now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
         }

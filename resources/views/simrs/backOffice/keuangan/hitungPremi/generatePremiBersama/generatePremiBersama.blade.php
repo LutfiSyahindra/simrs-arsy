@@ -1722,7 +1722,8 @@
                 <label for="periodePremiBersama">Periode Generate</label>
                 <div class="input-group">
                     <span class="input-group-text bg-white"><i class="mdi mdi-calendar-month-outline"></i></span>
-                    <input type="month" class="form-control" id="periodePremiBersama" value="{{ now()->format("Y-m") }}">
+                    <input type="month" class="form-control" id="periodePremiBersama"
+                        value="{{ request("periode", now()->format("Y-m")) }}">
                 </div>
                 <p class="pb-period-note mb-0">
                     Preview diperbarui otomatis ketika periode diganti.

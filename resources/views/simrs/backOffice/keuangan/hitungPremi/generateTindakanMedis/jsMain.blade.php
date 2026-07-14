@@ -249,6 +249,12 @@
         }
 
         function setDefaultPeriod() {
+            const queryPeriod = new URLSearchParams(window.location.search).get('periode');
+            if (/^\d{4}-\d{2}$/.test(queryPeriod || '')) {
+                $('#periodeTindakanMedis').val(queryPeriod);
+                return;
+            }
+
             const now = new Date();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             $('#periodeTindakanMedis').val(now.getFullYear() + '-' + month);

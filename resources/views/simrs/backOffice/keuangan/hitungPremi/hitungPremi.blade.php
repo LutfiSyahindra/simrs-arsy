@@ -376,6 +376,30 @@
         ],
     ];
 
+    $sourceGenerators = collect($generatorGroups)->firstWhere("key", "source")["generators"] ?? [];
+    $independentGenerators = collect($generatorGroups)->firstWhere("key", "independent")["generators"] ?? [];
+    $derivedGenerators = collect($generatorGroups)->firstWhere("key", "derived")["generators"] ?? [];
+    $finalGenerators = collect($generatorGroups)->firstWhere("key", "final")["generators"] ?? [];
+
+    $generatorGroups = [
+        [
+            "key" => "step-1",
+            "badge" => "Langkah 1",
+            "title" => "Generator Dasar dan Mandiri",
+            "subtitle" => "Jalankan semua generator sumber, mandiri, dan khusus sebelum generator gabungan.",
+            "icon" => "mdi-database-sync-outline",
+            "generators" => collect($sourceGenerators)->merge($independentGenerators)->values()->all(),
+        ],
+        [
+            "key" => "step-2",
+            "badge" => "Langkah 2",
+            "title" => "Generator Gabungan",
+            "subtitle" => "Tindakan Medis, Pelayanan Non Medis, dan Premi Bersama dijalankan setelah sumbernya siap.",
+            "icon" => "mdi-source-merge",
+            "generators" => collect($derivedGenerators)->merge($finalGenerators)->values()->all(),
+        ],
+    ];
+
     $allGenerators = collect($generatorGroups)->flatMap(fn ($group) => $group["generators"]);
     $generatorLookup = $allGenerators->keyBy("key");
     $activeCount = $allGenerators->where("enabled", true)->count();
@@ -530,7 +554,7 @@
         .generator-flow {
             display: grid;
             gap: 10px;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             margin-bottom: 16px;
         }
 
@@ -667,7 +691,7 @@
 
         .generator-groups {
             display: grid;
-            gap: 24px;
+            gap: 18px;
         }
 
         .generator-group {
@@ -735,8 +759,8 @@
 
         .generator-menu-grid {
             display: grid;
-            gap: 12px;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
         .generator-menu-card {
@@ -749,7 +773,7 @@
             box-shadow: 0 8px 20px rgba(15, 23, 42, .04);
             display: flex;
             flex-direction: column;
-            min-height: 252px;
+            min-height: 216px;
             transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
         }
 
@@ -781,13 +805,13 @@
             display: flex;
             flex: 1;
             flex-direction: column;
-            padding: 16px;
+            padding: 12px;
         }
 
         .generator-menu-head {
             align-items: flex-start;
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: space-between;
         }
 
@@ -798,10 +822,10 @@
             color: var(--card-color);
             display: flex;
             flex: 0 0 auto;
-            font-size: 24px;
-            height: 46px;
+            font-size: 20px;
+            height: 38px;
             justify-content: center;
-            width: 46px;
+            width: 38px;
         }
 
         .generator-menu-status {
@@ -838,21 +862,25 @@
             font-size: 15px;
             font-weight: 800;
             line-height: 1.35;
-            margin: 13px 0 5px;
+            margin: 9px 0 4px;
         }
 
         .generator-menu-classification {
             color: var(--card-color);
             font-size: 11px;
             font-weight: 800;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .generator-menu-description {
             color: var(--pg-muted);
             font-size: 12px;
-            line-height: 1.55;
-            margin-bottom: 12px;
+            display: -webkit-box;
+            line-height: 1.45;
+            margin-bottom: 8px;
+            overflow: hidden;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
         }
 
         .generator-menu-source {
@@ -865,16 +893,16 @@
             font-size: 11px;
             gap: 7px;
             line-height: 1.45;
-            margin-bottom: 10px;
-            padding: 8px 10px;
+            margin-bottom: 8px;
+            padding: 6px 8px;
         }
 
         .generator-period-status {
             background: #fff;
             border: 1px solid var(--pg-line);
             border-radius: 8px;
-            margin-bottom: 10px;
-            padding: 9px 10px;
+            margin-bottom: 8px;
+            padding: 7px 8px;
         }
 
         .generator-period-status-title {
@@ -884,7 +912,7 @@
             font-size: 11px;
             font-weight: 800;
             gap: 6px;
-            margin-bottom: 7px;
+            margin-bottom: 5px;
             text-transform: uppercase;
         }
 
@@ -905,8 +933,9 @@
             font-weight: 800;
             gap: 5px;
             line-height: 1;
-            min-height: 27px;
-            padding: 6px 9px;
+            font-size: 10px;
+            min-height: 24px;
+            padding: 5px 7px;
         }
 
         .generator-status-pill .mdi {
@@ -967,8 +996,8 @@
             font-size: 11px;
             font-weight: 700;
             line-height: 1;
-            min-height: 26px;
-            padding: 6px 9px;
+            min-height: 24px;
+            padding: 5px 8px;
         }
 
         .generator-chip-button {
@@ -989,7 +1018,7 @@
             display: flex;
             gap: 10px;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 10px 12px;
         }
 
         .generator-menu-code {
@@ -1010,8 +1039,8 @@
             font-weight: 800;
             gap: 5px;
             justify-content: center;
-            min-height: 34px;
-            padding: 8px 12px;
+            min-height: 32px;
+            padding: 7px 11px;
             text-decoration: none;
             white-space: nowrap;
         }
@@ -1040,13 +1069,12 @@
         }
 
         @media (max-width: 1199.98px) {
-            .generator-overview,
-            .generator-flow {
+            .generator-overview {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
 
             .generator-menu-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: repeat(3, minmax(0, 1fr));
             }
         }
 
@@ -1080,6 +1108,13 @@
                 flex-direction: column;
             }
         }
+
+        @media (min-width: 768px) and (max-width: 991.98px) {
+            .generator-flow,
+            .generator-menu-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
     </style>
 @endpush
 
@@ -1101,8 +1136,8 @@
                     <div class="generator-eyebrow">Hitung Premi</div>
                     <h4 class="generator-title">Pilih generator sesuai urutan sumber datanya</h4>
                     <p class="generator-description">
-                        Generator sumber ditempatkan di awal, generator turunan berada setelahnya, lalu Premi Bersama
-                        menjadi tahap final karena membutuhkan banyak sumber unit yang sudah selesai digenerate.
+                        Langkah pertama memuat semua generator dasar dan mandiri, sedangkan langkah kedua memuat
+                        Tindakan Medis, Pelayanan Non Medis, dan Premi Bersama.
                     </p>
                 </div>
             </div>
