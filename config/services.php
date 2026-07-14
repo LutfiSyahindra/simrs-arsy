@@ -39,7 +39,7 @@ return [
         'base_url' => env('WA_GATEWAY_URL', env('GO_WA_BASE_URL', 'http://127.0.0.1:3000')),
         'token' => env('WA_GATEWAY_TOKEN', env('GO_WA_TOKEN', env('API_TOKEN'))),
         'timeout' => env('WA_GATEWAY_TIMEOUT', env('GO_WA_TIMEOUT', 60)),
-        'queue_delay_seconds' => env('WA_GATEWAY_QUEUE_DELAY', 8),
+        'queue_delay_seconds' => env('WA_GATEWAY_QUEUE_DELAY', 600),
     ],
 
 ];

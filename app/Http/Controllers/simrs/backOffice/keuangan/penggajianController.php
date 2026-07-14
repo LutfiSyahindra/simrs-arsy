@@ -424,9 +424,7 @@ class penggajianController extends Controller
     public function exportSlipGajiTahap1Pdf($id)
     {
         $data = $this->penggajianService->detailSlipGajiTahap1($id);
-        $view = ($data['is_doctor_slip'] ?? false)
-            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
-            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+        $view = $this->penggajianService->slipPdfView($data);
         $pdfOptions = $this->penggajianService->slipPdfPaperOptions($data);
 
         $pdf = Pdf::loadView($view, [
@@ -441,9 +439,7 @@ class penggajianController extends Controller
     public function exportSlipGajiTahap2Pdf($id)
     {
         $data = $this->penggajianService->detailSlipGajiTahap2($id);
-        $view = ($data['is_doctor_slip'] ?? false)
-            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
-            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+        $view = $this->penggajianService->slipPdfView($data);
         $pdfOptions = $this->penggajianService->slipPdfPaperOptions($data);
 
         $pdf = Pdf::loadView($view, [

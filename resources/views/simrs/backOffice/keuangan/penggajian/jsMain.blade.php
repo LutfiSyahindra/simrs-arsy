@@ -1111,6 +1111,16 @@
             return $('#tahapGaji').val() == '2' ? 2 : 1;
         }
 
+        function formatSlipWhatsappDelay(seconds) {
+            seconds = Number(seconds || 0);
+
+            if (seconds >= 60 && seconds % 60 === 0) {
+                return (seconds / 60) + ' menit';
+            }
+
+            return seconds + ' detik';
+        }
+
         function updateSlipWhatsappStageLabels(tahap) {
             const label = 'Tahap ' + tahap;
 
@@ -1640,7 +1650,7 @@
                     },
                     success: function(response) {
                         const queued = response.data?.queued || selectedIds.length;
-                        const delaySeconds = response.data?.delay_seconds || 8;
+                        const delaySeconds = response.data?.delay_seconds || 600;
                         const modalEl = document.getElementById('modalSlipWhatsapp');
                         const modal = bootstrap.Modal.getInstance(modalEl);
 
@@ -1652,7 +1662,7 @@
                             icon: 'success',
                             title: 'Masuk Antrean',
                             text: queued + ' slip gaji akan dikirim oleh queue dengan jeda sekitar ' +
-                                delaySeconds + ' detik.',
+                                formatSlipWhatsappDelay(delaySeconds) + '.',
                             timer: 2600,
                             showConfirmButton: false
                         });

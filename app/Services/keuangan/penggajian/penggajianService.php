@@ -632,7 +632,7 @@ class penggajianService
             ]);
         }
 
-        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
+        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 600));
 
         foreach ($validRows as $index => $row) {
             KirimSlipGajiWhatsappJob::dispatch((int) $row->id, $periode, $tahap)
@@ -672,10 +672,8 @@ class penggajianService
         $detail = $tahap === 2
             ? $this->detailSlipGajiTahap2($row->id)
             : $this->detailSlipGajiTahap1($row->id);
-        $view = ($detail['is_doctor_slip'] ?? false)
-            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
-            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
-        $pdfMode = ($detail['is_doctor_slip'] ?? false) ? 'export' : 'whatsapp';
+        $view = $this->slipPdfView($detail);
+        $pdfMode = $this->slipWhatsappPdfMode($detail);
         $pdfOptions = $this->slipPdfPaperOptions($detail, $pdfMode);
         $fileName = $this->makeSlipPdfFilename($row->nik, $periode);
         $tempDir = storage_path('app'.DIRECTORY_SEPARATOR.'slip-gaji-whatsapp');
@@ -744,6 +742,18 @@ class penggajianService
             ),
             'paper_size' => $paperSize,
         ];
+    }
+
+    public function slipPdfView(array $detail): string
+    {
+        return ($detail['is_doctor_slip'] ?? false)
+            ? 'simrs.backOffice.keuangan.penggajian.slipGajiDokter'
+            : 'simrs.backOffice.keuangan.penggajian.slipGaji';
+    }
+
+    public function slipWhatsappPdfMode(array $detail): string
+    {
+        return ($detail['is_doctor_slip'] ?? false) ? 'export' : 'whatsapp';
     }
 
     public function detailGajiTahap1($id)

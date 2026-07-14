@@ -62,6 +62,24 @@ class PenggajianServiceTest extends TestCase
         $this->assertFalse($method->invoke($service, 'Dokter Umum', $doctorNikLookup));
     }
 
+    public function test_doctor_whatsapp_slip_uses_export_pdf_layout(): void
+    {
+        $service = new penggajianService;
+        $doctorDetail = ['is_doctor_slip' => true];
+        $employeeDetail = ['is_doctor_slip' => false];
+
+        $this->assertSame(
+            'simrs.backOffice.keuangan.penggajian.slipGajiDokter',
+            $service->slipPdfView($doctorDetail)
+        );
+        $this->assertSame('export', $service->slipWhatsappPdfMode($doctorDetail));
+        $this->assertSame(
+            'simrs.backOffice.keuangan.penggajian.slipGaji',
+            $service->slipPdfView($employeeDetail)
+        );
+        $this->assertSame('whatsapp', $service->slipWhatsappPdfMode($employeeDetail));
+    }
+
     public function test_stage1_ugd_contract_separates_str_attendance_and_actual_allowance(): void
     {
         $service = new penggajianService;

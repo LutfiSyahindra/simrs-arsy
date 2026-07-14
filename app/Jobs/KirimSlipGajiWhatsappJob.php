@@ -15,7 +15,7 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
     use Queueable;
 
     public int $tries = 1;
-    public int $timeout = 180;
+    public int $timeout = 1800;
     public int $uniqueFor = 3600;
     public bool $failOnTimeout = true;
 
@@ -28,11 +28,15 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(penggajianService $penggajianService): void
     {
-        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
+        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 600));
         $tahap = $this->normalizeTahap();
+        $lockSeconds = max(
+            180,
+            $delaySeconds + max(60, (int) config('services.go_wa.timeout', 60)) + 60
+        );
 
-        $result = Cache::lock('queue:slip-gaji-whatsapp', 180)
-            ->block(90, function () use ($penggajianService, $delaySeconds, $tahap) {
+        $result = Cache::lock('queue:slip-gaji-whatsapp', $lockSeconds)
+            ->block($lockSeconds, function () use ($penggajianService, $delaySeconds, $tahap) {
                 try {
                     return $penggajianService->sendSingleSlipWhatsapp(
                         $this->gajiId,
