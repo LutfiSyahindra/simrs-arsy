@@ -24,6 +24,24 @@
                 }
             };
         })();
+        const configModal = (function() {
+            const modalElement = document.getElementById('modalConfigUgd');
+
+            if (window.bootstrap && bootstrap.Modal && modalElement) {
+                return bootstrap.Modal.getOrCreateInstance ?
+                    bootstrap.Modal.getOrCreateInstance(modalElement) :
+                    new bootstrap.Modal(modalElement);
+            }
+
+            return {
+                show: function() {
+                    $('#modalConfigUgd').modal('show');
+                },
+                hide: function() {
+                    $('#modalConfigUgd').modal('hide');
+                }
+            };
+        })();
 
         const typeConfig = {
             umum: 'Umum',
@@ -36,6 +54,9 @@
         let plotingOptionsLoaded = false;
         let plotingOptionsRequest = null;
         let plotingOptions = [];
+        let configRequest = null;
+        let configByType = {};
+        let activeConfig = { nominal_defaults: [] };
 
         function formatNumber(value) {
             return new Intl.NumberFormat('id-ID').format(Number(value) || 0);
@@ -117,6 +138,19 @@
             el.value = value ? formatNumber(value) : '';
         }
 
+        function nominalDefaults(config) {
+            return Array.isArray(config?.nominal_defaults) ? config.nominal_defaults : [];
+        }
+
+        function defaultNominalFor(jenis, plotingId) {
+            const config = configByType[jenis] || activeConfig || {};
+            const item = nominalDefaults(config).find(function(row) {
+                return String(row.plotingPremi_id) === String(plotingId || '');
+            });
+
+            return Number(item?.default_nominal || 0);
+        }
+
         function selectedDoctorText(row) {
             return (row.kd_dokter || '-') + ' - ' + (row.nm_dokter || '-');
         }
@@ -193,6 +227,31 @@
             return plotingOptionsRequest;
         }
 
+        function loadConfig(jenis) {
+            if (configByType[jenis]) {
+                activeConfig = configByType[jenis];
+                return $.Deferred().resolve(activeConfig).promise();
+            }
+
+            if (configRequest) {
+                configRequest.abort();
+            }
+
+            configRequest = $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateUgd.config") }}",
+                data: { jenis_ugd: jenis },
+                success: function(response) {
+                    activeConfig = response.data || { nominal_defaults: [] };
+                    configByType[jenis] = activeConfig;
+                },
+                complete: function() {
+                    configRequest = null;
+                }
+            });
+
+            return configRequest;
+        }
+
         function doctorSelectHtml(rowData) {
             if (!rowData) {
                 return '';
@@ -206,6 +265,7 @@
         function addGenerateRow(rowData) {
             rowCounter += 1;
             const selectedPloting = rowData ? String(rowData.plotingPremi_id || '') : '';
+            const nominalValue = rowData ? Number(rowData.nominal_hitung || 0) : defaultNominalFor($('#jenisGenerateUgd').val() || activeType, selectedPloting);
             const row = $(
                 '<div class="ugd-input-row" data-row-id="' + rowCounter + '">' +
                 '   <div class="ugd-row-number"></div>' +
@@ -233,7 +293,7 @@
                 '       <div class="input-group">' +
                 '           <span class="input-group-text">Rp</span>' +
                 '           <input type="text" class="form-control text-end nominal-generate-ugd" inputmode="numeric" autocomplete="off" placeholder="0" value="' +
-                (rowData ? formatNumber(rowData.nominal_hitung) : '') +
+                (nominalValue ? formatNumber(nominalValue) : '') +
                 '">' +
                 '       </div>' +
                 '       <div class="invalid-feedback d-block row-error nominal-error"></div>' +
@@ -499,7 +559,7 @@
             updatePreviewTotal();
             generateModal.show();
 
-            loadPlotingOptions().then(function() {
+            $.when(loadConfig(jenis), loadPlotingOptions()).then(function() {
                 addGenerateRow(row || null);
             });
         }
@@ -692,6 +752,62 @@
             return handled;
         }
 
+        function renderConfigNominalInputs(config) {
+            const items = nominalDefaults(config);
+            const container = $('#configUgdNominalContainer');
+
+            if (!items.length) {
+                container.html(`
+                    <div class="alert alert-warning mb-0 py-2">
+                        Master Ploting Premi belum tersedia. Tambahkan ploting terlebih dahulu.
+                    </div>
+                `);
+                $('#btnSubmitConfigUgd').prop('disabled', true);
+                return;
+            }
+
+            $('#btnSubmitConfigUgd').prop('disabled', false);
+            container.html(items.map(function(item) {
+                const nominal = Number(item.default_nominal || 0);
+
+                return `
+                    <div class="border rounded-2 p-2">
+                        <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${escapeHtml(item.text || item.ploting || '-')}</div>
+                                <small class="text-muted">${escapeHtml(item.kode || 'Ploting Premi')}</small>
+                            </div>
+                            <div class="input-group input-group-sm" style="max-width: 220px;">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" class="form-control text-end config-ugd-nominal-input"
+                                    data-ploting-id="${Number(item.plotingPremi_id || 0)}"
+                                    value="${nominal > 0 ? escapeHtml(formatNumber(nominal)) : ''}"
+                                    inputmode="numeric" autocomplete="off" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join(''));
+        }
+
+        function openConfigModal() {
+            loadConfig(activeType)
+                .done(function() {
+                    const config = configByType[activeType] || activeConfig || { nominal_defaults: [] };
+
+                    $('#modalConfigUgdLabel').text('Konfigurasi UGD ' + typeConfig[activeType]);
+                    $('#jenisConfigUgd').val(activeType);
+                    $('#configUgdTypeLabel').text(typeConfig[activeType]);
+                    renderConfigNominalInputs(config);
+                    configModal.show();
+                })
+                .fail(function(xhr) {
+                    if (xhr.statusText !== 'abort') {
+                        Swal.fire('Gagal', errorMessage(xhr), 'error');
+                    }
+                });
+        }
+
         $('.ugd-type-tab').on('click', function() {
             setActiveType($(this).data('type'));
             refreshAll();
@@ -726,6 +842,8 @@
 
         $('#btnLockAllUgd').on('click', lockAllResults);
 
+        $('#btnConfigUgd').on('click', openConfigModal);
+
         $('#btnAddGenerateUgdRow').on('click', function() {
             addGenerateRow(null);
         });
@@ -737,9 +855,20 @@
             updatePreviewTotal();
         });
 
+        $('#configUgdNominalContainer').on('input', '.config-ugd-nominal-input', function() {
+            formatInput(this);
+        });
+
         $('#generateUgdRows').on('change', 'select', function() {
             $(this).removeClass('is-invalid');
             $(this).closest('.ugd-row-field').find('.row-error').text('');
+
+            if ($(this).hasClass('ploting-generate-ugd-row')) {
+                const row = $(this).closest('.ugd-input-row');
+                const nominal = defaultNominalFor($('#jenisGenerateUgd').val() || activeType, $(this).val());
+                row.find('.nominal-generate-ugd').val(nominal > 0 ? formatNumber(nominal) : '');
+            }
+
             updatePreviewTotal();
         });
 
@@ -796,6 +925,53 @@
                     if (!applyServerErrors(response.errors || {})) {
                         Swal.fire('Gagal', errorMessage(xhr), 'error');
                     }
+                },
+                complete: function() {
+                    button.prop('disabled', false).html(originalHtml);
+                }
+            });
+        });
+
+        $('#formConfigUgd').on('submit', function(event) {
+            event.preventDefault();
+
+            const button = $('#btnSubmitConfigUgd');
+            const originalHtml = button.html();
+            const jenis = $('#jenisConfigUgd').val();
+            const nominalDefaultsPayload = [];
+
+            $('#configUgdNominalContainer .config-ugd-nominal-input').each(function() {
+                nominalDefaultsPayload.push({
+                    plotingPremi_id: Number($(this).data('ploting-id')),
+                    default_nominal: numeric(this.value) || 0
+                });
+            });
+
+            if (!nominalDefaultsPayload.length) {
+                Swal.fire('Gagal', 'Master Ploting Premi belum tersedia.', 'error');
+                return;
+            }
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateUgd.updateConfig") }}",
+                method: 'PUT',
+                data: {
+                    jenis_ugd: jenis,
+                    nominal_defaults: nominalDefaultsPayload
+                },
+                beforeSend: function() {
+                    button.prop('disabled', true).html(
+                        '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
+                    );
+                },
+                success: function(response) {
+                    configByType[jenis] = response.data || { nominal_defaults: [] };
+                    activeConfig = configByType[jenis];
+                    configModal.hide();
+                    Swal.fire('Berhasil', response.message, 'success');
+                },
+                error: function(xhr) {
+                    Swal.fire('Gagal', errorMessage(xhr), 'error');
                 },
                 complete: function() {
                     button.prop('disabled', false).html(originalHtml);

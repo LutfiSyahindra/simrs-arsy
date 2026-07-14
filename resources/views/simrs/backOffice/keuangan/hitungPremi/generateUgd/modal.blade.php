@@ -62,3 +62,35 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="modalConfigUgd" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content border-0 rounded-3" id="formConfigUgd">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="modalConfigUgdLabel">Konfigurasi UGD</h5>
+                    <small class="text-muted">Atur default nominal yang otomatis terisi saat generate.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="jenisConfigUgd">
+                <div class="alert alert-info py-2">
+                    Default nominal disimpan per plotting. Isi nominal untuk satu atau beberapa plotting sekaligus.
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <label class="form-label mb-0">Default Nominal <span id="configUgdTypeLabel">Umum</span></label>
+                    <small class="text-muted">Isi 0 jika tidak ingin otomatis terisi.</small>
+                </div>
+                <div id="configUgdNominalContainer" class="d-grid gap-2"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" id="btnSubmitConfigUgd" class="btn btn-primary btn-sm">
+                    <i class="mdi mdi-content-save-check-outline me-1"></i>
+                    Simpan Konfigurasi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

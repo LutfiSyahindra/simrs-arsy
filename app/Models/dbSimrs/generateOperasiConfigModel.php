@@ -11,6 +11,7 @@ class generateOperasiConfigModel extends Model
 
     protected $fillable = [
         'jenis_operasi',
+        'default_nominal',
         'instrumen_percent',
         'instrumen_premi_bersama_percent',
         'instrumen_petugas_percent',
@@ -23,6 +24,7 @@ class generateOperasiConfigModel extends Model
     ];
 
     protected $casts = [
+        'default_nominal' => 'integer',
         'instrumen_percent' => 'float',
         'instrumen_premi_bersama_percent' => 'float',
         'instrumen_petugas_percent' => 'float',

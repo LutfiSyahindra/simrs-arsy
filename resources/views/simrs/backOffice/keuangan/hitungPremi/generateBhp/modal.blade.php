@@ -51,6 +51,38 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalConfigBhp" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form class="modal-content border-0 rounded-3" id="formConfigBhp">
+            <div class="modal-header border-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-bold" id="modalConfigBhpLabel">Konfigurasi BHP</h5>
+                    <small class="text-muted">Atur default nominal per pasien untuk jenis aktif.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="jenisConfigBhp">
+                <div class="alert alert-info py-2">
+                    Nilai ini disimpan per plotting dan menjadi nilai awal saat generate.
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                    <label class="form-label mb-0">Default Nominal <span id="configBhpTypeLabel">Umum</span></label>
+                    <small class="text-muted">Isi 0 jika tidak ingin otomatis terisi.</small>
+                </div>
+                <div id="configBhpNominalContainer" class="d-grid gap-2"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" id="btnSubmitConfigBhp" class="btn btn-primary btn-sm">
+                    <i class="mdi mdi-content-save-check-outline me-1"></i>
+                    Simpan Konfigurasi
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="modalDetailBhp" tabindex="-1" aria-labelledby="modalDetailBhpLabel"
     aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

@@ -8,6 +8,7 @@
 
         const generateModal = new bootstrap.Modal(document.getElementById('modalGenerateBhp'));
         const detailModal = new bootstrap.Modal(document.getElementById('modalDetailBhp'));
+        const configModal = new bootstrap.Modal(document.getElementById('modalConfigBhp'));
         const typeConfig = {
             umum: {
                 label: 'Umum',
@@ -33,6 +34,8 @@
         let activeSummary = {
             ploting_nominals: []
         };
+        let activeConfig = { nominal_defaults: [] };
+        let configRequest = null;
 
         function formatRupiah(value) {
             return 'Rp ' + new Intl.NumberFormat('id-ID').format(Number(value) || 0);
@@ -50,6 +53,37 @@
 
         function nominalSummaryText(data) {
             return data.nominal_is_mixed ? 'Beragam' : formatRupiah(data.nominal_hitung);
+        }
+
+        function nominalDefaults(config) {
+            return Array.isArray(config?.nominal_defaults) ? config.nominal_defaults : [];
+        }
+
+        function defaultNominalFor(plotingId) {
+            const item = nominalDefaults(activeConfig).find(function(row) {
+                return String(row.plotingPremi_id) === String(plotingId || '');
+            });
+
+            return Number(item?.default_nominal || 0);
+        }
+
+        function loadConfig(jenis) {
+            if (configRequest) {
+                configRequest.abort();
+            }
+
+            configRequest = $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateBhp.config") }}",
+                data: { jenis_bhp: jenis },
+                success: function(response) {
+                    activeConfig = response.data || { nominal_defaults: [] };
+                },
+                complete: function() {
+                    configRequest = null;
+                }
+            });
+
+            return configRequest;
         }
 
         function renderPlotingNominalInputs(plotingNominals) {
@@ -72,9 +106,10 @@
                 const id = Number(item.id || 0);
                 const text = item.text || item.ploting || '-';
                 const kode = item.kode ? item.kode : '';
-                const nominal = Number(item.nominal_hitung || 0) > 0 ?
-                    formatInputNumber(item.nominal_hitung) :
-                    '';
+                const rawNominal = Number(item.nominal_hitung || 0) > 0 ?
+                    item.nominal_hitung :
+                    defaultNominalFor(id);
+                const nominal = rawNominal > 0 ? formatInputNumber(rawNominal) : '';
 
                 return `
                     <div class="border rounded-2 p-2">
@@ -684,22 +719,84 @@
                 return;
             }
 
-            $('#modalGenerateBhpLabel').text('Generate BHP ' + config.label);
-            $('#jenisGenerateBhp').val(activeType);
-            $('#jenisGenerateBhpLabel').val(config.label);
-            $('#periodeGenerateBhp').val(periode);
-            $('#periodeGenerateSourceInfo').text(
-                        'Data sumber: ' + getSourcePeriod(periode, activeType) +
-                (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.') +
-                ' Ploting bernominal Rp 0 tidak akan digenerate.'
-            );
-            renderPlotingNominalInputs(activeSummary.ploting_nominals || []);
-            $('#nominalHitungBhpError').text('');
-            generateModal.show();
+            loadConfig(activeType)
+                .done(function() {
+                    $('#modalGenerateBhpLabel').text('Generate BHP ' + config.label);
+                    $('#jenisGenerateBhp').val(activeType);
+                    $('#jenisGenerateBhpLabel').val(config.label);
+                    $('#periodeGenerateBhp').val(periode);
+                    $('#periodeGenerateSourceInfo').text(
+                                'Data sumber: ' + getSourcePeriod(periode, activeType) +
+                        (activeType === 'bpjs' ? ' (bulan sebelumnya).' : '.') +
+                        ' Ploting bernominal Rp 0 tidak akan digenerate.'
+                    );
+                    renderPlotingNominalInputs(activeSummary.ploting_nominals || []);
+                    $('#nominalHitungBhpError').text('');
+                    generateModal.show();
 
-            setTimeout(function() {
-                $('.ploting-nominal-input:first').trigger('focus');
-            }, 250);
+                    setTimeout(function() {
+                        $('.ploting-nominal-input:first').trigger('focus');
+                    }, 250);
+                })
+                .fail(function(xhr) {
+                    if (xhr.statusText !== 'abort') {
+                        Swal.fire('Gagal', getErrorMessage(xhr, 'Konfigurasi BHP gagal dimuat.'), 'error');
+                    }
+                });
+        });
+
+        function renderConfigNominalInputs() {
+            const items = nominalDefaults(activeConfig);
+            const container = $('#configBhpNominalContainer');
+
+            if (!items.length) {
+                container.html(`
+                    <div class="alert alert-warning mb-0 py-2">
+                        Master Ploting Premi belum tersedia. Tambahkan ploting terlebih dahulu.
+                    </div>
+                `);
+                $('#btnSubmitConfigBhp').prop('disabled', true);
+                return;
+            }
+
+            $('#btnSubmitConfigBhp').prop('disabled', false);
+            container.html(items.map(function(item) {
+                const nominal = Number(item.default_nominal || 0);
+
+                return `
+                    <div class="border rounded-2 p-2">
+                        <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${escapeHtml(item.text || item.ploting || '-')}</div>
+                                <small class="text-muted">${escapeHtml(item.kode || 'Ploting Premi')}</small>
+                            </div>
+                            <div class="input-group input-group-sm" style="max-width: 220px;">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" class="form-control text-end config-bhp-nominal-input"
+                                    data-ploting-id="${Number(item.plotingPremi_id || 0)}"
+                                    value="${nominal > 0 ? escapeHtml(formatInputNumber(nominal)) : ''}"
+                                    inputmode="numeric" autocomplete="off" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join(''));
+        }
+
+        $('#btnConfigBhp').on('click', function() {
+            loadConfig(activeType)
+                .done(function() {
+                    $('#modalConfigBhpLabel').text('Konfigurasi BHP ' + typeConfig[activeType].label);
+                    $('#jenisConfigBhp').val(activeType);
+                    $('#configBhpTypeLabel').text(typeConfig[activeType].label);
+                    renderConfigNominalInputs();
+                    configModal.show();
+                })
+                .fail(function(xhr) {
+                    if (xhr.statusText !== 'abort') {
+                        Swal.fire('Gagal', getErrorMessage(xhr, 'Konfigurasi BHP gagal dimuat.'), 'error');
+                    }
+                });
         });
 
         $('#plotingNominalContainer').on('input', '.ploting-nominal-input', function() {
@@ -707,6 +804,11 @@
             this.value = formatInputNumber(numeric);
             $(this).removeClass('is-invalid');
             $('#nominalHitungBhpError').text('');
+        });
+
+        $('#configBhpNominalContainer').on('input', '.config-bhp-nominal-input', function() {
+            const numeric = this.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+            this.value = formatInputNumber(numeric);
         });
 
         $('#formGenerateBhp').on('submit', function(event) {
@@ -791,6 +893,58 @@
                 },
                 complete: function() {
                     submitButton.prop('disabled', false).html(originalHtml);
+                }
+            });
+        });
+
+        $('#formConfigBhp').on('submit', function(event) {
+            event.preventDefault();
+
+            const button = $('#btnSubmitConfigBhp');
+            const originalHtml = button.html();
+            const jenis = $('#jenisConfigBhp').val();
+            const nominalDefaultsPayload = [];
+
+            $('#configBhpNominalContainer .config-bhp-nominal-input').each(function() {
+                nominalDefaultsPayload.push({
+                    plotingPremi_id: Number($(this).data('ploting-id')),
+                    default_nominal: this.value.replace(/\D/g, '') || 0
+                });
+            });
+
+            if (!nominalDefaultsPayload.length) {
+                Swal.fire('Gagal', 'Master Ploting Premi belum tersedia.', 'error');
+                return;
+            }
+
+            $.ajax({
+                url: "{{ route("backOffice.keuangan.hitungPremi.generateBhp.updateConfig") }}",
+                type: 'PUT',
+                data: {
+                    jenis_bhp: jenis,
+                    nominal_defaults: nominalDefaultsPayload
+                },
+                beforeSend: function() {
+                    button.prop('disabled', true).html(
+                        '<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan...'
+                    );
+                },
+                success: function(response) {
+                    activeConfig = response.data || { nominal_defaults: [] };
+                    configModal.hide();
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: response.message || 'Konfigurasi BHP berhasil disimpan.',
+                        timer: 1600,
+                        showConfirmButton: false
+                    });
+                },
+                error: function(xhr) {
+                    Swal.fire('Gagal', getErrorMessage(xhr, 'Konfigurasi BHP gagal disimpan.'), 'error');
+                },
+                complete: function() {
+                    button.prop('disabled', false).html(originalHtml);
                 }
             });
         });

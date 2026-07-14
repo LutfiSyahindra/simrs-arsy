@@ -1142,6 +1142,10 @@
                             <i class="mdi mdi-calculator-variant-outline me-1"></i>
                             <span id="btnGenerateBhpLabel">Generate BHP Umum</span>
                         </button>
+                        <button type="button" id="btnConfigBhp" class="btn btn-outline-primary bhp-action-button mt-2">
+                            <i class="mdi mdi-tune-variant me-1"></i>
+                            Konfigurasi Nominal
+                        </button>
 
                         <small class="text-muted d-block mt-2 text-center">
                             Nominal per pasien diisi pada langkah berikutnya.

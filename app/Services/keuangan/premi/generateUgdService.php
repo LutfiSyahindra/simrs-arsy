@@ -32,6 +32,28 @@ class generateUgdService
         ];
     }
 
+    public function getConfig(string $jenisUgd): array
+    {
+        return $this->configPayload($jenisUgd, $this->repository->getConfigs($jenisUgd));
+    }
+
+    public function updateConfig(string $jenisUgd, array $data): array
+    {
+        DB::transaction(function () use ($jenisUgd, $data) {
+            foreach ($data['nominal_defaults'] ?? [] as $row) {
+                $this->repository->saveConfig(
+                    $jenisUgd,
+                    (int) $row['plotingPremi_id'],
+                    [
+                        'default_nominal' => max(0, (int) ($row['default_nominal'] ?? 0)),
+                    ]
+                );
+            }
+        });
+
+        return $this->getConfig($jenisUgd);
+    }
+
     public function getDokterOptions(?string $keyword = null)
     {
         return $this->repository
@@ -318,6 +340,30 @@ class generateUgdService
             'is_locked' => $result->is_locked,
             'locked_at' => optional($result->locked_at)->format('d-m-Y H:i'),
             'locked_by_name' => $result->lockedBy?->name,
+        ];
+    }
+
+    private function configPayload(string $jenisUgd, $configs): array
+    {
+        $configsByPloting = $configs->keyBy('plotingPremi_id');
+
+        return [
+            'jenis_ugd' => $jenisUgd,
+            'jenis_ugd_label' => $this->typeLabel($jenisUgd),
+            'nominal_defaults' => $this->repository->getPlotingPremi()
+                ->map(function ($ploting) use ($configsByPloting) {
+                    $config = $configsByPloting->get($ploting->id);
+
+                    return [
+                        'plotingPremi_id' => (int) $ploting->id,
+                        'kode' => $ploting->kode,
+                        'ploting' => $ploting->ploting,
+                        'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                        'default_nominal' => (int) ($config?->default_nominal ?? 0),
+                    ];
+                })
+                ->values()
+                ->all(),
         ];
     }
 

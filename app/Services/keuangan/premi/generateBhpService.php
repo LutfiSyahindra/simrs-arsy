@@ -82,6 +82,28 @@ class generateBhpService
         ];
     }
 
+    public function getConfig(string $jenisBhp): array
+    {
+        return $this->configPayload($jenisBhp, $this->generateBhpRepository->getConfigs($jenisBhp));
+    }
+
+    public function updateConfig(string $jenisBhp, array $data): array
+    {
+        DB::transaction(function () use ($jenisBhp, $data) {
+            foreach ($data['nominal_defaults'] ?? [] as $row) {
+                $this->generateBhpRepository->saveConfig(
+                    $jenisBhp,
+                    (int) $row['plotingPremi_id'],
+                    [
+                        'default_nominal' => max(0, (int) ($row['default_nominal'] ?? 0)),
+                    ]
+                );
+            }
+        });
+
+        return $this->getConfig($jenisBhp);
+    }
+
     public function generate(string $periode, string $jenisBhp, array $nominalByPloting): array
     {
         $typeLabel = $this->typeLabel($jenisBhp);
@@ -381,6 +403,30 @@ class generateBhpService
             })
             ->values()
             ->all();
+    }
+
+    private function configPayload(string $jenisBhp, $configs): array
+    {
+        $configsByPloting = $configs->keyBy('plotingPremi_id');
+
+        return [
+            'jenis_bhp' => $jenisBhp,
+            'jenis_bhp_label' => $this->typeLabel($jenisBhp),
+            'nominal_defaults' => $this->generateBhpRepository->getPlotingPremi()
+                ->map(function ($ploting) use ($configsByPloting) {
+                    $config = $configsByPloting->get($ploting->id);
+
+                    return [
+                        'plotingPremi_id' => (int) $ploting->id,
+                        'kode' => $ploting->kode,
+                        'ploting' => $ploting->ploting,
+                        'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                        'default_nominal' => (int) ($config?->default_nominal ?? 0),
+                    ];
+                })
+                ->values()
+                ->all(),
+        ];
     }
 
     private function typeLabel(string $jenisBhp): string

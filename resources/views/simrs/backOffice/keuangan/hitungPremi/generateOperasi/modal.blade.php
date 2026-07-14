@@ -385,6 +385,30 @@
                 </div>
 
                 <div class="operasi-config-grid">
+                    <div class="operasi-config-section" id="configDefaultNominalOperasiSection">
+                        <h6><i class="mdi mdi-account-cash-outline me-1"></i> Nominal Default BPJS</h6>
+                        <div class="alert alert-info py-2 mb-3">
+                            Dipakai hanya untuk BPJS. Nilai ini mengisi otomatis kolom
+                            <strong>Nominal per PX</strong> saat generate.
+                        </div>
+                        <div class="operasi-config-field operasi-default-nominal-field align-items-start">
+                            <div>
+                                <label class="form-label">Nominal per PX</label>
+                                <small>Grand total BPJS dihitung dari Jumlah PX x Nominal per PX.</small>
+                            </div>
+                            <div>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rp</span>
+                                    <input type="text" class="form-control text-end" id="configDefaultNominalOperasi"
+                                        inputmode="numeric" autocomplete="off" placeholder="0">
+                                </div>
+                                <small class="text-muted d-block mt-1">
+                                    Contoh: 10 PX x Rp 100.000 = grand total Rp 1.000.000.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="operasi-config-section">
                         <h6><i class="mdi mdi-medical-bag me-1"></i> Persentase Instrumen</h6>
                         <div class="operasi-config-field">

@@ -59,7 +59,12 @@ class generateOperasiService
             : $percentages;
 
         return $this->configPayload(
-            $this->repository->saveConfig($jenisOperasi, $percentages, $recipients)
+            $this->repository->saveConfig($jenisOperasi, [
+                ...$percentages,
+                'default_nominal' => $jenisOperasi === 'bpjs'
+                    ? max(0, (int) ($data['default_nominal'] ?? 0))
+                    : 0,
+            ], $recipients)
         );
     }
 
@@ -509,6 +514,7 @@ class generateOperasiService
             'id' => $config->id,
             'jenis_operasi' => $config->jenis_operasi,
             'jenis_operasi_label' => $this->typeLabel($config->jenis_operasi),
+            'default_nominal' => (int) ($config->default_nominal ?? 0),
             'percentages' => $percentages,
             'recipients' => $recipients,
             'role_labels' => $this->roleLabels($config->jenis_operasi),

@@ -120,6 +120,7 @@ class hitungPremiOperasiController extends Controller
     {
         $validated = $request->validate([
             'jenis_operasi' => ['required', 'in:umum,bpjs'],
+            'default_nominal' => ['required_if:jenis_operasi,bpjs', 'nullable', 'integer', 'min:0', 'max:999999999999'],
             'instrumen_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'instrumen_premi_bersama_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'instrumen_petugas_percent' => ['required', 'numeric', 'min:0', 'max:100'],

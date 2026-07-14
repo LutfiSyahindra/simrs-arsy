@@ -427,6 +427,13 @@
                 data: { jenis_operasi: activeType },
                 success: function(response) {
                     const config = response.data || {};
+                    const defaultNominal = Number(config.default_nominal || 0);
+
+                    if (activeType === 'bpjs' && defaultNominal > 0 && !numeric($('#nominalPengaliGenerateOperasi').val())) {
+                        $('#nominalPengaliGenerateOperasi').val(formatNumber(defaultNominal));
+                        updateGenerateInputMode();
+                    }
+
                     renderFormulaFlow(config);
                     updateGenerateConfigStats(config);
                 }
@@ -1250,7 +1257,11 @@
 
                     $('#modalConfigOperasiLabel').text('Konfigurasi Premi Operasi ' + typeConfig[activeType]);
                     $('#configBpjsFlowHint').toggleClass('d-none', !isBpjs);
+                    $('#configDefaultNominalOperasiSection').toggleClass('d-none', !isBpjs);
                     $('#jenisConfigOperasi').val(activeType);
+                    $('#configDefaultNominalOperasi').val(
+                        isBpjs && Number(data.default_nominal || 0) > 0 ? formatNumber(data.default_nominal) : ''
+                    );
                     $('#configInstrumenPercent').val(p.instrumen_percent);
                     $('#configPremiBersamaPercent').val(p.instrumen_premi_bersama_percent);
                     $('#configInstrumenPetugasPercent').val(p.instrumen_petugas_percent);
@@ -1280,6 +1291,7 @@
 
             return {
                 jenis_operasi: $('#jenisConfigOperasi').val(),
+                default_nominal: isBpjs ? (numeric($('#configDefaultNominalOperasi').val()) || 0) : 0,
                 instrumen_percent: $('#configInstrumenPercent').val(),
                 instrumen_premi_bersama_percent: $('#configPremiBersamaPercent').val(),
                 instrumen_petugas_percent: $('#configInstrumenPetugasPercent').val(),
@@ -1329,6 +1341,9 @@
             formatInput(this);
             updateGenerateInputMode();
             resetGeneratePreview('Input BPJS berubah. Tampilkan preview ulang sebelum generate.');
+        });
+        $('#configDefaultNominalOperasi').on('input', function() {
+            formatInput(this);
         });
 
         $('.operasi-pegawai-select, .operasi-dokter-select').on('change', updateRecipientCounters);

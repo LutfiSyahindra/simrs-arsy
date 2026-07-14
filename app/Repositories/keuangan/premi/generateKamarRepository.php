@@ -2,6 +2,7 @@
 
 namespace App\Repositories\keuangan\premi;
 
+use App\Models\dbSimrs\generateKamarConfigModel;
 use App\Models\dbSimrs\generateKamarDetailModel;
 use App\Models\dbSimrs\generateKamarModel;
 use App\Models\dbSimrs\plotingPremiModel;
@@ -107,6 +108,24 @@ class generateKamarRepository
             ->select('id', 'kode', 'ploting')
             ->orderBy('ploting')
             ->get();
+    }
+
+    public function getConfigs(string $jenisKamar): Collection
+    {
+        return generateKamarConfigModel::query()
+            ->where('jenis_kamar', $jenisKamar)
+            ->get();
+    }
+
+    public function saveConfig(string $jenisKamar, int $plotingId, array $payload): generateKamarConfigModel
+    {
+        return DB::transaction(fn () => generateKamarConfigModel::query()->updateOrCreate(
+            [
+                'jenis_kamar' => $jenisKamar,
+                'plotingPremi_id' => $plotingId,
+            ],
+            $payload
+        )->fresh());
     }
 
     public function findByPeriodAndType(string $periode, string $jenisKamar): Collection
@@ -274,4 +293,5 @@ class generateKamarRepository
             ->whereIn('kd_pj', $codes->filter()->unique()->values())
             ->pluck('png_jawab', 'kd_pj');
     }
+
 }

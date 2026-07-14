@@ -142,6 +142,9 @@ class hitungPremiVkController extends Controller
     {
         $validated = $request->validate([
             'jenis_vk' => ['required', 'in:umum,bpjs'],
+            'nominal_defaults' => ['required', 'array', 'min:1'],
+            'nominal_defaults.*.plotingPremi_id' => ['required', 'integer', 'distinct', 'exists:master_ploting_premi,id'],
+            'nominal_defaults.*.default_nominal' => ['required', 'integer', 'min:0', 'max:999999999999'],
             'bpjs_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'bpjs_pembagi' => ['required', 'integer', 'min:1', 'max:999999'],
             'premi_bersama_percent' => ['required', 'numeric', 'min:0', 'max:100'],

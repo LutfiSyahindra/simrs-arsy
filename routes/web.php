@@ -188,6 +188,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateBhp', [hitungPremiBhpController::class, 'generateBhp'])->name('backOffice.keuangan.hitungPremi.generateBhp');
         Route::get('/hitung-premi/generateBhp/table', [hitungPremiBhpController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateBhp.table');
         Route::get('/hitung-premi/generateBhp/summary', [hitungPremiBhpController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateBhp.summary');
+        Route::get('/hitung-premi/generateBhp/config', [hitungPremiBhpController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateBhp.config');
+        Route::put('/hitung-premi/generateBhp/config', [hitungPremiBhpController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateBhp.updateConfig');
         Route::post('/hitung-premi/generateBhp', [hitungPremiBhpController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateBhp.store');
         Route::post('/hitung-premi/generateBhp/lock-all', [hitungPremiBhpController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateBhp.lockAll');
         Route::get('/hitung-premi/generateBhp/{id}/detail', [hitungPremiBhpController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateBhp.detail');
@@ -198,6 +200,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateKamar', [hitungPremiKamarController::class, 'generateKamar'])->name('backOffice.keuangan.hitungPremi.generateKamar');
         Route::get('/hitung-premi/generateKamar/table', [hitungPremiKamarController::class, 'table'])->name('backOffice.keuangan.hitungPremi.generateKamar.table');
         Route::get('/hitung-premi/generateKamar/summary', [hitungPremiKamarController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateKamar.summary');
+        Route::get('/hitung-premi/generateKamar/config', [hitungPremiKamarController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateKamar.config');
+        Route::put('/hitung-premi/generateKamar/config', [hitungPremiKamarController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateKamar.updateConfig');
         Route::post('/hitung-premi/generateKamar', [hitungPremiKamarController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateKamar.store');
         Route::post('/hitung-premi/generateKamar/lock-all', [hitungPremiKamarController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateKamar.lockAll');
         Route::get('/hitung-premi/generateKamar/{id}/detail', [hitungPremiKamarController::class, 'detail'])->name('backOffice.keuangan.hitungPremi.generateKamar.detail');
@@ -262,6 +266,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/hitung-premi/generateUgd/summary', [hitungPremiUgdController::class, 'summary'])->name('backOffice.keuangan.hitungPremi.generateUgd.summary');
         Route::get('/hitung-premi/generateUgd/dokter-options', [hitungPremiUgdController::class, 'dokterOptions'])->name('backOffice.keuangan.hitungPremi.generateUgd.dokterOptions');
         Route::get('/hitung-premi/generateUgd/ploting-options', [hitungPremiUgdController::class, 'plotingOptions'])->name('backOffice.keuangan.hitungPremi.generateUgd.plotingOptions');
+        Route::get('/hitung-premi/generateUgd/config', [hitungPremiUgdController::class, 'config'])->name('backOffice.keuangan.hitungPremi.generateUgd.config');
+        Route::put('/hitung-premi/generateUgd/config', [hitungPremiUgdController::class, 'updateConfig'])->name('backOffice.keuangan.hitungPremi.generateUgd.updateConfig');
         Route::get('/hitung-premi/generateUgd/copy-preview', [hitungPremiUgdController::class, 'copyPreview'])->name('backOffice.keuangan.hitungPremi.generateUgd.copyPreview');
         Route::post('/hitung-premi/generateUgd', [hitungPremiUgdController::class, 'store'])->name('backOffice.keuangan.hitungPremi.generateUgd.store');
         Route::post('/hitung-premi/generateUgd/lock-all', [hitungPremiUgdController::class, 'lockAll'])->name('backOffice.keuangan.hitungPremi.generateUgd.lockAll');

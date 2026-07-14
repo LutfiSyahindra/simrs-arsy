@@ -990,6 +990,14 @@
             padding: 8px;
         }
 
+        .operasi-default-nominal-field {
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+        }
+
+        .operasi-default-nominal-field>div:last-child {
+            min-width: 0;
+        }
+
         .operasi-config-field .form-label {
             color: #0f172a;
             font-size: 12px;
@@ -1808,6 +1816,10 @@
             .operasi-detail-hero-side {
                 align-items: flex-start;
                 justify-items: start;
+            }
+
+            .operasi-default-nominal-field {
+                grid-template-columns: 1fr;
             }
 
             .operasi-detail-ledger-row,

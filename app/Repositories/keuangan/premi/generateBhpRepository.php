@@ -2,6 +2,7 @@
 
 namespace App\Repositories\keuangan\premi;
 
+use App\Models\dbSimrs\generateBhpConfigModel;
 use App\Models\dbSimrs\generateBhpDetailModel;
 use App\Models\dbSimrs\generateBhpModel;
 use App\Models\dbSimrs\plotingPremiModel;
@@ -101,6 +102,24 @@ class generateBhpRepository
             ->select('id', 'kode', 'ploting')
             ->orderBy('ploting')
             ->get();
+    }
+
+    public function getConfigs(string $jenisBhp): Collection
+    {
+        return generateBhpConfigModel::query()
+            ->where('jenis_bhp', $jenisBhp)
+            ->get();
+    }
+
+    public function saveConfig(string $jenisBhp, int $plotingId, array $payload): generateBhpConfigModel
+    {
+        return DB::transaction(fn () => generateBhpConfigModel::query()->updateOrCreate(
+            [
+                'jenis_bhp' => $jenisBhp,
+                'plotingPremi_id' => $plotingId,
+            ],
+            $payload
+        )->fresh());
     }
 
     public function findByPeriodAndType(string $periode, string $jenisBhp): Collection
@@ -262,4 +281,5 @@ class generateBhpRepository
             ->whereIn('kd_pj', $codes->filter()->unique()->values())
             ->pluck('png_jawab', 'kd_pj');
     }
+
 }

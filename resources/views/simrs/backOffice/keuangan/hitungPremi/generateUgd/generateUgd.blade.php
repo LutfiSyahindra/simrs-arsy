@@ -232,7 +232,8 @@
 
         .ugd-refresh-btn,
         .ugd-copy-btn,
-        .ugd-lock-all-btn {
+        .ugd-lock-all-btn,
+        .ugd-config-btn {
             align-items: center;
             background: #fff;
             border: 1px solid var(--ugd-line);
@@ -263,6 +264,16 @@
         .ugd-lock-all-btn:hover {
             background: #fffbeb;
             color: #78350f;
+        }
+
+        .ugd-config-btn {
+            border-color: #bfdbfe;
+            color: #1d4ed8;
+        }
+
+        .ugd-config-btn:hover {
+            background: #eff6ff;
+            color: #1e40af;
         }
 
         .ugd-summary-grid {
@@ -671,6 +682,10 @@
                     <button type="button" class="ugd-lock-all-btn" id="btnLockAllUgd">
                         <i class="mdi mdi-lock-check-outline"></i>
                         Kunci Semua
+                    </button>
+                    <button type="button" class="ugd-config-btn" id="btnConfigUgd">
+                        <i class="mdi mdi-tune-variant"></i>
+                        Konfigurasi
                     </button>
                     <button type="button" class="ugd-generate-btn" id="btnOpenGenerateUgd">
                         <i class="mdi mdi-plus-circle-outline"></i>

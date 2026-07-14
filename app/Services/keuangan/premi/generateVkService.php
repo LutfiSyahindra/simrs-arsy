@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 class generateVkService
 {
     private const BPJS_ROLE = 'petugas_vk';
+
     private const BPJS_ROLE_LABEL = 'Petugas VK';
 
     public function __construct(
@@ -39,20 +40,38 @@ class generateVkService
 
     public function getConfig(string $jenisVk): array
     {
-        return $this->configPayload($this->repository->getConfig($jenisVk));
+        return $this->configPayload(
+            $this->repository->getConfig($jenisVk),
+            $this->repository->getNominalConfigs($jenisVk)
+        );
     }
 
     public function updateConfig(string $jenisVk, array $data): array
     {
         $recipients = $this->hydrateRecipients($data['recipients'] ?? []);
 
-        return $this->configPayload(
-            $this->repository->saveConfig($jenisVk, [
+        $config = DB::transaction(function () use ($jenisVk, $data, $recipients) {
+            $config = $this->repository->saveConfig($jenisVk, [
                 'bpjs_percent' => (float) ($data['bpjs_percent'] ?? 4),
                 'bpjs_pembagi' => max(1, (int) ($data['bpjs_pembagi'] ?? 4)),
                 'premi_bersama_percent' => (float) ($data['premi_bersama_percent'] ?? 20),
                 'distribution_mode' => $this->distributionMode($data['distribution_mode'] ?? 'rata'),
-            ], $recipients)
+            ], $recipients);
+
+            foreach ($data['nominal_defaults'] ?? [] as $row) {
+                $this->repository->saveNominalConfig(
+                    $jenisVk,
+                    (int) $row['plotingPremi_id'],
+                    ['default_nominal' => max(0, (int) ($row['default_nominal'] ?? 0))]
+                );
+            }
+
+            return $config;
+        });
+
+        return $this->configPayload(
+            $config,
+            $this->repository->getNominalConfigs($jenisVk)
         );
     }
 
@@ -381,11 +400,16 @@ class generateVkService
         string $errorPrefix = ''
     ): array {
         $baseTotal = $jumlahTindakan * $nominal;
-        $config = $this->configPayload($this->repository->getConfig($jenisVk));
+        $config = $this->configPayload(
+            $this->repository->getConfig($jenisVk),
+            $this->repository->getNominalConfigs($jenisVk)
+        );
         $bpjsPool = 0;
         $premiBersama = 0;
         $totalVk = $baseTotal;
         $recipients = [];
+        $configSnapshot = $config;
+        unset($configSnapshot['nominal_defaults']);
 
         if ($jenisVk === 'bpjs') {
             $bpjsPool = (int) round($baseTotal * $config['bpjs_percent'] / 100);
@@ -409,7 +433,7 @@ class generateVkService
             'total_dibagikan' => collect($recipients)->sum('total_received'),
             'total_premi_bersama' => $premiBersama,
             'config_snapshot' => [
-                ...$config,
+                ...$configSnapshot,
                 'bpjs_hasil_perhitungan' => $jenisVk === 'bpjs' ? ($hasilPerhitungan ?? 0) : $baseTotal,
                 'total_premi_bersama' => $premiBersama,
                 'formula_label' => $jenisVk === 'bpjs'
@@ -495,12 +519,28 @@ class generateVkService
             ->all();
     }
 
-    private function configPayload($config): array
+    private function configPayload($config, $nominalConfigs): array
     {
+        $nominalsByPloting = $nominalConfigs->keyBy('plotingPremi_id');
+
         return [
             'id' => $config->id,
             'jenis_vk' => $config->jenis_vk,
             'jenis_vk_label' => $this->typeLabel($config->jenis_vk),
+            'nominal_defaults' => $this->repository->getPlotingPremi()
+                ->map(function ($ploting) use ($nominalsByPloting) {
+                    $config = $nominalsByPloting->get($ploting->id);
+
+                    return [
+                        'plotingPremi_id' => (int) $ploting->id,
+                        'kode' => $ploting->kode,
+                        'ploting' => $ploting->ploting,
+                        'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                        'default_nominal' => (int) ($config?->default_nominal ?? 0),
+                    ];
+                })
+                ->values()
+                ->all(),
             'bpjs_percent' => (float) ($config->bpjs_percent ?? 4),
             'bpjs_pembagi' => max(1, (int) ($config->bpjs_pembagi ?? 4)),
             'premi_bersama_percent' => (float) ($config->premi_bersama_percent ?? 20),

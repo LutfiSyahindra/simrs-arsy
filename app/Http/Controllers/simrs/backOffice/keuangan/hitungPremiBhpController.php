@@ -91,6 +91,34 @@ class hitungPremiBhpController extends Controller
         ]);
     }
 
+    public function config(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_bhp' => ['required', 'in:umum,bpjs'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->generateBhpService->getConfig($validated['jenis_bhp']),
+        ]);
+    }
+
+    public function updateConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_bhp' => ['required', 'in:umum,bpjs'],
+            'nominal_defaults' => ['required', 'array', 'min:1'],
+            'nominal_defaults.*.plotingPremi_id' => ['required', 'integer', 'distinct', 'exists:master_ploting_premi,id'],
+            'nominal_defaults.*.default_nominal' => ['required', 'integer', 'min:0', 'max:999999999999'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi nominal BHP berhasil disimpan.',
+            'data' => $this->generateBhpService->updateConfig($validated['jenis_bhp'], $validated),
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([

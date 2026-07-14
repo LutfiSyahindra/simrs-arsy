@@ -113,6 +113,34 @@ class hitungPremiUgdController extends Controller
         ]);
     }
 
+    public function config(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_ugd' => ['required', 'in:umum,bpjs'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'data' => $this->service->getConfig($validated['jenis_ugd']),
+        ]);
+    }
+
+    public function updateConfig(Request $request)
+    {
+        $validated = $request->validate([
+            'jenis_ugd' => ['required', 'in:umum,bpjs'],
+            'nominal_defaults' => ['required', 'array', 'min:1'],
+            'nominal_defaults.*.plotingPremi_id' => ['required', 'integer', 'distinct', 'exists:master_ploting_premi,id'],
+            'nominal_defaults.*.default_nominal' => ['required', 'integer', 'min:0', 'max:999999999999'],
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Konfigurasi nominal UGD berhasil disimpan.',
+            'data' => $this->service->updateConfig($validated['jenis_ugd'], $validated),
+        ]);
+    }
+
     public function copyPreview(Request $request)
     {
         $validated = $request->validate([

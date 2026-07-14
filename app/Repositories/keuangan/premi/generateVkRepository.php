@@ -5,6 +5,7 @@ namespace App\Repositories\keuangan\premi;
 use App\Models\dbSimrs\gapokModel;
 use App\Models\dbSimrs\generateVkConfigModel;
 use App\Models\dbSimrs\generateVkModel;
+use App\Models\dbSimrs\generateVkNominalConfigModel;
 use App\Models\dbSimrs\plotingPremiModel;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -113,6 +114,13 @@ class generateVkRepository
             ->firstOrFail();
     }
 
+    public function getNominalConfigs(string $jenisVk): Collection
+    {
+        return generateVkNominalConfigModel::query()
+            ->where('jenis_vk', $jenisVk)
+            ->get();
+    }
+
     public function saveConfig(string $jenisVk, array $payload, array $recipients): generateVkConfigModel
     {
         $this->ensureDefaultConfigs();
@@ -142,6 +150,17 @@ class generateVkRepository
 
             return $config->fresh('pegawai');
         });
+    }
+
+    public function saveNominalConfig(string $jenisVk, int $plotingId, array $payload): generateVkNominalConfigModel
+    {
+        return DB::transaction(fn () => generateVkNominalConfigModel::query()->updateOrCreate(
+            [
+                'jenis_vk' => $jenisVk,
+                'plotingPremi_id' => $plotingId,
+            ],
+            $payload
+        )->fresh());
     }
 
     public function searchPegawai(?string $keyword = null): Collection

@@ -221,8 +221,8 @@
         <form class="modal-content border-0 rounded-3" id="formConfigVk">
             <div class="modal-header border-0 pb-0">
                 <div>
-                    <h5 class="modal-title fw-bold">Konfigurasi VK BPJS</h5>
-                    <small class="text-muted">
+                    <h5 class="modal-title fw-bold" id="modalConfigVkLabel">Konfigurasi VK</h5>
+                    <small class="text-muted" id="modalConfigVkSubtitle">
                         Total VK BPJS memakai nilai awal. Premi bersama diambil dari persen konfigurasi.
                     </small>
                 </div>
@@ -230,12 +230,24 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="jenisConfigVk" value="bpjs">
-                <div class="alert alert-primary py-2">
+                <div class="alert alert-primary py-2 vk-bpjs-config-field">
                     Rumus pegawai: <strong>Total VK awal x Persen BPJS / Pembagi</strong>.
                     Premi bersama: <strong>Total VK awal x Persen Premi Bersama</strong>.
                 </div>
                 <div class="row g-3">
-                    <div class="col-md-6">
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <div>
+                                <label class="form-label mb-0">Default Nominal per Ploting</label>
+                                <small class="text-muted d-block">
+                                    Nilai awal otomatis mengikuti plotting yang dipilih saat generate.
+                                </small>
+                            </div>
+                            <small class="text-muted">Isi 0 jika tidak ingin otomatis terisi.</small>
+                        </div>
+                        <div id="configVkNominalContainer" class="d-grid gap-2"></div>
+                    </div>
+                    <div class="col-md-6 vk-bpjs-config-field">
                         <label class="form-label">Persen BPJS</label>
                         <div class="input-group">
                             <input type="number" step="0.0001" min="0" max="100" class="form-control"
@@ -244,13 +256,13 @@
                         </div>
                         <small class="text-muted">Contoh 4 berarti mengambil 4% dari total VK awal.</small>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 vk-bpjs-config-field">
                         <label class="form-label">Pembagi</label>
                         <input type="number" step="1" min="1" max="999999" class="form-control"
                             id="configVkBpjsPembagi">
                         <small class="text-muted">Hasil persen BPJS akan dibagi angka ini.</small>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-6 vk-bpjs-config-field">
                         <label class="form-label">Persen Premi Bersama</label>
                         <div class="input-group">
                             <input type="number" step="0.0001" min="0" max="100" class="form-control"
@@ -259,7 +271,7 @@
                         </div>
                         <small class="text-muted">Default 20% dari Total VK awal sebelum pembagi.</small>
                     </div>
-                    <div class="col-12">
+                    <div class="col-12 vk-bpjs-config-field">
                         <label class="form-label">Mode Pembagian</label>
                         <select class="form-select" id="configVkDistributionMode">
                             <option value="rata">Bagi rata ke semua pegawai</option>
@@ -270,7 +282,7 @@
                             penuh kepada setiap pegawai.
                         </small>
                     </div>
-                    <div class="col-12">
+                    <div class="col-12 vk-bpjs-config-field">
                         <label class="form-label fw-bold">Pegawai Penerima</label>
                         <select class="form-select" id="configVkRecipients" multiple></select>
                         <small class="text-muted">
@@ -278,7 +290,7 @@
                         </small>
                         <div class="invalid-feedback d-block" id="configVkRecipientsError"></div>
                     </div>
-                    <div class="col-12">
+                    <div class="col-12 vk-bpjs-config-field">
                         <div class="vk-bpjs-preview" id="configVkPreview"></div>
                     </div>
                 </div>

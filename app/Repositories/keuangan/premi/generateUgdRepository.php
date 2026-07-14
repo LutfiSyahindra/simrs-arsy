@@ -2,6 +2,7 @@
 
 namespace App\Repositories\keuangan\premi;
 
+use App\Models\dbSimrs\generateUgdConfigModel;
 use App\Models\dbSimrs\generateUgdModel;
 use App\Models\dbSimrs\plotingPremiModel;
 use Illuminate\Support\Collection;
@@ -63,6 +64,24 @@ class generateUgdRepository
             ->sortBy(fn ($item) => strtolower($item['ploting_label']))
             ->values()
             ->toArray();
+    }
+
+    public function getConfigs(string $jenisUgd): Collection
+    {
+        return generateUgdConfigModel::query()
+            ->where('jenis_ugd', $jenisUgd)
+            ->get();
+    }
+
+    public function saveConfig(string $jenisUgd, int $plotingId, array $payload): generateUgdConfigModel
+    {
+        return DB::transaction(fn () => generateUgdConfigModel::query()->updateOrCreate(
+            [
+                'jenis_ugd' => $jenisUgd,
+                'plotingPremi_id' => $plotingId,
+            ],
+            $payload
+        )->fresh());
     }
 
     public function getDokterOptions(?string $keyword = null): Collection
@@ -206,4 +225,5 @@ class generateUgdRepository
     {
         $result->delete();
     }
+
 }

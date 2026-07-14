@@ -85,6 +85,28 @@ class generateKamarService
         ];
     }
 
+    public function getConfig(string $jenisKamar): array
+    {
+        return $this->configPayload($jenisKamar, $this->generateKamarRepository->getConfigs($jenisKamar));
+    }
+
+    public function updateConfig(string $jenisKamar, array $data): array
+    {
+        DB::transaction(function () use ($jenisKamar, $data) {
+            foreach ($data['nominal_defaults'] ?? [] as $row) {
+                $this->generateKamarRepository->saveConfig(
+                    $jenisKamar,
+                    (int) $row['plotingPremi_id'],
+                    [
+                        'default_nominal' => max(0, (int) ($row['default_nominal'] ?? 0)),
+                    ]
+                );
+            }
+        });
+
+        return $this->getConfig($jenisKamar);
+    }
+
     public function generate(string $periode, string $jenisKamar, array $nominalByPloting): array
     {
         $typeLabel = $this->typeLabel($jenisKamar);
@@ -389,6 +411,30 @@ class generateKamarService
             })
             ->values()
             ->all();
+    }
+
+    private function configPayload(string $jenisKamar, $configs): array
+    {
+        $configsByPloting = $configs->keyBy('plotingPremi_id');
+
+        return [
+            'jenis_kamar' => $jenisKamar,
+            'jenis_kamar_label' => $this->typeLabel($jenisKamar),
+            'nominal_defaults' => $this->generateKamarRepository->getPlotingPremi()
+                ->map(function ($ploting) use ($configsByPloting) {
+                    $config = $configsByPloting->get($ploting->id);
+
+                    return [
+                        'plotingPremi_id' => (int) $ploting->id,
+                        'kode' => $ploting->kode,
+                        'ploting' => $ploting->ploting,
+                        'text' => trim($ploting->kode.' - '.$ploting->ploting),
+                        'default_nominal' => (int) ($config?->default_nominal ?? 0),
+                    ];
+                })
+                ->values()
+                ->all(),
+        ];
     }
 
     private function typeLabel(string $jenisKamar): string

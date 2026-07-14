@@ -74,6 +74,7 @@
         let plotingOptions = [];
         let vkConfig = {
             jenis_vk: 'bpjs',
+            nominal_defaults: [],
             bpjs_percent: 4,
             bpjs_pembagi: 4,
             premi_bersama_percent: 20,
@@ -778,6 +779,56 @@
             select.trigger('change');
         }
 
+        function nominalDefaults(config) {
+            return Array.isArray(config?.nominal_defaults) ? config.nominal_defaults : [];
+        }
+
+        function defaultNominalFor(plotingId) {
+            const item = nominalDefaults(vkConfig).find(function(row) {
+                return String(row.plotingPremi_id) === String(plotingId || '');
+            });
+
+            return Number(item?.default_nominal || 0);
+        }
+
+        function renderConfigNominalInputs(config) {
+            const items = nominalDefaults(config);
+            const container = $('#configVkNominalContainer');
+
+            if (!items.length) {
+                container.html(`
+                    <div class="alert alert-warning mb-0 py-2">
+                        Master Ploting Premi belum tersedia. Tambahkan ploting terlebih dahulu.
+                    </div>
+                `);
+                $('#btnSubmitConfigVk').prop('disabled', true);
+                return;
+            }
+
+            $('#btnSubmitConfigVk').prop('disabled', false);
+            container.html(items.map(function(item) {
+                const nominal = Number(item.default_nominal || 0);
+
+                return `
+                    <div class="border rounded-2 p-2">
+                        <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-center">
+                            <div class="flex-grow-1">
+                                <div class="fw-semibold">${escapeHtml(item.text || item.ploting || '-')}</div>
+                                <small class="text-muted">${escapeHtml(item.kode || 'Ploting Premi')}</small>
+                            </div>
+                            <div class="input-group input-group-sm" style="max-width: 220px;">
+                                <span class="input-group-text">Rp</span>
+                                <input type="text" class="form-control text-end config-vk-nominal-input"
+                                    data-ploting-id="${Number(item.plotingPremi_id || 0)}"
+                                    value="${nominal > 0 ? escapeHtml(formatNumber(nominal)) : ''}"
+                                    inputmode="numeric" autocomplete="off" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join(''));
+        }
+
         function loadVkConfig(jenis) {
             if (configRequest) {
                 configRequest.abort();
@@ -790,6 +841,7 @@
                 },
                 success: function(response) {
                     vkConfig = response.data || vkConfig;
+                    renderConfigNominalInputs(vkConfig);
                     $('#configVkBpjsPercent').val(vkConfig.bpjs_percent ?? 4);
                     $('#configVkBpjsPembagi').val(vkConfig.bpjs_pembagi ?? 4);
                     $('#configVkPremiBersamaPercent').val(vkConfig.premi_bersama_percent ?? 20);
@@ -848,16 +900,25 @@
         }
 
         function openConfigModal() {
+            const isBpjs = activeType === 'bpjs';
             initConfigSelect2();
             $('#configVkRecipientsError').text('');
-            $('#jenisConfigVk').val('bpjs');
+            $('#jenisConfigVk').val(activeType);
+            $('#modalConfigVkLabel').text('Konfigurasi VK ' + typeConfig[activeType]);
+            $('#modalConfigVkSubtitle').text(
+                isBpjs ?
+                'Atur default nominal dan rumus pembagian VK BPJS.' :
+                'Atur default nominal VK UMUM untuk nilai awal saat generate.'
+            );
+            $('.vk-bpjs-config-field').toggleClass('d-none', !isBpjs);
             configModal.show();
-            loadVkConfig('bpjs');
+            loadVkConfig(activeType);
         }
 
         function addGenerateRow(rowData) {
             rowCounter += 1;
             const selectedPloting = rowData ? String(rowData.plotingPremi_id || '') : '';
+            const nominalValue = rowData ? Number(rowData.nominal_hitung || 0) : defaultNominalFor(selectedPloting);
             const row = $(
                 '<div class="vk-input-row" data-row-id="' + rowCounter + '">' +
                 '   <div class="vk-row-number"></div>' +
@@ -885,7 +946,7 @@
                 '       <div class="input-group">' +
                 '           <span class="input-group-text">Rp</span>' +
                 '           <input type="text" class="form-control text-end nominal-generate-vk" inputmode="numeric" autocomplete="off" placeholder="0" value="' +
-                (rowData ? formatNumber(rowData.nominal_hitung) : '') +
+                (nominalValue ? formatNumber(nominalValue) : '') +
                 '">' +
                 '       </div>' +
                 '       <div class="invalid-feedback d-block row-error nominal-error"></div>' +
@@ -1155,7 +1216,7 @@
 
             $.when(
                 loadPlotingOptions(),
-                jenis === 'bpjs' ? loadVkConfig('bpjs') : $.Deferred().resolve().promise()
+                loadVkConfig(jenis)
             ).then(function() {
                 addGenerateRow(row || null);
             });
@@ -1388,6 +1449,10 @@
 
         $('#btnConfigVk').on('click', openConfigModal);
 
+        $('#configVkNominalContainer').on('input', '.config-vk-nominal-input', function() {
+            formatInput(this);
+        });
+
         $('#configVkBpjsPercent, #configVkBpjsPembagi, #configVkPremiBersamaPercent, #configVkDistributionMode').on('input change', function() {
             vkConfig.distribution_mode = $('#configVkDistributionMode').val() || 'rata';
             renderConfigPreview();
@@ -1429,6 +1494,13 @@
         $('#generateVkRows').on('change', 'select', function() {
             $(this).removeClass('is-invalid');
             $(this).closest('.vk-row-field').find('.row-error').text('');
+
+            if ($(this).hasClass('ploting-generate-vk-row')) {
+                const row = $(this).closest('.vk-input-row');
+                const nominal = defaultNominalFor($(this).val());
+                row.find('.nominal-generate-vk').val(nominal > 0 ? formatNumber(nominal) : '');
+            }
+
             updatePreviewTotal();
         });
 
@@ -1497,19 +1569,33 @@
 
             const button = $('#btnSubmitConfigVk');
             const originalHtml = button.html();
+            const nominalDefaultsPayload = [];
 
             $('#configVkRecipientsError').text('');
+
+            $('#configVkNominalContainer .config-vk-nominal-input').each(function() {
+                nominalDefaultsPayload.push({
+                    plotingPremi_id: Number($(this).data('ploting-id')),
+                    default_nominal: numeric(this.value) || 0
+                });
+            });
+
+            if (!nominalDefaultsPayload.length) {
+                Swal.fire('Gagal', 'Master Ploting Premi belum tersedia.', 'error');
+                return;
+            }
 
             $.ajax({
                 url: "{{ route("backOffice.keuangan.hitungPremi.generateVk.updateConfig") }}",
                 method: 'PUT',
                 data: {
-                    jenis_vk: 'bpjs',
+                    jenis_vk: $('#jenisConfigVk').val(),
+                    nominal_defaults: nominalDefaultsPayload,
                     bpjs_percent: $('#configVkBpjsPercent').val(),
                     bpjs_pembagi: $('#configVkBpjsPembagi').val(),
                     premi_bersama_percent: $('#configVkPremiBersamaPercent').val(),
                     distribution_mode: $('#configVkDistributionMode').val(),
-                    recipients: $('#configVkRecipients').val() || []
+                    recipients: $('#jenisConfigVk').val() === 'bpjs' ? ($('#configVkRecipients').val() || []) : []
                 },
                 beforeSend: function() {
                     button.prop('disabled', true).html(

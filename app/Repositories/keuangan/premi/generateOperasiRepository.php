@@ -251,6 +251,7 @@ class generateOperasiRepository
         generateOperasiConfigModel::query()->firstOrCreate(
             ['jenis_operasi' => 'umum'],
             [
+                'default_nominal' => 0,
                 'instrumen_percent' => 10,
                 'instrumen_premi_bersama_percent' => 20,
                 'instrumen_petugas_percent' => 80,
@@ -266,6 +267,7 @@ class generateOperasiRepository
         generateOperasiConfigModel::query()->firstOrCreate(
             ['jenis_operasi' => 'bpjs'],
             [
+                'default_nominal' => 0,
                 'instrumen_percent' => 80,
                 'instrumen_premi_bersama_percent' => 20,
                 'instrumen_petugas_percent' => 100,
