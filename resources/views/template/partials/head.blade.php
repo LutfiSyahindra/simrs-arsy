@@ -2,13 +2,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta name="description" content="Responsive HTML Admin Dashboard Template based on Bootstrap 5">
-    <meta name="author" content="NobleUI">
-    <meta name="keywords"
-        content="nobleui, bootstrap, bootstrap 5, bootstrap5, admin, dashboard, template, responsive, css, sass, html, theme, front-end, ui kit, web">
+    <meta name="description" content="{{ config("app.name", "SIMRS Arsy") }}">
+    <meta name="author" content="{{ config("app.name", "SIMRS Arsy") }}">
+    <meta name="keywords" content="simrs, arsy, rumah sakit, dashboard, pelayanan, administrasi">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>NobleUI - HTML Bootstrap 5 Admin Dashboard Template</title>
+    <title>@hasSection("title")@yield("title") - @endif{{ config("app.name", "SIMRS Arsy") }}</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +32,7 @@
     <link rel="stylesheet" href="{{ asset("assets/css/demo1/style.css") }}">
     <!-- End layout styles -->
 
-    <link rel="shortcut icon" href="{{ asset("assets/images/favicon.png") }}" />
+    <link rel="icon" type="image/png" href="{{ asset("plugins/img/logoarsy.png") }}">
+    <link rel="apple-touch-icon" href="{{ asset("plugins/img/logoarsy.png") }}">
     @vite(['resources/js/app.js'])
 </head>

@@ -17,7 +17,8 @@
 <link rel="stylesheet" href="{{ asset("assets/css/demo1/style.css") }}">
 
 <!-- Favicon -->
-<link rel="shortcut icon" href="{{ asset("assets/images/favicon.png") }}" />
+<link rel="icon" type="image/png" href="{{ asset("plugins/img/logoarsy.png") }}">
+<link rel="apple-touch-icon" href="{{ asset("plugins/img/logoarsy.png") }}">
 
 @push("scripts")
     <!-- Plugin js for Dropify -->

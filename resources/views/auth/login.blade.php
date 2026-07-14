@@ -6,7 +6,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
-        <title>Login - NobleUI</title>
+        <title>Login - {{ config("app.name", "SIMRS Arsy") }}</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,42 @@
         <link rel="stylesheet" href="{{ asset("assets/fonts/feather-font/css/iconfont.css") }}">
         <link rel="stylesheet" href="{{ asset("assets/vendors/flag-icon-css/css/flag-icon.min.css") }}">
         <link rel="stylesheet" href="{{ asset("assets/css/demo1/style.css") }}">
-        <link rel="shortcut icon" href="{{ asset("assets/images/favicon.png") }}" />
+        <link rel="icon" type="image/png" href="{{ asset("plugins/img/logoarsy.png") }}">
+        <link rel="apple-touch-icon" href="{{ asset("plugins/img/logoarsy.png") }}">
+        <style>
+            .login-brand {
+                align-items: center;
+                display: flex;
+                gap: 14px;
+                margin-bottom: 18px;
+            }
+
+            .login-brand-logo {
+                background: #fff;
+                border: 1px solid #e5e7eb;
+                border-radius: 10px;
+                box-shadow: 0 8px 20px rgba(15, 23, 42, .08);
+                height: 72px;
+                object-fit: contain;
+                padding: 8px;
+                width: 72px;
+            }
+
+            .login-brand-title {
+                color: #1f2937;
+                font-size: 24px;
+                font-weight: 800;
+                line-height: 1.1;
+                margin: 0;
+            }
+
+            .login-brand-subtitle {
+                color: #64748b;
+                font-size: 13px;
+                font-weight: 500;
+                margin-top: 4px;
+            }
+        </style>
     </head>
 
     <body>
@@ -37,8 +72,15 @@
                                     </div>
                                     <div class="col-md-8 ps-md-0">
                                         <div class="auth-form-wrapper px-4 py-5">
-                                            <a href="#"
-                                                class="noble-ui-logo d-block mb-2">SIMRS<span>Arsy</span></a>
+                                            <div class="login-brand">
+                                                <img src="{{ asset("plugins/img/logoarsy.png") }}"
+                                                    alt="{{ config("app.name", "SIMRS Arsy") }}"
+                                                    class="login-brand-logo">
+                                                <div>
+                                                    <h1 class="login-brand-title">SIMRS Arsy</h1>
+                                                    <div class="login-brand-subtitle">RS Abdurrahman Syamsuri</div>
+                                                </div>
+                                            </div>
                                             <h5 class="text-muted fw-normal mb-4">Welcome back! Log in to your account.
                                             </h5>
 

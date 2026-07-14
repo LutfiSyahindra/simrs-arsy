@@ -324,7 +324,7 @@
                 document.querySelector('.page-breadcrumb .breadcrumb-item.active')?.textContent,
                 document.querySelector('.finance-master-page h5')?.textContent,
                 document.querySelector('h1, h2, h3, h4, h5')?.textContent,
-                document.title.replace(/\s*[-|]\s*NobleUI.*$/i, '')
+                document.title.replace(/\s*[-|]\s*(NobleUI|SIMRS\s*Arsy).*$/i, '')
             ];
 
             for (const candidate of candidates) {

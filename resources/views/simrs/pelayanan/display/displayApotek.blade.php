@@ -5,10 +5,9 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <meta name="description" content="Responsive HTML Admin Dashboard Template based on Bootstrap 5">
-        <meta name="author" content="NobleUI">
-        <meta name="keywords"
-            content="nobleui, bootstrap, bootstrap 5, bootstrap5, admin, dashboard, template, responsive, css, sass, html, theme, front-end, ui kit, web">
+        <meta name="description" content="{{ config("app.name", "SIMRS Arsy") }}">
+        <meta name="author" content="{{ config("app.name", "SIMRS Arsy") }}">
+        <meta name="keywords" content="simrs, arsy, display antrian, pelayanan">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>Display Antrian</title>
 
@@ -30,7 +29,8 @@
         <link rel="stylesheet" href="{{ asset("assets/css/demo1/style.css") }}">
         <!-- End layout styles -->
 
-        <link rel="shortcut icon" href="{{ asset("assets/images/favicon.png") }}" />
+        <link rel="icon" type="image/png" href="{{ asset("plugins/img/logoarsy.png") }}">
+        <link rel="apple-touch-icon" href="{{ asset("plugins/img/logoarsy.png") }}">
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
         <style>
             body {

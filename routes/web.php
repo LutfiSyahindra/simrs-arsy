@@ -20,6 +20,7 @@ use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiRadiologiControlle
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiTindakanMedisController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiUgdController;
 use App\Http\Controllers\simrs\backOffice\keuangan\hitungPremiVkController;
+use App\Http\Controllers\simrs\backOffice\keuangan\keuanganController;
 use App\Http\Controllers\simrs\backOffice\keuangan\penggajianController;
 use App\Http\Controllers\simrs\backOffice\keuangan\premiController;
 use App\Http\Controllers\simrs\master\keuangan\gapokController;
@@ -161,6 +162,8 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('simrs/backOffice/keuangan')->group(function () {
+        Route::get('/dashboard', [keuanganController::class, 'index'])->name('backOffice.keuangan.dashboard');
+
         Route::get('/premi', [premiController::class, 'index'])->name('backOffice.keuangan.premi');
         Route::get('/premi/getPremiTable', [premiController::class, 'getPremiTable'])->name('backOffice.keuangan.premi.getPremiTable');
         Route::get('/premi/getPremiDetail', [premiController::class, 'getPremiDetail'])->name('backOffice.keuangan.premi.getPremiDetail');

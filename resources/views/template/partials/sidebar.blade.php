@@ -190,7 +190,7 @@
                 <div class="collapse" id="keuangan">
                     <ul class="nav sub-menu">
                         <li class="nav-item">
-                            <a href="{{ route("pelayanan.petugasPanggil.poliws") }}" class="nav-link">Dashboard</a>
+                            <a href="{{ route("backOffice.keuangan.dashboard") }}" class="nav-link">Dashboard</a>
                         </li>
                         {{-- <li class="nav-item">
                             <a href="{{ route("masterData.keuangan.gapok") }}" class="nav-link">Gaji

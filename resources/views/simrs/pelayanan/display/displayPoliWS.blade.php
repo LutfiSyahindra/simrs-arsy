@@ -13,7 +13,8 @@
         <link rel="stylesheet" href="{{ asset("assets/fonts/feather-font/css/iconfont.css") }}">
         <link rel="stylesheet" href="{{ asset("assets/vendors/flag-icon-css/css/flag-icon.min.css") }}">
         <link rel="stylesheet" href="{{ asset("assets/css/demo1/style.css") }}">
-        <link rel="shortcut icon" href="{{ asset("assets/images/favicon.png") }}" />
+        <link rel="icon" type="image/png" href="{{ asset("plugins/img/logoarsy.png") }}">
+        <link rel="apple-touch-icon" href="{{ asset("plugins/img/logoarsy.png") }}">
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
         <style>
