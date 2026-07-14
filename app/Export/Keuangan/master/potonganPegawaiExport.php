@@ -4,6 +4,7 @@ namespace App\Export\Keuangan\master;
 
 use App\Models\dbSimrs\gapokModel;
 use App\Models\dbSimrs\jnsPotonganModel;
+use App\Models\dbSimrs\potonganPegawaiModel;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -26,14 +27,27 @@ class potonganPegawaiExport implements FromCollection, WithColumnWidths, WithHea
             ->orderBy('nama')
             ->get();
 
-        $potongan = jnsPotonganModel::select('kode', 'nama', 'tipe')
+        $potongan = jnsPotonganModel::select('id', 'kode', 'nama', 'tipe')
             ->orderBy('kode')
             ->get();
+
+        $nominalPotongan = potonganPegawaiModel::select('nik', 'potongan_id', 'nominal')
+            ->whereIn('nik', $data->pluck('nik'))
+            ->whereIn('potongan_id', $potongan->pluck('id'))
+            ->get()
+            ->mapWithKeys(fn ($item) => [
+                $item->nik.'|'.$item->potongan_id => $item->nominal,
+            ]);
 
         $result = collect();
 
         foreach ($data as $item) {
             foreach ($potongan as $p) {
+                $key = $item->nik.'|'.$p->id;
+                $nominal = $nominalPotongan->has($key)
+                    ? $nominalPotongan->get($key)
+                    : ($p->tipe === 'persen_total_gaji' ? 0 : null);
+
                 $result->push([
                     $item->nik,
                     $item->nama,
@@ -42,7 +56,7 @@ class potonganPegawaiExport implements FromCollection, WithColumnWidths, WithHea
                     $item->gaji_pokok,
                     $p->kode,
                     $p->nama,
-                    $p->tipe === 'persen_total_gaji' ? 0 : null,
+                    $nominal,
                 ]);
             }
         }

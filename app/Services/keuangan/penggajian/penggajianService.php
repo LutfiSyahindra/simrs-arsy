@@ -1122,20 +1122,27 @@ class penggajianService
 
     public function getGajiTahap2ExportPayload(string $periode): array
     {
+        $rows = $this->withoutMitraRows($this->getGajiTahap2Table($periode));
+        $details = $this->withoutMitraRows(
+            $this->penggajianRepository->getGajiTahap2DetailsByPeriod($periode)
+        );
+
         return [
             'periode' => $periode,
-            'summary' => $this->getSummaryGajiTahap2($periode),
-            'rows' => $this->getGajiTahap2Table($periode),
-            'details' => $this->penggajianRepository->getGajiTahap2DetailsByPeriod($periode),
+            'summary' => $this->getGajiTahap2ExportSummary($rows, $periode),
+            'rows' => $rows,
+            'details' => $details,
         ];
     }
 
     public function getGajiTahap1ExportPayload(string $periode): array
     {
+        $rows = $this->withoutMitraRows($this->getGajiTahap1Table($periode));
+
         return [
             'periode' => $periode,
-            'summary' => $this->getSummaryGajiTahap1($periode),
-            'rows' => $this->getGajiTahap1Table($periode),
+            'summary' => $this->getGajiTahap1ExportSummary($rows, $periode),
+            'rows' => $rows,
         ];
     }
 
@@ -1225,6 +1232,95 @@ class penggajianService
             ],
             'rows' => $rows,
         ];
+    }
+
+    private function getGajiTahap1ExportSummary(Collection $rows, ?string $periode): array
+    {
+        return [
+            'jumlah_pegawai' => $rows->count(),
+            'jumlah_tetap' => $this->countRowsByStatus($rows, 'T'),
+            'jumlah_kontrak' => $this->countRowsByStatus($rows, 'FT'),
+            'total_gaji' => $this->sumRows($rows, 'total'),
+            'total_gapok' => $this->sumRows($rows, 'gaji_dibayarkan'),
+            'total_tunjangan' => $this->sumRows($rows, 'tunjangan'),
+            'total_premi' => $this->sumRows($rows, 'premi'),
+            'total_pembulatan' => $this->sumRows($rows, 'pembulatan'),
+            'jumlah_lainnya' => $this->countRowsOutsideStatuses($rows, ['T', 'FT']),
+            'periode' => $periode,
+        ];
+    }
+
+    private function getGajiTahap2ExportSummary(Collection $rows, ?string $periode): array
+    {
+        return [
+            'jumlah_pegawai' => $rows->count(),
+            'jumlah_tetap' => $this->countRowsByStatus($rows, 'T'),
+            'jumlah_kontrak' => $this->countRowsByStatus($rows, 'FT'),
+            'jumlah_lainnya' => $this->countRowsOutsideStatuses($rows, ['T', 'FT']),
+            'total_gaji' => $this->sumRows($rows, 'total'),
+            'total_gapok' => $this->sumRows($rows, 'gaji_dibayarkan'),
+            'total_tunjangan' => 0,
+            'total_premi' => $this->sumRows($rows, 'total_premi'),
+            'total_potongan' => $this->sumRows($rows, 'total_potongan'),
+            'total_pembulatan' => $this->sumRows($rows, 'pembulatan'),
+            'jumlah_sumber_premi' => $this->sumRows($rows, 'jumlah_sumber_premi'),
+            'periode' => $periode,
+        ];
+    }
+
+    private function withoutMitraRows(Collection $rows): Collection
+    {
+        return $rows
+            ->reject(fn ($row) => $this->isMitraPayrollRow($row))
+            ->values();
+    }
+
+    private function isMitraPayrollRow($row): bool
+    {
+        $status = $this->rowValue($row, 'status');
+        $statusLabel = strtolower(trim((string) $this->rowValue($row, 'status_label', '')));
+
+        return $this->isMitraStatus($status) || str_contains($statusLabel, 'mitra');
+    }
+
+    private function isMitraStatus(?string $status): bool
+    {
+        $statusText = strtolower(trim((string) $status));
+
+        return $this->normalizeStatus($status) === 'MT'
+            || str_contains($statusText, 'mitra');
+    }
+
+    private function countRowsByStatus(Collection $rows, string $status): int
+    {
+        return $rows
+            ->filter(fn ($row) => $this->normalizeStatus($this->rowValue($row, 'status')) === $status)
+            ->count();
+    }
+
+    private function countRowsOutsideStatuses(Collection $rows, array $statuses): int
+    {
+        return $rows
+            ->reject(fn ($row) => in_array($this->normalizeStatus($this->rowValue($row, 'status')), $statuses, true))
+            ->count();
+    }
+
+    private function sumRows(Collection $rows, string $key): int
+    {
+        return (int) $rows->sum(fn ($row) => (int) $this->rowValue($row, $key, 0));
+    }
+
+    private function rowValue($row, string $key, $default = null)
+    {
+        if (is_array($row)) {
+            return $row[$key] ?? $default;
+        }
+
+        if (is_object($row)) {
+            return $row->{$key} ?? $default;
+        }
+
+        return $default;
     }
 
     public function dokterUmumTahap2Options(?string $keyword = null)
