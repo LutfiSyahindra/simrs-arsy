@@ -32,6 +32,41 @@
         // ======= END KONFIGURASI AJAX =======
 
         let slipWhatsappRecipients = [];
+        let slipDeliveryChannel = 'whatsapp';
+        const slipDeliveryChannels = {
+            whatsapp: {
+                label: 'WhatsApp',
+                shortLabel: 'WA',
+                icon: 'mdi-whatsapp',
+                iconWrapClass: 'is-green',
+                buttonClass: 'btn-success',
+                badgeClass: 'bg-success-subtle text-success',
+                contactHeader: 'No. WhatsApp',
+                emptyIcon: 'mdi-account-alert-outline',
+                emptyText: 'Pastikan data gaji periode ini sudah digenerate dan nomor WhatsApp terisi.',
+                loadingText: 'Memuat penerima WhatsApp...',
+                sendText: 'Kirim Slip Gaji WhatsApp',
+                confirmText: ' akan dikirim bertahap lewat WhatsApp.',
+                successTitle: 'Masuk Antrean WhatsApp',
+                errorText: 'Gagal mengirim slip gaji ke WhatsApp.'
+            },
+            email: {
+                label: 'Email',
+                shortLabel: 'Email',
+                icon: 'mdi-email-outline',
+                iconWrapClass: 'is-blue',
+                buttonClass: 'btn-primary',
+                badgeClass: 'bg-primary-subtle text-primary',
+                contactHeader: 'Email',
+                emptyIcon: 'mdi-email-alert-outline',
+                emptyText: 'Pastikan data gaji periode ini sudah digenerate dan email pegawai terisi di Gaji Pokok.',
+                loadingText: 'Memuat penerima Email...',
+                sendText: 'Kirim Slip Gaji Email',
+                confirmText: ' akan dikirim bertahap lewat Email.',
+                successTitle: 'Masuk Antrean Email',
+                errorText: 'Gagal mengirim slip gaji ke Email.'
+            }
+        };
         let payrollDoctorConfigState = {
             stage1: {
                 label: 'tahap 1',
@@ -420,8 +455,8 @@
             const isTahap2 = tahap == '2';
             const stageLabel = 'Tahap ' + (isTahap2 ? '2' : '1');
             const actionHint = isTahap2 ?
-                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WhatsApp tersedia untuk tahap 2.' :
-                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WhatsApp tersedia untuk tahap 1.';
+                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WA/Email tersedia untuk tahap 2.' :
+                'Export Excel tersedia untuk tahap 1, tahap 2, dan keseluruhan. Slip WA/Email tersedia untuk tahap 1.';
 
             $('#commandPeriodeText').text(periode);
             $('#stage2GeneratorReadinessPanel').toggleClass('d-none', !isTahap2);
@@ -1121,15 +1156,36 @@
             return seconds + ' detik';
         }
 
+        function currentSlipDeliveryMeta() {
+            return slipDeliveryChannels[slipDeliveryChannel] || slipDeliveryChannels.whatsapp;
+        }
+
         function updateSlipWhatsappStageLabels(tahap) {
             const label = 'Tahap ' + tahap;
+            const meta = currentSlipDeliveryMeta();
 
-            $('#modalSlipWhatsappLabel').text('Kirim Slip Gaji WhatsApp ' + label);
-            $('#waSlipStageBadge').text(tahap === 2 ? 'Tahap 2' : 'Tahap 1 + 2');
+            $('#modalSlipWhatsappLabel').text('Kirim Slip Gaji ' + meta.label + ' ' + label);
+            $('#waSlipStageBadge')
+                .removeClass('bg-success-subtle text-success bg-primary-subtle text-primary')
+                .addClass(meta.badgeClass)
+                .text((tahap === 2 ? 'Tahap 2' : 'Tahap 1 + 2') + ' / ' + meta.shortLabel);
             $('#waSlipModalSubtitle').text(tahap === 2 ?
                 'Slip gaji tahap 2, termasuk dokter jika datanya tersedia.' :
                 'Slip gabungan tahap 1 + 2, termasuk dokter jika datanya tersedia.'
             );
+            $('#slipDeliveryModalIconWrap')
+                .removeClass('is-green is-blue is-amber')
+                .addClass(meta.iconWrapClass);
+            $('#slipDeliveryModalIcon').attr('class', 'mdi ' + meta.icon + ' mdi-24px');
+            $('#slipDeliveryContactHeader').text(meta.contactHeader);
+            $('#slipDeliveryEmptyIcon')
+                .attr('class', 'mdi ' + meta.emptyIcon + ' mdi-36px text-muted d-block mb-2');
+            $('#slipDeliveryEmptyText').text(meta.emptyText);
+            $('#slipDeliveryLoadingText').text(meta.loadingText);
+            $('#btnSendSlipWhatsapp')
+                .removeClass('btn-success btn-primary')
+                .addClass(meta.buttonClass);
+            $('#slipDeliverySendText').text(meta.sendText);
         }
 
         function renderSlipWhatsappRecipients(items) {
@@ -1144,15 +1200,24 @@
             }
 
             items.forEach(function(item) {
+                const meta = currentSlipDeliveryMeta();
                 const statusClass = item.status === 'T' ? 'is-tetap' : item.status === 'FT' ?
                     'is-kontrak' : 'is-unknown';
                 const statusLabel = item.status_label || '-';
+                const contactPrimary = slipDeliveryChannel === 'email' ?
+                    (item.email || '-') :
+                    (item.no_whatsapp || item.no_telp || '-');
+                const contactSecondary = slipDeliveryChannel === 'email' ?
+                    (item.no_telp ? 'WA: ' + item.no_telp : '') :
+                    (item.no_telp || '');
                 const searchable = [
                     item.nama,
                     item.nik,
                     item.jabatan,
                     item.no_telp,
                     item.no_whatsapp,
+                    item.email,
+                    meta.label,
                     item.is_doctor_slip ? 'dokter' : ''
                 ].join(' ').toLowerCase();
 
@@ -1171,8 +1236,8 @@
                             <span class="payroll-status-badge ${statusClass}">${escapeHtml(statusLabel)}</span>
                         </td>
                         <td>
-                            <span class="fw-semibold">${escapeHtml(item.no_whatsapp || item.no_telp || '-')}</span>
-                            <span class="employee-subtext">${escapeHtml(item.no_telp || '')}</span>
+                            <span class="fw-semibold">${escapeHtml(contactPrimary)}</span>
+                            <span class="employee-subtext">${escapeHtml(contactSecondary)}</span>
                         </td>
                         <td class="text-end currency-cell">${formatRupiah(item.total || 0)}</td>
                     </tr>
@@ -1205,11 +1270,12 @@
             $('#btnSendSlipWhatsapp').prop('disabled', true);
 
             $.ajax({
-                url: "{{ route("backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1") }}",
+                url: "{{ route("backOffice.keuangan.penggajian.getPenerimaSlip") }}",
                 type: "GET",
                 data: {
                     periode: periode,
-                    tahap: tahap
+                    tahap: tahap,
+                    channel: slipDeliveryChannel
                 },
                 beforeSend: function() {
                     setSlipWhatsappLoading(true);
@@ -1576,7 +1642,7 @@
             });
         });
 
-        $('#btnOpenSlipWhatsapp').on('click', function() {
+        $('.slip-delivery-option').on('click', function() {
             if (!$('#periodeGaji').val()) {
                 Swal.fire({
                     icon: 'warning',
@@ -1586,6 +1652,7 @@
                 return;
             }
 
+            slipDeliveryChannel = $(this).data('channel') === 'email' ? 'email' : 'whatsapp';
             const modal = new bootstrap.Modal(document.getElementById('modalSlipWhatsapp'));
             modal.show();
             loadSlipWhatsappRecipients();
@@ -1607,6 +1674,7 @@
         $('#btnSendSlipWhatsapp').on('click', function() {
             const periode = $('#periodeGaji').val();
             const tahap = activeSlipWhatsappTahap();
+            const meta = currentSlipDeliveryMeta();
             const selectedIds = $('.wa-slip-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
@@ -1625,7 +1693,7 @@
             Swal.fire({
                 title: 'Masukkan ke antrean?',
                 text: selectedIds.length + ' slip gaji tahap ' + tahap +
-                    ' akan dikirim bertahap lewat Whatsapp.',
+                    meta.confirmText,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonText: 'Ya, Antrekan',
@@ -1636,11 +1704,12 @@
                 }
 
                 $.ajax({
-                    url: "{{ route("backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1") }}",
+                    url: "{{ route("backOffice.keuangan.penggajian.kirimSlipGaji") }}",
                     type: "POST",
                     data: {
                         periode: periode,
                         tahap: tahap,
+                        channel: slipDeliveryChannel,
                         gaji_ids: selectedIds
                     },
                     beforeSend: function() {
@@ -1660,7 +1729,7 @@
 
                         Swal.fire({
                             icon: 'success',
-                            title: 'Masuk Antrean',
+                            title: meta.successTitle,
                             text: queued + ' slip gaji akan dikirim oleh queue dengan jeda sekitar ' +
                                 formatSlipWhatsappDelay(delaySeconds) + '.',
                             timer: 2600,
@@ -1669,7 +1738,7 @@
                     },
                     error: function(xhr) {
                         let message = xhr.responseJSON?.message ||
-                            'Gagal mengirim slip gaji ke Whatsapp.';
+                            meta.errorText;
 
                         if (xhr.responseJSON?.errors) {
                             const errors = Object.values(xhr.responseJSON.errors);

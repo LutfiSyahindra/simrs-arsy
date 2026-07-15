@@ -177,6 +177,7 @@ class gapokController extends Controller
                 'masa_kerja' => 'required',
                 'gaji_pokok' => 'required|numeric|min:0',
                 'no_telp' => 'nullable|string|max:20',
+                'email' => 'nullable|email|max:255',
             ], [
                 'nik.required' => 'NIK wajib diisi',
                 'nama.required' => 'Nama pegawai wajib diisi',
@@ -190,6 +191,8 @@ class gapokController extends Controller
                 'gaji_pokok.numeric' => 'Nominal komponen gaji harus berupa angka',
                 'no_telp.required' => 'No telepon wajib diisi',
                 'no_telp.max' => 'No telepon tidak boleh lebih dari 20 karakter',
+                'email.email' => 'Format email tidak valid',
+                'email.max' => 'Email tidak boleh lebih dari 255 karakter',
             ]);
 
             $gapok = $this->masterGapokService->create($validated);
@@ -255,6 +258,7 @@ class gapokController extends Controller
                 'mulai_kontrak' => 'required|date',
                 'gaji_pokok' => 'required|numeric|min:0',
                 'no_telp' => 'required|string|max:20',
+                'email' => 'nullable|email|max:255',
             ], [
                 'nik.required' => 'NIK wajib diisi',
                 'nik.unique' => 'NIK sudah digunakan',
@@ -268,6 +272,8 @@ class gapokController extends Controller
                 'gaji_pokok.numeric' => 'Nominal komponen gaji harus berupa angka',
                 'no_telp.required' => 'No telepon wajib diisi',
                 'no_telp.max' => 'No telepon tidak boleh lebih dari 20 karakter',
+                'email.email' => 'Format email tidak valid',
+                'email.max' => 'Email tidak boleh lebih dari 255 karakter',
             ]);
 
             $gapok = $this->masterGapokService->update($id, $validated);

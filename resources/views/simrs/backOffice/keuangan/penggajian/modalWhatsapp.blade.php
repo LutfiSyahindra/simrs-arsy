@@ -4,8 +4,8 @@
         <div class="modal-content payroll-modal">
             <div class="modal-header">
                 <div class="payroll-modal-title">
-                    <div class="payroll-modal-icon is-green">
-                        <i class="mdi mdi-whatsapp mdi-24px"></i>
+                    <div class="payroll-modal-icon is-green" id="slipDeliveryModalIconWrap">
+                        <i class="mdi mdi-whatsapp mdi-24px" id="slipDeliveryModalIcon"></i>
                     </div>
                     <div>
                         <div class="payroll-kicker">Distribusi Slip</div>
@@ -55,13 +55,13 @@
 
                 <div class="wa-slip-loading text-center py-5" id="waSlipLoading">
                     <span class="spinner-border spinner-border-sm text-success me-1"></span>
-                    Memuat penerima...
+                    <span id="slipDeliveryLoadingText">Memuat penerima...</span>
                 </div>
 
                 <div class="wa-slip-empty text-center py-5 d-none" id="waSlipEmpty">
-                    <i class="mdi mdi-account-alert-outline mdi-36px text-muted d-block mb-2"></i>
+                    <i class="mdi mdi-account-alert-outline mdi-36px text-muted d-block mb-2" id="slipDeliveryEmptyIcon"></i>
                     <div class="fw-semibold">Belum ada penerima</div>
-                    <small class="text-muted">Pastikan data gaji periode ini sudah digenerate dan nomor WhatsApp terisi.</small>
+                    <small class="text-muted" id="slipDeliveryEmptyText">Pastikan data gaji periode ini sudah digenerate dan nomor WhatsApp terisi.</small>
                 </div>
 
                 <div class="table-responsive wa-slip-table-wrap d-none" id="waSlipTableWrap">
@@ -72,7 +72,7 @@
                                 <th>Nama</th>
                                 <th>Jabatan</th>
                                 <th>Status</th>
-                                <th>No. WhatsApp</th>
+                                <th id="slipDeliveryContactHeader">No. WhatsApp</th>
                                 <th class="text-end">Total Slip</th>
                             </tr>
                         </thead>
@@ -84,8 +84,8 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Tutup</button>
                 <button type="button" id="btnSendSlipWhatsapp" class="btn btn-success btn-sm">
-                    <i class="mdi mdi-send me-1"></i>
-                    Kirim Slip Gaji WhatsApp
+                    <i class="mdi mdi-send me-1" id="slipDeliverySendIcon"></i>
+                    <span id="slipDeliverySendText">Kirim Slip Gaji WhatsApp</span>
                 </button>
             </div>
         </div>

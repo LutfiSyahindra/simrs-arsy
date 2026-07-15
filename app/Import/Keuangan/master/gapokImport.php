@@ -3,13 +3,13 @@
 namespace App\Import\Keuangan\master;
 
 use App\Models\dbKhanza\pegawaiModel;
-use App\Models\dbSimrs\gapokModel;
-use Maatwebsite\Excel\Concerns\ToCollection;
 use Illuminate\Support\Collection;
+use Maatwebsite\Excel\Concerns\ToCollection;
 
 class GapokImport implements ToCollection
 {
     protected $service;
+
     public $errors = []; // 🔥 simpan error
 
     public function __construct($service)
@@ -26,24 +26,28 @@ class GapokImport implements ToCollection
             $nik = $row[0] ?? null;
             $gaji = $row[5] ?? null;
             $noTelp = $row[6] ?? null;
+            $email = $row[7] ?? null;
 
             // 🔥 VALIDASI WAJIB
             if (empty($nik) || empty($gaji)) {
-                $this->errors[] = "Baris " . ($index + 2) . " kosong / tidak lengkap";
+                $this->errors[] = 'Baris '.($index + 2).' kosong / tidak lengkap';
+
                 continue;
             }
 
             // 🔥 CEK PEGAWAI ADA
             $pegawai = pegawaiModel::where('nik', $nik)->first();
 
-            if (!$pegawai) {
-                $this->errors[] = "Baris " . ($index + 2) . " NIK tidak ditemukan: {$nik}";
+            if (! $pegawai) {
+                $this->errors[] = 'Baris '.($index + 2)." NIK tidak ditemukan: {$nik}";
+
                 continue;
             }
 
             // 🔥 VALIDASI NUMERIC
-            if (!is_numeric($gaji)) {
-                $this->errors[] = "Baris " . ($index + 2) . " gaji tidak valid";
+            if (! is_numeric($gaji)) {
+                $this->errors[] = 'Baris '.($index + 2).' gaji tidak valid';
+
                 continue;
             }
 
@@ -57,7 +61,8 @@ class GapokImport implements ToCollection
                     'stts_kerja' => $pegawai->stts_kerja,
                     'mulai_kontrak' => $pegawai->mulai_kontrak,
                     'gaji_pokok' => $gaji,
-                    'no_telp' => $noTelp
+                    'no_telp' => $noTelp,
+                    'email' => $email,
                 ];
 
                 // 🔥 SIMPAN (CREATE / UPDATE)
@@ -65,7 +70,7 @@ class GapokImport implements ToCollection
 
             } catch (\Throwable $e) {
 
-                $this->errors[] = "Baris " . ($index + 2) . " error: " . $e->getMessage();
+                $this->errors[] = 'Baris '.($index + 2).' error: '.$e->getMessage();
             }
         }
     }

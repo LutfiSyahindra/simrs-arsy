@@ -473,6 +473,8 @@
                                         <th>Status</th>
                                         <th>Masa Kerja</th>
                                         <th>Gaji Pokok / Upah STR</th>
+                                        <th>No Telpon</th>
+                                        <th>Email</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -483,6 +485,8 @@
                                         <td>T</td>
                                         <td>10 Tahun</td>
                                         <td class="gapok-required-cell">3500000</td>
+                                        <td>081234567890</td>
+                                        <td>ahmad@example.com</td>
                                     </tr>
                                     <tr>
                                         <td>123457</td>
@@ -491,6 +495,8 @@
                                         <td>FT</td>
                                         <td>3 Tahun</td>
                                         <td class="gapok-required-cell">2750000</td>
+                                        <td>081234567891</td>
+                                        <td>siti@example.com</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -12,7 +12,7 @@ class gapokModel extends Model
 
     protected $table = 'gaji_pokok';
 
-    protected $fillable = ['nik', 'nama', 'jbtn', 'stts_kerja', 'masa_kerja', 'mulai_kontrak', 'gaji_pokok', 'stts_aktif', 'no_telp'];
+    protected $fillable = ['nik', 'nama', 'jbtn', 'stts_kerja', 'masa_kerja', 'mulai_kontrak', 'gaji_pokok', 'stts_aktif', 'no_telp', 'email'];
 
     public function pegawai()
     {

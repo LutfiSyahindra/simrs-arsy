@@ -96,34 +96,49 @@ class penggajianRepository
             ->get();
     }
 
-    public function getPenerimaSlipWhatsappTahap1($periode, array $ids = [])
+    public function getPenerimaSlipTahap1($periode, array $ids = [], string $channel = 'whatsapp')
     {
+        $channel = $channel === 'email' ? 'email' : 'whatsapp';
+        $hasEmailColumn = Schema::hasColumn('gaji_pokok', 'email');
+
+        if ($channel === 'email' && ! $hasEmailColumn) {
+            return collect();
+        }
+
+        $select = [
+            'gaji_tahap1.id',
+            'gaji_tahap1.nik',
+            'gaji_tahap1.nama',
+            'gaji_tahap1.jabatan',
+            'gaji_tahap1.status',
+            'gaji_tahap1.gaji_pokok',
+            'gaji_tahap1.gaji_dibayar',
+            'gaji_tahap1.tunjangan',
+            Schema::hasColumn('gaji_tahap1', 'premi')
+                ? 'gaji_tahap1.premi'
+                : DB::raw('0 as premi'),
+            Schema::hasColumn('gaji_tahap1', 'pembulatan')
+                ? 'gaji_tahap1.pembulatan'
+                : DB::raw('0 as pembulatan'),
+            Schema::hasColumn('gaji_tahap1', 'total')
+                ? 'gaji_tahap1.total'
+                : DB::raw('COALESCE(gaji_tahap1.gaji_dibayar, 0) + COALESCE(gaji_tahap1.tunjangan, 0) as total'),
+            'gaji_tahap1.periode',
+            'gaji_pokok.no_telp',
+            $hasEmailColumn ? 'gaji_pokok.email' : DB::raw('NULL as email'),
+        ];
+
         return gajiTahap1Model::query()
             ->join('gaji_pokok', 'gaji_pokok.nik', '=', 'gaji_tahap1.nik')
-            ->select([
-                'gaji_tahap1.id',
-                'gaji_tahap1.nik',
-                'gaji_tahap1.nama',
-                'gaji_tahap1.jabatan',
-                'gaji_tahap1.status',
-                'gaji_tahap1.gaji_pokok',
-                'gaji_tahap1.gaji_dibayar',
-                'gaji_tahap1.tunjangan',
-                Schema::hasColumn('gaji_tahap1', 'premi')
-                    ? 'gaji_tahap1.premi'
-                    : DB::raw('0 as premi'),
-                Schema::hasColumn('gaji_tahap1', 'pembulatan')
-                    ? 'gaji_tahap1.pembulatan'
-                    : DB::raw('0 as pembulatan'),
-                Schema::hasColumn('gaji_tahap1', 'total')
-                    ? 'gaji_tahap1.total'
-                    : DB::raw('COALESCE(gaji_tahap1.gaji_dibayar, 0) + COALESCE(gaji_tahap1.tunjangan, 0) as total'),
-                'gaji_tahap1.periode',
-                'gaji_pokok.no_telp',
-            ])
+            ->select($select)
             ->where('gaji_tahap1.periode', $periode)
-            ->whereNotNull('gaji_pokok.no_telp')
-            ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''")
+            ->when($channel === 'email', function ($query) {
+                $query->whereNotNull('gaji_pokok.email')
+                    ->whereRaw("TRIM(gaji_pokok.email) <> ''");
+            }, function ($query) {
+                $query->whereNotNull('gaji_pokok.no_telp')
+                    ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''");
+            })
             ->when(! empty($ids), function ($query) use ($ids) {
                 $query->whereIn('gaji_tahap1.id', $ids);
             })
@@ -131,41 +146,66 @@ class penggajianRepository
             ->get();
     }
 
-    public function getPenerimaSlipWhatsappTahap2($periode, array $ids = []): Collection
+    public function getPenerimaSlipWhatsappTahap1($periode, array $ids = [])
+    {
+        return $this->getPenerimaSlipTahap1($periode, $ids, 'whatsapp');
+    }
+
+    public function getPenerimaSlipTahap2($periode, array $ids = [], string $channel = 'whatsapp'): Collection
     {
         if (! Schema::hasTable('gaji_tahap2')) {
             return collect();
         }
 
+        $channel = $channel === 'email' ? 'email' : 'whatsapp';
+        $hasEmailColumn = Schema::hasColumn('gaji_pokok', 'email');
+
+        if ($channel === 'email' && ! $hasEmailColumn) {
+            return collect();
+        }
+
+        $select = [
+            'gaji_tahap2.id',
+            'gaji_tahap2.nik',
+            'gaji_tahap2.nama',
+            'gaji_tahap2.jabatan',
+            'gaji_tahap2.status',
+            'gaji_tahap2.gaji_pokok',
+            'gaji_tahap2.gaji_dibayar',
+            'gaji_tahap2.total_premi',
+            Schema::hasColumn('gaji_tahap2', 'total_potongan')
+                ? 'gaji_tahap2.total_potongan'
+                : DB::raw('0 as total_potongan'),
+            Schema::hasColumn('gaji_tahap2', 'pembulatan')
+                ? 'gaji_tahap2.pembulatan'
+                : DB::raw('0 as pembulatan'),
+            'gaji_tahap2.total',
+            'gaji_tahap2.periode',
+            'gaji_pokok.no_telp',
+            $hasEmailColumn ? 'gaji_pokok.email' : DB::raw('NULL as email'),
+        ];
+
         return gajiTahap2Model::query()
             ->join('gaji_pokok', 'gaji_pokok.nik', '=', 'gaji_tahap2.nik')
-            ->select([
-                'gaji_tahap2.id',
-                'gaji_tahap2.nik',
-                'gaji_tahap2.nama',
-                'gaji_tahap2.jabatan',
-                'gaji_tahap2.status',
-                'gaji_tahap2.gaji_pokok',
-                'gaji_tahap2.gaji_dibayar',
-                'gaji_tahap2.total_premi',
-                Schema::hasColumn('gaji_tahap2', 'total_potongan')
-                    ? 'gaji_tahap2.total_potongan'
-                    : DB::raw('0 as total_potongan'),
-                Schema::hasColumn('gaji_tahap2', 'pembulatan')
-                    ? 'gaji_tahap2.pembulatan'
-                    : DB::raw('0 as pembulatan'),
-                'gaji_tahap2.total',
-                'gaji_tahap2.periode',
-                'gaji_pokok.no_telp',
-            ])
+            ->select($select)
             ->where('gaji_tahap2.periode', $periode)
-            ->whereNotNull('gaji_pokok.no_telp')
-            ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''")
+            ->when($channel === 'email', function ($query) {
+                $query->whereNotNull('gaji_pokok.email')
+                    ->whereRaw("TRIM(gaji_pokok.email) <> ''");
+            }, function ($query) {
+                $query->whereNotNull('gaji_pokok.no_telp')
+                    ->whereRaw("TRIM(gaji_pokok.no_telp) <> ''");
+            })
             ->when(! empty($ids), function ($query) use ($ids) {
                 $query->whereIn('gaji_tahap2.id', $ids);
             })
             ->orderBy('gaji_tahap2.nama')
             ->get();
+    }
+
+    public function getPenerimaSlipWhatsappTahap2($periode, array $ids = []): Collection
+    {
+        return $this->getPenerimaSlipTahap2($periode, $ids, 'whatsapp');
     }
 
     public function getPegawaiUntukGajiTahap1()

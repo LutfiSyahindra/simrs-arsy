@@ -99,6 +99,10 @@
                     name: 'no_telp'
                 },
                 {
+                    data: 'email',
+                    name: 'email'
+                },
+                {
                     data: 'actions',
                     name: 'actions',
                     orderable: false,
@@ -457,6 +461,7 @@
                     $('input[name="nama"]').val(data.nama);
                     $('input[name="jbtn"]').val(data.jbtn);
                     $('input[name="no_telp"]').val(data.no_telp);
+                    $('input[name="email"]').val(data.email);
 
                     $('#stts_kerja_display').val(data.stts_kerja);
                     $('#stts_kerja').val(data.stts_kerja);
@@ -825,6 +830,7 @@
             $('input[name="masa_kerja"]').val('');
 
             $('input[name="gaji_pokok"]').val('');
+            $('input[name="email"]').val('');
             setKomponenGajiLabel('Gaji Pokok');
 
             // =========================

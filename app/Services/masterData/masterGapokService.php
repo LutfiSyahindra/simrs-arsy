@@ -89,6 +89,7 @@ class masterGapokService
                     'gaji_pokok' => (int) $g->gaji_pokok,
                     'komponen_gaji_label' => PayrollComponentLabel::salaryLabel($g->jbtn, $g->stts_kerja),
                     'no_telp' => $g->no_telp ?? '-',
+                    'email' => $g->email ?? '-',
                 ];
             }
         }
@@ -168,6 +169,7 @@ class masterGapokService
                 'masa_kerja' => $masaKerja, // 🔥 AUTO HITUNG
                 'gaji_pokok' => $data['gaji_pokok'],
                 'no_telp' => $data['no_telp'],
+                'email' => $data['email'] ?? null,
             ]
         );
 
@@ -175,7 +177,11 @@ class masterGapokService
         if ($existing) {
 
             // cek apakah ada perubahan
-            if ($existing->gaji_pokok != $data['gaji_pokok']) {
+            if (
+                $existing->gaji_pokok != $data['gaji_pokok']
+                || (string) ($existing->no_telp ?? '') !== (string) ($data['no_telp'] ?? '')
+                || (string) ($existing->email ?? '') !== (string) ($data['email'] ?? '')
+            ) {
                 $this->updated++;
             } else {
                 $this->skipped++; // tidak ada perubahan

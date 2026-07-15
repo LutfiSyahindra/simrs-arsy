@@ -2,7 +2,9 @@
 
 namespace App\Services\keuangan\penggajian;
 
+use App\Jobs\KirimSlipGajiEmailJob;
 use App\Jobs\KirimSlipGajiWhatsappJob;
+use App\Mail\SlipGajiMail;
 use App\Repositories\keuangan\penggajian\penggajianRepository;
 use App\Support\PayrollComponentLabel;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,12 +14,17 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class penggajianService
 {
+    private const SLIP_CHANNEL_WHATSAPP = 'whatsapp';
+
+    private const SLIP_CHANNEL_EMAIL = 'email';
+
     private const STAGE1_DOCTOR_STR_TYPE = 'upah_str';
 
     private const STAGE1_DOCTOR_PREMIUM_TYPES = [
@@ -475,22 +482,30 @@ class penggajianService
             ->values();
     }
 
-    public function getPenerimaSlipWhatsapp(string $periode, int $tahap = 1)
+    public function getPenerimaSlip(string $periode, int $tahap = 1, string $channel = self::SLIP_CHANNEL_WHATSAPP)
     {
+        $channel = $this->normalizeSlipDeliveryChannel($channel);
+
         return $this->normalizeSlipWhatsappTahap($tahap) === 2
-            ? $this->getPenerimaSlipWhatsappTahap2($periode)
-            : $this->getPenerimaSlipWhatsappTahap1($periode);
+            ? $this->getPenerimaSlipTahap2($periode, $channel)
+            : $this->getPenerimaSlipTahap1($periode, $channel);
     }
 
-    public function getPenerimaSlipWhatsappTahap1(string $periode)
+    public function getPenerimaSlipWhatsapp(string $periode, int $tahap = 1)
     {
-        $rows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode);
+        return $this->getPenerimaSlip($periode, $tahap, self::SLIP_CHANNEL_WHATSAPP);
+    }
+
+    public function getPenerimaSlipTahap1(string $periode, string $channel = self::SLIP_CHANNEL_WHATSAPP)
+    {
+        $channel = $this->normalizeSlipDeliveryChannel($channel);
+        $rows = $this->penggajianRepository->getPenerimaSlipTahap1($periode, [], $channel);
         $doctorNikLookup = $this->doctorNikLookup($rows);
         $stage2ByNik = $this->penggajianRepository
             ->getGajiTahap2RowsByNik($periode, $rows->pluck('nik')->all());
 
         return $rows
-            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup) {
+            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $tunjangan = (int) $row->tunjangan;
                 $premi = (int) ($row->premi ?? 0);
@@ -512,6 +527,7 @@ class penggajianService
                     'komponen_gaji_dibayar_label' => PayrollComponentLabel::paidSalaryLabel($row->jabatan, $row->status),
                     'no_telp' => $row->no_telp,
                     'no_whatsapp' => $this->normalizeWhatsappNumber($row->no_telp),
+                    'email' => $row->email ?? null,
                     'gaji_dibayar' => $gajiDibayar,
                     'tunjangan' => $tunjangan,
                     'premi' => $premi,
@@ -521,20 +537,27 @@ class penggajianService
                     'total' => $totalTahap1 + $totalTahap2,
                     'periode' => $row->periode,
                     'tahap' => 1,
+                    'channel' => $channel,
                     'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
                 ];
             })
             ->values();
     }
 
-    public function getPenerimaSlipWhatsappTahap2(string $periode)
+    public function getPenerimaSlipWhatsappTahap1(string $periode)
     {
-        $rows = $this->penggajianRepository->getPenerimaSlipWhatsappTahap2($periode);
+        return $this->getPenerimaSlipTahap1($periode, self::SLIP_CHANNEL_WHATSAPP);
+    }
+
+    public function getPenerimaSlipTahap2(string $periode, string $channel = self::SLIP_CHANNEL_WHATSAPP)
+    {
+        $channel = $this->normalizeSlipDeliveryChannel($channel);
+        $rows = $this->penggajianRepository->getPenerimaSlipTahap2($periode, [], $channel);
         $doctorNikLookup = $this->doctorNikLookup($rows);
         $stage1TotalsByNik = $this->penggajianRepository->getGajiTahap1TotalsByNik($periode);
 
         return $rows
-            ->map(function ($row) use ($doctorNikLookup, $stage1TotalsByNik) {
+            ->map(function ($row) use ($doctorNikLookup, $stage1TotalsByNik, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $totalPremi = (int) ($row->total_premi ?? 0);
                 $totalPotongan = (int) ($row->total_potongan ?? 0);
@@ -554,6 +577,7 @@ class penggajianService
                     'komponen_gaji_dibayar_label' => $this->stage2PaidSalaryLabel($row->jabatan, $row->status, $gajiDibayar),
                     'no_telp' => $row->no_telp,
                     'no_whatsapp' => $this->normalizeWhatsappNumber($row->no_telp),
+                    'email' => $row->email ?? null,
                     'gaji_dibayar' => $gajiDibayar,
                     'total_premi' => $totalPremi,
                     'total_potongan' => $totalPotongan,
@@ -563,22 +587,46 @@ class penggajianService
                     'total' => $totalTahap1 + $totalTahap2,
                     'periode' => $row->periode,
                     'tahap' => 2,
+                    'channel' => $channel,
                     'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
                 ];
             })
             ->values();
     }
 
+    public function getPenerimaSlipWhatsappTahap2(string $periode)
+    {
+        return $this->getPenerimaSlipTahap2($periode, self::SLIP_CHANNEL_WHATSAPP);
+    }
+
+    private function getPenerimaSlipRows(
+        string $periode,
+        array $ids,
+        int $tahap,
+        string $channel = self::SLIP_CHANNEL_WHATSAPP
+    ): Collection {
+        $channel = $this->normalizeSlipDeliveryChannel($channel);
+
+        return $this->normalizeSlipWhatsappTahap($tahap) === 2
+            ? $this->penggajianRepository->getPenerimaSlipTahap2($periode, $ids, $channel)
+            : $this->penggajianRepository->getPenerimaSlipTahap1($periode, $ids, $channel);
+    }
+
     private function getPenerimaSlipWhatsappRows(string $periode, array $ids, int $tahap): Collection
     {
-        return $this->normalizeSlipWhatsappTahap($tahap) === 2
-            ? $this->penggajianRepository->getPenerimaSlipWhatsappTahap2($periode, $ids)
-            : $this->penggajianRepository->getPenerimaSlipWhatsappTahap1($periode, $ids);
+        return $this->getPenerimaSlipRows($periode, $ids, $tahap, self::SLIP_CHANNEL_WHATSAPP);
     }
 
     private function normalizeSlipWhatsappTahap(int $tahap): int
     {
         return $tahap === 2 ? 2 : 1;
+    }
+
+    private function normalizeSlipDeliveryChannel(string $channel): string
+    {
+        return $channel === self::SLIP_CHANNEL_EMAIL
+            ? self::SLIP_CHANNEL_EMAIL
+            : self::SLIP_CHANNEL_WHATSAPP;
     }
 
     private function ensureGajiTahap2GeneratorsReady(string $periode): void
@@ -592,6 +640,18 @@ class penggajianService
         throw ValidationException::withMessages([
             'periode' => [$readiness['message'] ?? 'Data generator tahap 2 belum lengkap.'],
         ]);
+    }
+
+    public function kirimSlipGaji(
+        string $periode,
+        array $gajiIds,
+        int $tahap = 1,
+        string $channel = self::SLIP_CHANNEL_WHATSAPP
+    )
+    {
+        return $this->normalizeSlipDeliveryChannel($channel) === self::SLIP_CHANNEL_EMAIL
+            ? $this->kirimSlipGajiEmailTahap1($periode, $gajiIds, $tahap)
+            : $this->kirimSlipGajiWhatsappTahap1($periode, $gajiIds, $tahap);
     }
 
     public function kirimSlipGajiWhatsappTahap1(string $periode, array $gajiIds, int $tahap = 1)
@@ -645,6 +705,60 @@ class penggajianService
             'requested' => count($ids),
             'periode' => $periode,
             'tahap' => $tahap,
+            'channel' => self::SLIP_CHANNEL_WHATSAPP,
+            'delay_seconds' => $delaySeconds,
+        ];
+    }
+
+    public function kirimSlipGajiEmailTahap1(string $periode, array $gajiIds, int $tahap = 1)
+    {
+        $tahap = $this->normalizeSlipWhatsappTahap($tahap);
+        $ids = collect($gajiIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($ids)) {
+            throw ValidationException::withMessages([
+                'gaji_ids' => ['Pilih minimal satu pegawai.'],
+            ]);
+        }
+
+        $rows = $this->getPenerimaSlipRows($periode, $ids, $tahap, self::SLIP_CHANNEL_EMAIL);
+
+        if ($rows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'gaji_ids' => ['Tidak ada pegawai terpilih yang memiliki email pada periode ini.'],
+            ]);
+        }
+
+        $validRows = $rows
+            ->filter(fn ($row) => $this->normalizeEmailAddress($row->email ?? null) !== null)
+            ->values();
+
+        if ($validRows->isEmpty()) {
+            throw ValidationException::withMessages([
+                'gaji_ids' => ['Email pegawai terpilih tidak valid.'],
+            ]);
+        }
+
+        $delaySeconds = max(1, (int) config('services.email_gateway.queue_delay_seconds', 60));
+
+        foreach ($validRows as $index => $row) {
+            KirimSlipGajiEmailJob::dispatch((int) $row->id, $periode, $tahap)
+                ->delay(now()->addSeconds($index * $delaySeconds));
+        }
+
+        return [
+            'queued' => $validRows->count(),
+            'skipped' => count($ids) - $validRows->count(),
+            'requested' => count($ids),
+            'periode' => $periode,
+            'tahap' => $tahap,
+            'channel' => self::SLIP_CHANNEL_EMAIL,
             'delay_seconds' => $delaySeconds,
         ];
     }
@@ -652,6 +766,11 @@ class penggajianService
     public function sendSingleSlipWhatsappTahap1(int $gajiId, string $periode, int $tahap = 1)
     {
         return $this->sendSingleSlipWhatsapp($gajiId, $periode, $tahap);
+    }
+
+    public function sendSingleSlipEmailTahap1(int $gajiId, string $periode, int $tahap = 1)
+    {
+        return $this->sendSingleSlipEmail($gajiId, $periode, $tahap);
     }
 
     public function sendSingleSlipWhatsapp(int $gajiId, string $periode, int $tahap = 1)
@@ -731,6 +850,65 @@ class penggajianService
         ];
     }
 
+    public function sendSingleSlipEmail(int $gajiId, string $periode, int $tahap = 1)
+    {
+        $tahap = $this->normalizeSlipWhatsappTahap($tahap);
+        $row = $this->getPenerimaSlipRows($periode, [$gajiId], $tahap, self::SLIP_CHANNEL_EMAIL)->first();
+
+        if (! $row) {
+            throw new RuntimeException('Data slip atau email pegawai tidak ditemukan.');
+        }
+
+        $email = $this->normalizeEmailAddress($row->email ?? null);
+
+        if (! $email) {
+            throw new RuntimeException('Email pegawai tidak valid.');
+        }
+
+        $detail = $tahap === 2
+            ? $this->detailSlipGajiTahap2($row->id)
+            : $this->detailSlipGajiTahap1($row->id);
+        $view = $this->slipPdfView($detail);
+        $pdfMode = $this->slipEmailPdfMode($detail);
+        $pdfOptions = $this->slipPdfPaperOptions($detail, $pdfMode);
+        $fileName = $this->makeSlipPdfFilename($row->nik, $periode);
+        $tempDir = storage_path('app'.DIRECTORY_SEPARATOR.'slip-gaji-email');
+        $filePath = $tempDir.DIRECTORY_SEPARATOR.Str::uuid().'-'.$fileName;
+
+        File::ensureDirectoryExists($tempDir);
+
+        Pdf::loadView($view, [
+            'data' => $detail,
+            'pdfMode' => $pdfMode,
+            'paperSize' => $pdfOptions['paper_size'],
+        ])->setPaper($pdfOptions['paper'], 'portrait')->save($filePath);
+
+        clearstatcache(true, $filePath);
+
+        if (! File::exists($filePath)) {
+            throw new RuntimeException('Gagal membuat file PDF slip gaji Email.');
+        }
+
+        $filePath = realpath($filePath) ?: $filePath;
+        $mailer = $this->getSlipEmailMailer();
+
+        try {
+            $mail = $mailer ? Mail::mailer($mailer) : Mail::mailer();
+            $mail->to($email)->send(new SlipGajiMail($detail, $filePath, $fileName));
+        } finally {
+            File::delete($filePath);
+        }
+
+        return [
+            'gaji_id' => $row->id,
+            'nik' => $row->nik,
+            'nama' => $row->nama,
+            'email' => $email,
+            'periode' => $periode,
+            'tahap' => $tahap,
+        ];
+    }
+
     public function slipPdfPaperOptions(array $detail, string $mode = 'export'): array
     {
         $paperSize = $this->slipPdfFitPaperSize($detail, $mode);
@@ -754,6 +932,11 @@ class penggajianService
     public function slipWhatsappPdfMode(array $detail): string
     {
         return ($detail['is_doctor_slip'] ?? false) ? 'export' : 'whatsapp';
+    }
+
+    public function slipEmailPdfMode(array $detail): string
+    {
+        return ($detail['is_doctor_slip'] ?? false) ? $this->slipWhatsappPdfMode($detail) : 'single';
     }
 
     public function detailGajiTahap1($id)
@@ -1763,8 +1946,7 @@ class penggajianService
         int $mappedAllowance,
         Collection $doctorPremiumDetails,
         object $doctorConfig
-    ): array
-    {
+    ): array {
         $premiumDetails = $this->filterDoctorPremiumDetails(
             $doctorPremiumDetails,
             $doctorConfig->premium_types ?? []
@@ -2194,8 +2376,7 @@ class penggajianService
         int $nominal,
         $jml = null,
         ?string $sourcePeriodText = null
-    ): void
-    {
+    ): void {
         $serviceType = in_array($serviceType, ['umum', 'bpjs'], true) ? $serviceType : 'umum';
 
         if (! isset($row['detail_rows'][$serviceType])) {
@@ -2469,8 +2650,7 @@ class penggajianService
         array $rows,
         array $allowedPremiumTypeLabels,
         string $stageLabel
-    ): array
-    {
+    ): array {
         $allowedPremiumTypes = array_keys($allowedPremiumTypeLabels);
 
         return collect($rows)
@@ -2786,6 +2966,13 @@ class penggajianService
         return $client;
     }
 
+    private function getSlipEmailMailer(): ?string
+    {
+        $mailer = trim((string) config('services.email_gateway.mailer', ''));
+
+        return $mailer !== '' ? $mailer : null;
+    }
+
     private function normalizeWhatsappNumber(?string $phone)
     {
         $number = preg_replace('/\D+/', '', (string) $phone);
@@ -2803,6 +2990,13 @@ class penggajianService
         }
 
         return $number;
+    }
+
+    private function normalizeEmailAddress(?string $email): ?string
+    {
+        $email = trim((string) $email);
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     private function makeSlipWhatsappCaption(array $detail)

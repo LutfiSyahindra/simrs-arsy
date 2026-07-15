@@ -1087,6 +1087,11 @@
             box-shadow: 0 10px 22px rgba(217, 119, 6, .18);
         }
 
+        .payroll-modal-icon.is-blue {
+            background: #2563eb;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, .18);
+        }
+
         .slip-card {
             background: transparent;
             border: 0;
@@ -1481,6 +1486,31 @@
             justify-content: center;
             min-height: 36px;
             white-space: nowrap;
+        }
+
+        .payroll-slip-dropdown {
+            display: inline-flex;
+            min-width: 132px;
+        }
+
+        .payroll-slip-dropdown .dropdown-toggle {
+            width: 100%;
+        }
+
+        .payroll-slip-dropdown .dropdown-menu {
+            border: 1px solid var(--payroll-line);
+            border-radius: 8px;
+            min-width: 12rem;
+            padding: .35rem;
+        }
+
+        .payroll-slip-dropdown .dropdown-item {
+            align-items: center;
+            border-radius: 6px;
+            display: flex;
+            font-size: .78rem;
+            font-weight: 800;
+            min-height: 34px;
         }
 
         .payroll-actions .btn-light {
@@ -1956,7 +1986,8 @@
                 grid-template-columns: 1fr;
             }
 
-            .payroll-actions .btn {
+            .payroll-actions .btn,
+            .payroll-slip-dropdown {
                 flex: 1 1 calc(50% - .45rem);
             }
 
@@ -2057,10 +2088,28 @@
                         <span class="payroll-action-label">Generate Tahap 1</span>
                     </button>
 
-                    <button type="button" id="btnOpenSlipWhatsapp" class="btn btn-success btn-sm">
-                        <i class="mdi mdi-whatsapp me-1"></i>
-                        <span>Kirim WA</span>
-                    </button>
+                    <div class="dropdown payroll-slip-dropdown">
+                        <button type="button" id="btnOpenSlipDelivery" class="btn btn-success btn-sm dropdown-toggle"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="mdi mdi-send me-1"></i>
+                            <span>Kirim Slip</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <button type="button" class="dropdown-item slip-delivery-option"
+                                    data-channel="whatsapp">
+                                    <i class="mdi mdi-whatsapp me-2 text-success"></i>
+                                    WhatsApp
+                                </button>
+                            </li>
+                            <li>
+                                <button type="button" class="dropdown-item slip-delivery-option" data-channel="email">
+                                    <i class="mdi mdi-email-outline me-2 text-primary"></i>
+                                    Email
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
 
                     <button type="button" id="btnOpenPayrollDoctorConfig" class="btn btn-outline-primary btn-sm">
                         <i class="mdi mdi-account-cog-outline me-1"></i>
@@ -2076,7 +2125,7 @@
                         <i class="mdi mdi-refresh"></i>
                     </button>
                 </div>
-                <small class="payroll-action-hint" id="stageActionHint">Slip WhatsApp tersedia untuk tahap 1.</small>
+                <small class="payroll-action-hint" id="stageActionHint">Slip dapat dikirim via WhatsApp atau Email.</small>
             </div>
         </section>
 

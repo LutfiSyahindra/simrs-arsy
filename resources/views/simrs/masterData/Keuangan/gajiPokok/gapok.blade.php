@@ -81,6 +81,7 @@
                                             <th>Status Kerja</th>
                                             <th>Komponen Gaji</th>
                                             <th>No Telpon</th>
+                                            <th>Email</th>
                                             <th>Aksi</th>
                                         </tr>
                                     </thead>

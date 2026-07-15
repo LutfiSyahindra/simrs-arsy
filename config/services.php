@@ -42,4 +42,9 @@ return [
         'queue_delay_seconds' => env('WA_GATEWAY_QUEUE_DELAY', 600),
     ],
 
+    'email_gateway' => [
+        'mailer' => env('EMAIL_GATEWAY_MAILER', env('MAIL_MAILER', 'smtp')),
+        'queue_delay_seconds' => env('EMAIL_GATEWAY_QUEUE_DELAY', 60),
+    ],
+
 ];

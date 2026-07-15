@@ -80,6 +80,14 @@ class PenggajianServiceTest extends TestCase
         $this->assertSame('whatsapp', $service->slipWhatsappPdfMode($employeeDetail));
     }
 
+    public function test_employee_email_slip_uses_single_copy_pdf_layout(): void
+    {
+        $service = new penggajianService;
+        $employeeDetail = ['is_doctor_slip' => false];
+
+        $this->assertSame('single', $service->slipEmailPdfMode($employeeDetail));
+    }
+
     public function test_stage1_ugd_contract_separates_str_attendance_and_actual_allowance(): void
     {
         $service = new penggajianService;

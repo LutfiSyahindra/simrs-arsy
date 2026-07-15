@@ -372,16 +372,18 @@ class penggajianController extends Controller
         ]);
     }
 
-    public function getPenerimaSlipWhatsappTahap1(Request $request)
+    public function getPenerimaSlip(Request $request)
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'tahap' => ['nullable', Rule::in([1, 2, '1', '2'])],
+            'channel' => ['nullable', Rule::in(['whatsapp', 'email'])],
         ]);
 
-        $data = $this->penggajianService->getPenerimaSlipWhatsapp(
+        $data = $this->penggajianService->getPenerimaSlip(
             $validated['periode'],
-            (int) ($validated['tahap'] ?? 1)
+            (int) ($validated['tahap'] ?? 1),
+            $validated['channel'] ?? 'whatsapp'
         );
 
         return response()->json([
@@ -390,25 +392,34 @@ class penggajianController extends Controller
         ]);
     }
 
-    public function kirimSlipGajiWhatsappTahap1(Request $request)
+    public function getPenerimaSlipWhatsappTahap1(Request $request)
+    {
+        return $this->getPenerimaSlip($request);
+    }
+
+    public function kirimSlipGaji(Request $request)
     {
         $validated = $request->validate([
             'periode' => ['required', 'date_format:Y-m'],
             'tahap' => ['nullable', Rule::in([1, 2, '1', '2'])],
+            'channel' => ['nullable', Rule::in(['whatsapp', 'email'])],
             'gaji_ids' => ['required', 'array', 'min:1'],
             'gaji_ids.*' => ['required', 'integer'],
         ]);
 
         try {
-            $result = $this->penggajianService->kirimSlipGajiWhatsappTahap1(
+            $channel = $validated['channel'] ?? 'whatsapp';
+            $channelLabel = $channel === 'email' ? 'Email' : 'Whatsapp';
+            $result = $this->penggajianService->kirimSlipGaji(
                 $validated['periode'],
                 $validated['gaji_ids'],
-                (int) ($validated['tahap'] ?? 1)
+                (int) ($validated['tahap'] ?? 1),
+                $channel
             );
 
             return response()->json([
                 'status' => true,
-                'message' => 'Slip gaji berhasil dimasukkan ke antrean Whatsapp.',
+                'message' => 'Slip gaji berhasil dimasukkan ke antrean '.$channelLabel.'.',
                 'data' => $result,
             ]);
         } catch (ValidationException $e) {
@@ -416,9 +427,14 @@ class penggajianController extends Controller
         } catch (Throwable $e) {
             return response()->json([
                 'status' => false,
-                'message' => $e->getMessage() ?: 'Gagal mengirim slip gaji ke Whatsapp.',
+                'message' => $e->getMessage() ?: 'Gagal mengirim slip gaji.',
             ], 500);
         }
+    }
+
+    public function kirimSlipGajiWhatsappTahap1(Request $request)
+    {
+        return $this->kirimSlipGaji($request);
     }
 
     public function exportSlipGajiTahap1Pdf($id)

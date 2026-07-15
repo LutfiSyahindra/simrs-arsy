@@ -32,6 +32,7 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
                 $item->mulai_kontrak,
                 '',
                 '', // hanya ini yang diisi user
+                '',
             ];
         });
     }
@@ -46,6 +47,7 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
             'mulai_kontrak',
             'gaji_pokok_atau_upah_str',
             'no_telp',
+            'email',
         ];
     }
 
@@ -54,7 +56,7 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
         $highestRow = $sheet->getHighestRow();
 
         // 🔥 STYLE HEADER
-        $sheet->getStyle('A1:F1')->applyFromArray([
+        $sheet->getStyle('A1:H1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'size' => 11,
@@ -97,6 +99,10 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
             ->getProtection()
             ->setLocked(false);
 
+        $sheet->getStyle("H2:H{$highestRow}")
+            ->getProtection()
+            ->setLocked(false);
+
         return [];
     }
 
@@ -110,6 +116,7 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
             'E' => 25,
             'F' => 25,
             'G' => 25,
+            'H' => 35,
         ];
     }
 
