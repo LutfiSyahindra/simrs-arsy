@@ -692,7 +692,7 @@ class penggajianService
             ]);
         }
 
-        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 600));
+        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
 
         foreach ($validRows as $index => $row) {
             KirimSlipGajiWhatsappJob::dispatch((int) $row->id, $periode, $tahap)

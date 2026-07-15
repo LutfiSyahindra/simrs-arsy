@@ -28,7 +28,7 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(penggajianService $penggajianService): void
     {
-        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 600));
+        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
         $tahap = $this->normalizeTahap();
         $lockSeconds = max(
             180,
