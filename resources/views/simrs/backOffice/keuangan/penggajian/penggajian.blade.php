@@ -498,6 +498,12 @@
             justify-self: end;
         }
 
+        .wa-slip-filter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(160px, 1fr));
+            gap: .65rem;
+        }
+
         .wa-slip-table-wrap {
             border: 1px solid #e5e7eb;
             border-radius: 12px;
@@ -562,6 +568,10 @@
                 width: 100%;
                 max-width: none;
                 justify-self: stretch;
+            }
+
+            .wa-slip-filter-grid {
+                grid-template-columns: 1fr;
             }
 
             .payroll-config-toolbar {

@@ -1130,10 +1130,15 @@
         }
 
         function updateSlipWhatsappSelectedCount() {
-            const total = $('.wa-slip-checkbox').length;
-            const selected = $('.wa-slip-checkbox:checked').length;
+            const allRows = $('#waSlipPegawaiList tr');
+            const visibleRows = allRows.filter(':visible');
+            const total = visibleRows.length;
+            const selected = visibleRows.find('.wa-slip-checkbox:checked').length;
+            const totalLabel = allRows.length > 0 && total !== allRows.length ?
+                total + ' dari ' + allRows.length + ' penerima' :
+                total + ' penerima';
 
-            $('#waSlipRecipientCount').text(total + ' penerima');
+            $('#waSlipRecipientCount').text(totalLabel);
             $('#waSlipSelectedCount').text(selected + ' dipilih');
             $('#btnSendSlipWhatsapp').prop('disabled', selected === 0 || total === 0);
 
@@ -1160,6 +1165,115 @@
             return slipDeliveryChannels[slipDeliveryChannel] || slipDeliveryChannels.whatsapp;
         }
 
+        function normalizeSlipFilterValue(value) {
+            return String(value || '').trim();
+        }
+
+        function splitSlipFilterList(value) {
+            return normalizeSlipFilterValue(value)
+                .split(',')
+                .map(function(part) {
+                    return part.trim();
+                })
+                .filter(Boolean);
+        }
+
+        function fillSlipFilterSelect(selector, items, valueResolver, labelResolver, placeholder) {
+            const select = $(selector);
+            const currentValue = select.val() || '';
+            const options = {};
+
+            items.forEach(function(item) {
+                const values = valueResolver(item);
+                const labels = labelResolver(item);
+                const valueList = Array.isArray(values) ? values : [values];
+                const labelList = Array.isArray(labels) ? labels : [labels];
+
+                valueList.forEach(function(rawValue, index) {
+                    const value = normalizeSlipFilterValue(rawValue);
+                    const label = normalizeSlipFilterValue(labelList[index] || rawValue);
+
+                    if (value && !options[value]) {
+                        options[value] = label || value;
+                    }
+                });
+            });
+
+            const sortedOptions = Object.keys(options)
+                .map(function(value) {
+                    return {
+                        value: value,
+                        label: options[value]
+                    };
+                })
+                .sort(function(a, b) {
+                    return a.label.localeCompare(b.label, 'id', {
+                        sensitivity: 'base'
+                    });
+                });
+
+            select.empty().append($('<option>', {
+                value: '',
+                text: placeholder
+            }));
+
+            sortedOptions.forEach(function(option) {
+                select.append($('<option>', {
+                    value: option.value,
+                    text: option.label
+                }));
+            });
+
+            select.val(sortedOptions.some(function(option) {
+                return option.value === currentValue;
+            }) ? currentValue : '');
+        }
+
+        function populateSlipWhatsappFilters(items) {
+            fillSlipFilterSelect(
+                '#filterSlipStatus',
+                items,
+                function(item) {
+                    return item.status || item.status_label;
+                },
+                function(item) {
+                    return item.status_label || item.status;
+                },
+                'Semua Status'
+            );
+
+            fillSlipFilterSelect(
+                '#filterSlipUnit',
+                items,
+                function(item) {
+                    return splitSlipFilterList(item.unit_kerja);
+                },
+                function(item) {
+                    return splitSlipFilterList(item.unit_kerja);
+                },
+                'Semua Unit Kerja'
+            );
+
+            fillSlipFilterSelect(
+                '#filterSlipJabatan',
+                items,
+                function(item) {
+                    return item.jabatan;
+                },
+                function(item) {
+                    return item.jabatan;
+                },
+                'Semua Jabatan'
+            );
+        }
+
+        function resetSlipWhatsappFilters() {
+            $('#searchSlipWhatsappPegawai').val('');
+            $('#filterSlipStatus').val('');
+            $('#filterSlipUnit').val('');
+            $('#filterSlipJabatan').val('');
+        }
+
         function updateSlipWhatsappStageLabels(tahap) {
             const label = 'Tahap ' + tahap;
             const meta = currentSlipDeliveryMeta();
@@ -1180,6 +1294,7 @@
             $('#slipDeliveryContactHeader').text(meta.contactHeader);
             $('#slipDeliveryEmptyIcon')
                 .attr('class', 'mdi ' + meta.emptyIcon + ' mdi-36px text-muted d-block mb-2');
+            $('#slipDeliveryEmptyTitle').text('Belum ada penerima');
             $('#slipDeliveryEmptyText').text(meta.emptyText);
             $('#slipDeliveryLoadingText').text(meta.loadingText);
             $('#btnSendSlipWhatsapp')
@@ -1204,6 +1319,7 @@
                 const statusClass = item.status === 'T' ? 'is-tetap' : item.status === 'FT' ?
                     'is-kontrak' : 'is-unknown';
                 const statusLabel = item.status_label || '-';
+                const unitKerja = item.unit_kerja || item.jabatan || '-';
                 const contactPrimary = slipDeliveryChannel === 'email' ?
                     (item.email || '-') :
                     (item.no_whatsapp || item.no_telp || '-');
@@ -1214,6 +1330,9 @@
                     item.nama,
                     item.nik,
                     item.jabatan,
+                    unitKerja,
+                    item.status,
+                    statusLabel,
                     item.no_telp,
                     item.no_whatsapp,
                     item.email,
@@ -1222,7 +1341,10 @@
                 ].join(' ').toLowerCase();
 
                 tbody.append(`
-                    <tr data-search="${escapeHtml(searchable)}">
+                    <tr data-search="${escapeHtml(searchable)}"
+                        data-status="${escapeHtml(item.status || item.status_label || '')}"
+                        data-unit="${escapeHtml(unitKerja)}"
+                        data-jabatan="${escapeHtml(item.jabatan || '')}">
                         <td class="text-center">
                             <input class="form-check-input wa-slip-checkbox" type="checkbox"
                                 value="${item.id}" id="waSlipPegawai${item.id}">
@@ -1232,6 +1354,7 @@
                             <span class="employee-subtext">${escapeHtml(item.nik || '')}${item.is_doctor_slip ? ' / Dokter' : ''}</span>
                         </td>
                         <td>${escapeHtml(item.jabatan || '-')}</td>
+                        <td>${escapeHtml(unitKerja)}</td>
                         <td class="text-center">
                             <span class="payroll-status-badge ${statusClass}">${escapeHtml(statusLabel)}</span>
                         </td>
@@ -1251,11 +1374,45 @@
 
         function filterSlipWhatsappRows() {
             const keyword = ($('#searchSlipWhatsappPegawai').val() || '').toLowerCase();
+            const status = normalizeSlipFilterValue($('#filterSlipStatus').val());
+            const unit = normalizeSlipFilterValue($('#filterSlipUnit').val());
+            const jabatan = normalizeSlipFilterValue($('#filterSlipJabatan').val());
+            let visibleCount = 0;
 
             $('#waSlipPegawaiList tr').each(function() {
                 const searchable = $(this).data('search') || '';
-                $(this).toggle(searchable.indexOf(keyword) !== -1);
+                const rowStatus = normalizeSlipFilterValue($(this).data('status'));
+                const rowUnits = splitSlipFilterList($(this).data('unit'));
+                const rowJabatan = normalizeSlipFilterValue($(this).data('jabatan'));
+                const matches = searchable.indexOf(keyword) !== -1 &&
+                    (!status || rowStatus === status) &&
+                    (!unit || rowUnits.indexOf(unit) !== -1) &&
+                    (!jabatan || rowJabatan === jabatan);
+
+                $(this).toggle(matches);
+
+                if (matches) {
+                    visibleCount++;
+                } else {
+                    $(this).find('.wa-slip-checkbox').prop('checked', false);
+                }
             });
+
+            if ($('#waSlipPegawaiList tr').length > 0 && visibleCount === 0) {
+                $('#waSlipTableWrap').addClass('d-none');
+                $('#waSlipEmpty').removeClass('d-none');
+                $('#slipDeliveryEmptyIcon')
+                    .attr('class', 'mdi mdi-filter-remove-outline mdi-36px text-muted d-block mb-2');
+                $('#slipDeliveryEmptyTitle').text('Tidak ada hasil filter');
+                $('#slipDeliveryEmptyText').text('Ubah status, unit kerja, jabatan, atau kata kunci pencarian.');
+            } else if ($('#waSlipPegawaiList tr').length > 0) {
+                $('#waSlipTableWrap').removeClass('d-none');
+                $('#waSlipEmpty').addClass('d-none');
+                $('#slipDeliveryEmptyTitle').text('Belum ada penerima');
+                $('#slipDeliveryEmptyText').text(currentSlipDeliveryMeta().emptyText);
+            }
+
+            updateSlipWhatsappSelectedCount();
         }
 
         function loadSlipWhatsappRecipients() {
@@ -1265,7 +1422,7 @@
             updateSlipWhatsappStageLabels(tahap);
             $('#waSlipPeriode').text(periode || '-');
             $('#waSlipRecipientCount').text('0 penerima');
-            $('#searchSlipWhatsappPegawai').val('');
+            resetSlipWhatsappFilters();
             $('#checkAllSlipWhatsapp').prop('checked', false).prop('indeterminate', false);
             $('#btnSendSlipWhatsapp').prop('disabled', true);
 
@@ -1282,10 +1439,13 @@
                 },
                 success: function(response) {
                     slipWhatsappRecipients = response.data || [];
+                    populateSlipWhatsappFilters(slipWhatsappRecipients);
                     renderSlipWhatsappRecipients(slipWhatsappRecipients);
+                    filterSlipWhatsappRows();
                 },
                 error: function(xhr) {
                     slipWhatsappRecipients = [];
+                    populateSlipWhatsappFilters([]);
                     renderSlipWhatsappRecipients([]);
 
                     Swal.fire({
@@ -1659,7 +1819,7 @@
         });
 
         $('#checkAllSlipWhatsapp').on('change', function() {
-            $('.wa-slip-checkbox').prop('checked', $(this).is(':checked'));
+            $('#waSlipPegawaiList tr:visible .wa-slip-checkbox').prop('checked', $(this).is(':checked'));
             updateSlipWhatsappSelectedCount();
         });
 
@@ -1671,11 +1831,15 @@
             filterSlipWhatsappRows();
         });
 
+        $('#filterSlipStatus, #filterSlipUnit, #filterSlipJabatan').on('change', function() {
+            filterSlipWhatsappRows();
+        });
+
         $('#btnSendSlipWhatsapp').on('click', function() {
             const periode = $('#periodeGaji').val();
             const tahap = activeSlipWhatsappTahap();
             const meta = currentSlipDeliveryMeta();
-            const selectedIds = $('.wa-slip-checkbox:checked').map(function() {
+            const selectedIds = $('#waSlipPegawaiList tr:visible .wa-slip-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
             const btn = $(this);

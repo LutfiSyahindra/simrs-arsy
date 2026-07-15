@@ -501,11 +501,13 @@ class penggajianService
         $channel = $this->normalizeSlipDeliveryChannel($channel);
         $rows = $this->penggajianRepository->getPenerimaSlipTahap1($periode, [], $channel);
         $doctorNikLookup = $this->doctorNikLookup($rows);
+        $unitKerjaByNik = $this->penggajianRepository
+            ->getUnitKerjaLabelsByNiks($rows->pluck('nik')->all());
         $stage2ByNik = $this->penggajianRepository
             ->getGajiTahap2RowsByNik($periode, $rows->pluck('nik')->all());
 
         return $rows
-            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup, $channel) {
+            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup, $unitKerjaByNik, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $tunjangan = (int) $row->tunjangan;
                 $premi = (int) ($row->premi ?? 0);
@@ -515,12 +517,14 @@ class penggajianService
                 $stage2 = $stage2ByNik->get((string) $row->nik);
                 $totalTahap2 = $stage2 ? (int) $stage2->total : 0;
                 $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
+                $unitKerja = $unitKerjaByNik->get((string) $row->nik) ?: ($row->jabatan ?? '-');
 
                 return [
                     'id' => $row->id,
                     'nik' => $row->nik,
                     'nama' => $row->nama,
                     'jabatan' => $row->jabatan,
+                    'unit_kerja' => $unitKerja,
                     'status' => $row->status,
                     'status_label' => $this->getStatusLabel($row->status),
                     'komponen_gaji_label' => $komponenGajiLabel,
@@ -554,10 +558,12 @@ class penggajianService
         $channel = $this->normalizeSlipDeliveryChannel($channel);
         $rows = $this->penggajianRepository->getPenerimaSlipTahap2($periode, [], $channel);
         $doctorNikLookup = $this->doctorNikLookup($rows);
+        $unitKerjaByNik = $this->penggajianRepository
+            ->getUnitKerjaLabelsByNiks($rows->pluck('nik')->all());
         $stage1TotalsByNik = $this->penggajianRepository->getGajiTahap1TotalsByNik($periode);
 
         return $rows
-            ->map(function ($row) use ($doctorNikLookup, $stage1TotalsByNik, $channel) {
+            ->map(function ($row) use ($doctorNikLookup, $unitKerjaByNik, $stage1TotalsByNik, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $totalPremi = (int) ($row->total_premi ?? 0);
                 $totalPotongan = (int) ($row->total_potongan ?? 0);
@@ -565,12 +571,14 @@ class penggajianService
                 $totalTahap2 = (int) ($row->total ?? $componentTotal);
                 $totalTahap1 = (int) ($stage1TotalsByNik[(string) $row->nik] ?? 0);
                 $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
+                $unitKerja = $unitKerjaByNik->get((string) $row->nik) ?: ($row->jabatan ?? '-');
 
                 return [
                     'id' => $row->id,
                     'nik' => $row->nik,
                     'nama' => $row->nama,
                     'jabatan' => $row->jabatan,
+                    'unit_kerja' => $unitKerja,
                     'status' => $row->status,
                     'status_label' => $this->getStatusLabel($row->status),
                     'komponen_gaji_label' => $komponenGajiLabel,
@@ -692,7 +700,7 @@ class penggajianService
             ]);
         }
 
-        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 8));
+        $delaySeconds = max(1, (int) config('services.go_wa.queue_delay_seconds', 600));
 
         foreach ($validRows as $index => $row) {
             KirimSlipGajiWhatsappJob::dispatch((int) $row->id, $periode, $tahap)
@@ -936,7 +944,7 @@ class penggajianService
 
     public function slipEmailPdfMode(array $detail): string
     {
-        return ($detail['is_doctor_slip'] ?? false) ? $this->slipWhatsappPdfMode($detail) : 'single';
+        return $this->slipWhatsappPdfMode($detail);
     }
 
     public function detailGajiTahap1($id)

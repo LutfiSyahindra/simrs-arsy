@@ -51,6 +51,20 @@
 
                         <span class="badge bg-success-subtle text-success" id="waSlipStageBadge">Tahap 1 + 2</span>
                     </div>
+
+                    <div class="wa-slip-filter-grid mt-2">
+                        <select id="filterSlipStatus" class="form-select form-select-sm">
+                            <option value="">Semua Status</option>
+                        </select>
+
+                        <select id="filterSlipUnit" class="form-select form-select-sm">
+                            <option value="">Semua Unit Kerja</option>
+                        </select>
+
+                        <select id="filterSlipJabatan" class="form-select form-select-sm">
+                            <option value="">Semua Jabatan</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="wa-slip-loading text-center py-5" id="waSlipLoading">
@@ -60,7 +74,7 @@
 
                 <div class="wa-slip-empty text-center py-5 d-none" id="waSlipEmpty">
                     <i class="mdi mdi-account-alert-outline mdi-36px text-muted d-block mb-2" id="slipDeliveryEmptyIcon"></i>
-                    <div class="fw-semibold">Belum ada penerima</div>
+                    <div class="fw-semibold" id="slipDeliveryEmptyTitle">Belum ada penerima</div>
                     <small class="text-muted" id="slipDeliveryEmptyText">Pastikan data gaji periode ini sudah digenerate dan nomor WhatsApp terisi.</small>
                 </div>
 
@@ -71,6 +85,7 @@
                                 <th width="5%" class="text-center"></th>
                                 <th>Nama</th>
                                 <th>Jabatan</th>
+                                <th>Unit Kerja</th>
                                 <th>Status</th>
                                 <th id="slipDeliveryContactHeader">No. WhatsApp</th>
                                 <th class="text-end">Total Slip</th>

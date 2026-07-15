@@ -56,6 +56,52 @@ class penggajianRepository
         return $label !== '' ? $label : null;
     }
 
+    public function getUnitKerjaLabelsByNiks(array $niks): Collection
+    {
+        $niks = collect($niks)
+            ->map(fn ($nik) => trim((string) $nik))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($niks->isEmpty() || ! Schema::hasTable('unit_pegawai') || ! Schema::hasTable('master_unit')) {
+            return collect();
+        }
+
+        $query = DB::table('unit_pegawai as up')
+            ->join('master_unit as mu', 'mu.id', '=', 'up.unit_id')
+            ->whereIn('up.nik', $niks->all());
+
+        if (Schema::hasColumn('unit_pegawai', 'deleted_at')) {
+            $query->whereNull('up.deleted_at');
+        }
+
+        return $query
+            ->select([
+                'up.nik',
+                'mu.kode',
+                'mu.keterangan',
+            ])
+            ->orderBy('up.nik')
+            ->orderBy('mu.jenis')
+            ->orderBy('mu.keterangan')
+            ->get()
+            ->groupBy(fn ($unit) => (string) $unit->nik)
+            ->map(function ($units) {
+                return $units
+                    ->map(function ($unit) {
+                        $kode = trim((string) ($unit->kode ?? ''));
+                        $keterangan = trim((string) ($unit->keterangan ?? ''));
+
+                        return $keterangan !== '' ? $keterangan : $kode;
+                    })
+                    ->filter()
+                    ->unique()
+                    ->implode(', ');
+            })
+            ->filter();
+    }
+
     public function getTunjanganPegawai($nik)
     {
         return tunjanganPegawaiModel::query()
