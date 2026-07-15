@@ -437,6 +437,71 @@ class penggajianController extends Controller
         return $this->kirimSlipGaji($request);
     }
 
+    public function getSlipDeliveryLogTable(Request $request)
+    {
+        $validated = $request->validate([
+            'periode' => ['required', 'date_format:Y-m'],
+            'tahap' => ['nullable', Rule::in([1, 2, '1', '2'])],
+            'channel' => ['nullable', Rule::in(['whatsapp', 'email'])],
+            'status' => ['nullable', Rule::in(['success', 'failed'])],
+        ]);
+
+        $data = $this->penggajianService->getSlipDeliveryLogs(
+            $validated['periode'],
+            isset($validated['tahap']) ? (int) $validated['tahap'] : null,
+            $validated['channel'] ?? null,
+            $validated['status'] ?? null
+        );
+
+        return DataTables::of($data)
+            ->addIndexColumn()
+            ->addColumn('pegawai', function ($row) {
+                return '
+                    <span class="employee-name">'.e($row['nama'] ?: '-').'</span>
+                    <span class="employee-subtext">'.e($row['nik'] ?: '-').'</span>
+                ';
+            })
+            ->addColumn('channel_badge', function ($row) {
+                $class = $row['channel'] === 'email'
+                    ? 'bg-primary-subtle text-primary'
+                    : 'bg-success-subtle text-success';
+                $icon = $row['channel'] === 'email'
+                    ? 'mdi-email-outline'
+                    : 'mdi-whatsapp';
+
+                return '
+                    <span class="badge '.$class.'">
+                        <i class="mdi '.$icon.' me-1"></i>'.e($row['channel_label']).'
+                    </span>
+                ';
+            })
+            ->addColumn('status_badge', function ($row) {
+                $class = $row['status'] === 'success'
+                    ? 'bg-success-subtle text-success'
+                    : 'bg-danger-subtle text-danger';
+                $icon = $row['status'] === 'success'
+                    ? 'mdi-check-circle-outline'
+                    : 'mdi-alert-circle-outline';
+
+                return '
+                    <span class="badge '.$class.'">
+                        <i class="mdi '.$icon.' me-1"></i>'.e($row['status_label']).'
+                    </span>
+                ';
+            })
+            ->editColumn('processed_at', function ($row) {
+                return $row['processed_at'] ?: '-';
+            })
+            ->editColumn('contact', function ($row) {
+                return e($row['contact'] ?: '-');
+            })
+            ->editColumn('message', function ($row) {
+                return '<span title="'.e($row['message'] ?: '-').'">'.e($row['message'] ?: '-').'</span>';
+            })
+            ->rawColumns(['pegawai', 'channel_badge', 'status_badge', 'message'])
+            ->make(true);
+    }
+
     public function exportSlipGajiTahap1Pdf($id)
     {
         $data = $this->penggajianService->detailSlipGajiTahap1($id);

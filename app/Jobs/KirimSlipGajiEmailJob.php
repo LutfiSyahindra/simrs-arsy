@@ -43,6 +43,25 @@ class KirimSlipGajiEmailJob implements ShouldBeUnique, ShouldQueue
             'periode' => $this->periode,
             'tahap' => $tahap,
         ]);
+
+        try {
+            $penggajianService->recordSlipDeliveryLog(
+                'email',
+                'success',
+                $this->gajiId,
+                $this->periode,
+                $tahap,
+                $result,
+                'Slip gaji Email berhasil terkirim.'
+            );
+        } catch (Throwable $exception) {
+            Log::error('Gagal mencatat log slip gaji Email berhasil.', [
+                'gaji_id' => $this->gajiId,
+                'periode' => $this->periode,
+                'tahap' => $tahap,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function uniqueId(): string
@@ -58,6 +77,25 @@ class KirimSlipGajiEmailJob implements ShouldBeUnique, ShouldQueue
             'tahap' => $this->normalizeTahap(),
             'message' => $exception?->getMessage(),
         ]);
+
+        try {
+            app(penggajianService::class)->recordSlipDeliveryLog(
+                'email',
+                'failed',
+                $this->gajiId,
+                $this->periode,
+                $this->normalizeTahap(),
+                null,
+                $exception?->getMessage() ?: 'Queue slip gaji Email gagal.'
+            );
+        } catch (Throwable $logException) {
+            Log::error('Gagal mencatat log slip gaji Email gagal.', [
+                'gaji_id' => $this->gajiId,
+                'periode' => $this->periode,
+                'tahap' => $this->normalizeTahap(),
+                'message' => $logException->getMessage(),
+            ]);
+        }
     }
 
     private function normalizeTahap(): int

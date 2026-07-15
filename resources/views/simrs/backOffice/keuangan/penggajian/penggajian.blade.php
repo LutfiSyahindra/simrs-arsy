@@ -135,7 +135,7 @@
 
         .payroll-actions {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
             gap: .5rem;
         }
 
@@ -507,7 +507,12 @@
         .wa-slip-table-wrap {
             border: 1px solid #e5e7eb;
             border-radius: 12px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+
+        .wa-slip-recipient-table {
+            min-width: 1180px;
         }
 
         .wa-slip-table-wrap thead th {
@@ -523,6 +528,27 @@
 
         .wa-slip-table-wrap tbody td {
             border-color: #eef2f7;
+        }
+
+        .wa-slip-contact-cell,
+        .wa-slip-delivery-cell {
+            min-width: 170px;
+            white-space: nowrap;
+        }
+
+        .wa-slip-delivery-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .25rem;
+            border-radius: 999px;
+            font-size: .72rem;
+            font-weight: 800;
+            padding: .35rem .58rem;
+            white-space: nowrap;
+        }
+
+        .delivery-log-table {
+            min-width: 980px;
         }
 
         .payroll-config-toolbar {
@@ -700,7 +726,7 @@
         }
 
         .payroll-actions {
-            grid-template-columns: repeat(4, minmax(0, 1fr)) 40px;
+            grid-template-columns: repeat(5, minmax(0, 1fr)) 40px;
             gap: .45rem;
             min-width: 0;
         }
@@ -2022,6 +2048,7 @@
 @section("content")
     @include("simrs.backOffice.keuangan.penggajian.modalDetail")
     @include("simrs.backOffice.keuangan.penggajian.modalWhatsapp")
+    @include("simrs.backOffice.keuangan.penggajian.modalSlipDeliveryLog")
     @include("simrs.backOffice.keuangan.penggajian.modalGajiTahap2DoctorConfig")
 
     <nav class="page-breadcrumb payroll-breadcrumb">
@@ -2129,6 +2156,11 @@
                     <button type="button" id="btnExportGajiExcel" class="btn btn-outline-success btn-sm">
                         <i class="mdi mdi-file-excel-outline me-1"></i>
                         <span>Export Excel</span>
+                    </button>
+
+                    <button type="button" id="btnOpenSlipDeliveryLog" class="btn btn-outline-secondary btn-sm">
+                        <i class="mdi mdi-clipboard-text-clock-outline me-1"></i>
+                        <span>Log Kirim</span>
                     </button>
 
                     <button type="button" id="btnRefreshPenggajian" class="btn btn-light btn-sm" title="Refresh">

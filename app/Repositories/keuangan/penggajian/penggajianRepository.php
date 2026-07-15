@@ -8,6 +8,7 @@ use App\Models\dbSimrs\gajiTahap2DetailModel;
 use App\Models\dbSimrs\gajiTahap2Model;
 use App\Models\dbSimrs\gapokModel;
 use App\Models\dbSimrs\potonganPegawaiModel;
+use App\Models\dbSimrs\slipGajiDeliveryLogModel;
 use App\Models\dbSimrs\tunjanganPegawaiModel;
 use App\Support\PremiSourcePeriod;
 use Illuminate\Support\Collection;
@@ -252,6 +253,66 @@ class penggajianRepository
     public function getPenerimaSlipWhatsappTahap2($periode, array $ids = []): Collection
     {
         return $this->getPenerimaSlipTahap2($periode, $ids, 'whatsapp');
+    }
+
+    public function createSlipDeliveryLog(array $data): ?slipGajiDeliveryLogModel
+    {
+        if (! Schema::hasTable('slip_gaji_delivery_logs')) {
+            return null;
+        }
+
+        return slipGajiDeliveryLogModel::create($data);
+    }
+
+    public function getSlipDeliveryLogs(array $filters): Collection
+    {
+        if (! Schema::hasTable('slip_gaji_delivery_logs')) {
+            return collect();
+        }
+
+        return slipGajiDeliveryLogModel::query()
+            ->where('periode', $filters['periode'])
+            ->when(! empty($filters['tahap']), function ($query) use ($filters) {
+                $query->where('tahap', (int) $filters['tahap']);
+            })
+            ->when(! empty($filters['channel']), function ($query) use ($filters) {
+                $query->where('channel', $filters['channel']);
+            })
+            ->when(! empty($filters['status']), function ($query) use ($filters) {
+                $query->where('status', $filters['status']);
+            })
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    public function getLatestSlipDeliveryLogs(string $periode, int $tahap, string $channel, array $gajiIds = []): Collection
+    {
+        if (! Schema::hasTable('slip_gaji_delivery_logs')) {
+            return collect();
+        }
+
+        $ids = collect($gajiIds)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return slipGajiDeliveryLogModel::query()
+            ->where('periode', $periode)
+            ->where('tahap', $tahap)
+            ->where('channel', $channel)
+            ->whereIn('gaji_id', $ids->all())
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy(fn ($row) => (int) $row->gaji_id)
+            ->map(fn ($logs) => $logs->first());
     }
 
     public function getPegawaiUntukGajiTahap1()

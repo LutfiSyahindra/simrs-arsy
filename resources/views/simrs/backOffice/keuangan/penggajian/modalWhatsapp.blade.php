@@ -79,7 +79,7 @@
                 </div>
 
                 <div class="table-responsive wa-slip-table-wrap d-none" id="waSlipTableWrap">
-                    <table class="table table-hover align-middle mb-0">
+                    <table class="table table-hover align-middle mb-0 wa-slip-recipient-table">
                         <thead>
                             <tr>
                                 <th width="5%" class="text-center"></th>
@@ -88,6 +88,7 @@
                                 <th>Unit Kerja</th>
                                 <th>Status</th>
                                 <th id="slipDeliveryContactHeader">No. WhatsApp</th>
+                                <th>Status Kirim</th>
                                 <th class="text-end">Total Slip</th>
                             </tr>
                         </thead>

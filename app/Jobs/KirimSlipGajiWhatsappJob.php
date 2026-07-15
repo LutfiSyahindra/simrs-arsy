@@ -10,21 +10,23 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
+class KirimSlipGajiWhatsappJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
     public int $tries = 1;
+
     public int $timeout = 1800;
+
     public int $uniqueFor = 3600;
+
     public bool $failOnTimeout = true;
 
     public function __construct(
         public int $gajiId,
         public string $periode,
         public int $tahap = 1
-    ) {
-    }
+    ) {}
 
     public function handle(penggajianService $penggajianService): void
     {
@@ -54,6 +56,25 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
             'periode' => $this->periode,
             'tahap' => $tahap,
         ]);
+
+        try {
+            $penggajianService->recordSlipDeliveryLog(
+                'whatsapp',
+                'success',
+                $this->gajiId,
+                $this->periode,
+                $tahap,
+                $result,
+                'Slip gaji WhatsApp berhasil terkirim.'
+            );
+        } catch (Throwable $exception) {
+            Log::error('Gagal mencatat log slip gaji Whatsapp berhasil.', [
+                'gaji_id' => $this->gajiId,
+                'periode' => $this->periode,
+                'tahap' => $tahap,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function uniqueId(): string
@@ -69,6 +90,25 @@ class KirimSlipGajiWhatsappJob implements ShouldQueue, ShouldBeUnique
             'tahap' => $this->normalizeTahap(),
             'message' => $exception?->getMessage(),
         ]);
+
+        try {
+            app(penggajianService::class)->recordSlipDeliveryLog(
+                'whatsapp',
+                'failed',
+                $this->gajiId,
+                $this->periode,
+                $this->normalizeTahap(),
+                null,
+                $exception?->getMessage() ?: 'Queue slip gaji WhatsApp gagal.'
+            );
+        } catch (Throwable $logException) {
+            Log::error('Gagal mencatat log slip gaji Whatsapp gagal.', [
+                'gaji_id' => $this->gajiId,
+                'periode' => $this->periode,
+                'tahap' => $this->normalizeTahap(),
+                'message' => $logException->getMessage(),
+            ]);
+        }
     }
 
     private function normalizeTahap(): int

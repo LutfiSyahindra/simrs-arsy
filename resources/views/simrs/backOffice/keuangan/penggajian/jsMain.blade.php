@@ -33,6 +33,7 @@
 
         let slipWhatsappRecipients = [];
         let slipDeliveryChannel = 'whatsapp';
+        let tableSlipDeliveryLog = null;
         const slipDeliveryChannels = {
             whatsapp: {
                 label: 'WhatsApp',
@@ -477,6 +478,12 @@
             }
 
             tablePenggajianTahap1.ajax.reload(null, false);
+        }
+
+        function reloadSlipDeliveryLogTable(resetPaging = false) {
+            if (tableSlipDeliveryLog) {
+                tableSlipDeliveryLog.ajax.reload(null, resetPaging);
+            }
         }
 
         function escapeHtml(value) {
@@ -1303,6 +1310,32 @@
             $('#slipDeliverySendText').text(meta.sendText);
         }
 
+        function slipDeliveryStatusMeta(item) {
+            const status = item.delivery_status || 'pending';
+
+            if (status === 'success') {
+                return {
+                    className: 'bg-success-subtle text-success',
+                    icon: 'mdi-check-circle-outline',
+                    label: item.delivery_status_label || 'Berhasil'
+                };
+            }
+
+            if (status === 'failed') {
+                return {
+                    className: 'bg-danger-subtle text-danger',
+                    icon: 'mdi-alert-circle-outline',
+                    label: item.delivery_status_label || 'Gagal'
+                };
+            }
+
+            return {
+                className: 'bg-secondary-subtle text-secondary',
+                icon: 'mdi-clock-outline',
+                label: item.delivery_status_label || 'Belum'
+            };
+        }
+
         function renderSlipWhatsappRecipients(items) {
             const tbody = $('#waSlipPegawaiList');
             tbody.empty();
@@ -1326,6 +1359,10 @@
                 const contactSecondary = slipDeliveryChannel === 'email' ?
                     (item.no_telp ? 'WA: ' + item.no_telp : '') :
                     (item.no_telp || '');
+                const deliveryMeta = slipDeliveryStatusMeta(item);
+                const deliveryNote = item.delivery_processed_at ?
+                    item.delivery_processed_at :
+                    (item.delivery_status_message || 'Belum ada log periode ini.');
                 const searchable = [
                     item.nama,
                     item.nik,
@@ -1337,6 +1374,9 @@
                     item.no_whatsapp,
                     item.email,
                     meta.label,
+                    item.delivery_status,
+                    item.delivery_status_label,
+                    item.delivery_status_message,
                     item.is_doctor_slip ? 'dokter' : ''
                 ].join(' ').toLowerCase();
 
@@ -1358,9 +1398,17 @@
                         <td class="text-center">
                             <span class="payroll-status-badge ${statusClass}">${escapeHtml(statusLabel)}</span>
                         </td>
-                        <td>
+                        <td class="wa-slip-contact-cell">
                             <span class="fw-semibold">${escapeHtml(contactPrimary)}</span>
                             <span class="employee-subtext">${escapeHtml(contactSecondary)}</span>
+                        </td>
+                        <td class="wa-slip-delivery-cell">
+                            <span class="wa-slip-delivery-badge ${deliveryMeta.className}"
+                                title="${escapeHtml(item.delivery_status_message || '')}">
+                                <i class="mdi ${deliveryMeta.icon}"></i>
+                                ${escapeHtml(deliveryMeta.label)}
+                            </span>
+                            <span class="employee-subtext">${escapeHtml(deliveryNote)}</span>
                         </td>
                         <td class="text-end currency-cell">${formatRupiah(item.total || 0)}</td>
                     </tr>
@@ -1458,6 +1506,126 @@
                 complete: function() {
                     $('#waSlipLoading').addClass('d-none');
                 }
+            });
+        }
+
+        function deliveryLogFilterText() {
+            const labels = [];
+            const tahap = $('#filterDeliveryLogTahap').val();
+            const channel = $('#filterDeliveryLogChannel').val();
+            const status = $('#filterDeliveryLogStatus').val();
+
+            if (tahap) {
+                labels.push('Tahap ' + tahap);
+            }
+
+            if (channel) {
+                labels.push(channel === 'email' ? 'Email' : 'WhatsApp');
+            }
+
+            if (status) {
+                labels.push(status === 'success' ? 'Berhasil' : 'Gagal');
+            }
+
+            return labels.length ? labels.join(' / ') : 'Semua log';
+        }
+
+        function updateSlipDeliveryLogMeta() {
+            $('#slipDeliveryLogPeriode').text($('#periodeGaji').val() || '-');
+            $('#slipDeliveryLogFilterText').text(deliveryLogFilterText());
+        }
+
+        function markSlipDeliveryLogRefreshed() {
+            $('#slipDeliveryLogRefreshedAt').text(new Date().toLocaleString('id-ID', {
+                hour12: false
+            }));
+        }
+
+        function initSlipDeliveryLogTable() {
+            if (tableSlipDeliveryLog) {
+                return;
+            }
+
+            tableSlipDeliveryLog = $('#tableSlipDeliveryLog').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: false,
+                autoWidth: false,
+                deferRender: true,
+                pageLength: 10,
+                lengthMenu: [10, 25, 50, 100],
+                order: [],
+                dom: "<'row g-2 align-items-center mb-2'<'col-12 col-md-6'l><'col-12 col-md-6'f>>" +
+                    "rt" +
+                    "<'row g-2 align-items-center mt-3'<'col-12 col-md-6'i><'col-12 col-md-6 d-flex justify-content-md-end'p>>",
+                language: {
+                    lengthMenu: 'Tampilkan _MENU_ log',
+                    search: 'Cari:',
+                    info: 'Menampilkan _START_ - _END_ dari _TOTAL_ log',
+                    infoEmpty: 'Belum ada log',
+                    zeroRecords: 'Log pengiriman belum tersedia',
+                    processing: 'Memuat log...',
+                    paginate: {
+                        previous: '<i class="mdi mdi-chevron-left"></i>',
+                        next: '<i class="mdi mdi-chevron-right"></i>'
+                    }
+                },
+                ajax: {
+                    url: "{{ route("backOffice.keuangan.penggajian.getSlipDeliveryLogTable") }}",
+                    type: "GET",
+                    data: function(d) {
+                        d.periode = $('#periodeGaji').val();
+                        d.tahap = $('#filterDeliveryLogTahap').val();
+                        d.channel = $('#filterDeliveryLogChannel').val();
+                        d.status = $('#filterDeliveryLogStatus').val();
+                    },
+                    complete: function() {
+                        markSlipDeliveryLogRefreshed();
+                    }
+                },
+                columns: [{
+                        data: 'DT_RowIndex',
+                        name: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'processed_at',
+                        name: 'processed_at'
+                    },
+                    {
+                        data: 'channel_badge',
+                        name: 'channel',
+                        orderable: false,
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'status_badge',
+                        name: 'status',
+                        orderable: false,
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'tahap_label',
+                        name: 'tahap',
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'pegawai',
+                        name: 'nama',
+                        orderable: false
+                    },
+                    {
+                        data: 'contact',
+                        name: 'contact'
+                    },
+                    {
+                        data: 'message',
+                        name: 'message',
+                        orderable: false
+                    }
+                ]
             });
         }
 
@@ -1759,6 +1927,41 @@
             loadPayrollSummaries();
         });
 
+        $('#btnOpenSlipDeliveryLog').on('click', function() {
+            if (!$('#periodeGaji').val()) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Periode belum dipilih',
+                    text: 'Silakan pilih bulan periode gaji terlebih dahulu.'
+                });
+                return;
+            }
+
+            $('#filterDeliveryLogTahap').val('');
+            $('#filterDeliveryLogChannel').val('');
+            $('#filterDeliveryLogStatus').val('');
+            updateSlipDeliveryLogMeta();
+
+            const modal = new bootstrap.Modal(document.getElementById('modalSlipDeliveryLog'));
+            modal.show();
+            initSlipDeliveryLogTable();
+            reloadSlipDeliveryLogTable(true);
+
+            setTimeout(function() {
+                tableSlipDeliveryLog.columns.adjust();
+            }, 150);
+        });
+
+        $('#btnRefreshSlipDeliveryLog').on('click', function() {
+            updateSlipDeliveryLogMeta();
+            reloadSlipDeliveryLogTable(false);
+        });
+
+        $('#filterDeliveryLogTahap, #filterDeliveryLogChannel, #filterDeliveryLogStatus').on('change', function() {
+            updateSlipDeliveryLogMeta();
+            reloadSlipDeliveryLogTable(true);
+        });
+
         $('#btnExportGajiExcel').on('click', function() {
             const periode = $('#periodeGaji').val();
 
@@ -1899,6 +2102,8 @@
                             timer: 2600,
                             showConfirmButton: false
                         });
+
+                        reloadSlipDeliveryLogTable(false);
                     },
                     error: function(xhr) {
                         let message = xhr.responseJSON?.message ||

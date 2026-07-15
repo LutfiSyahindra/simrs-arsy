@@ -452,6 +452,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/penggajian/rounding-config', [penggajianController::class, 'updatePayrollRoundingConfig'])->name('backOffice.keuangan.penggajian.updatePayrollRoundingConfig');
         Route::get('/penggajian/slip/recipients', [penggajianController::class, 'getPenerimaSlip'])->name('backOffice.keuangan.penggajian.getPenerimaSlip');
         Route::post('/penggajian/slip/send', [penggajianController::class, 'kirimSlipGaji'])->name('backOffice.keuangan.penggajian.kirimSlipGaji');
+        Route::get('/penggajian/slip/logs', [penggajianController::class, 'getSlipDeliveryLogTable'])->name('backOffice.keuangan.penggajian.getSlipDeliveryLogTable');
         Route::get('/penggajian/slip-whatsapp/recipients', [penggajianController::class, 'getPenerimaSlipWhatsappTahap1'])->name('backOffice.keuangan.penggajian.getPenerimaSlipWhatsappTahap1');
         Route::post('/penggajian/slip-whatsapp/send', [penggajianController::class, 'kirimSlipGajiWhatsappTahap1'])->name('backOffice.keuangan.penggajian.kirimSlipGajiWhatsappTahap1');
         Route::get('/penggajian/gajitahap1/{id}/detail', [penggajianController::class, 'detailGajiTahap1'])->name('backOffice.keuangan.penggajian.detailGajiTahap1');

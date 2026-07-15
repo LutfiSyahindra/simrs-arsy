@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Throwable;
 
 class penggajianService
 {
@@ -505,9 +506,11 @@ class penggajianService
             ->getUnitKerjaLabelsByNiks($rows->pluck('nik')->all());
         $stage2ByNik = $this->penggajianRepository
             ->getGajiTahap2RowsByNik($periode, $rows->pluck('nik')->all());
+        $deliveryLogsByGajiId = $this->penggajianRepository
+            ->getLatestSlipDeliveryLogs($periode, 1, $channel, $rows->pluck('id')->all());
 
         return $rows
-            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup, $unitKerjaByNik, $channel) {
+            ->map(function ($row) use ($stage2ByNik, $doctorNikLookup, $unitKerjaByNik, $deliveryLogsByGajiId, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $tunjangan = (int) $row->tunjangan;
                 $premi = (int) ($row->premi ?? 0);
@@ -518,6 +521,7 @@ class penggajianService
                 $totalTahap2 = $stage2 ? (int) $stage2->total : 0;
                 $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
                 $unitKerja = $unitKerjaByNik->get((string) $row->nik) ?: ($row->jabatan ?? '-');
+                $deliveryStatus = $this->slipDeliveryStatusPayload($deliveryLogsByGajiId->get((int) $row->id));
 
                 return [
                     'id' => $row->id,
@@ -542,6 +546,10 @@ class penggajianService
                     'periode' => $row->periode,
                     'tahap' => 1,
                     'channel' => $channel,
+                    'delivery_status' => $deliveryStatus['status'],
+                    'delivery_status_label' => $deliveryStatus['label'],
+                    'delivery_status_message' => $deliveryStatus['message'],
+                    'delivery_processed_at' => $deliveryStatus['processed_at'],
                     'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
                 ];
             })
@@ -561,9 +569,11 @@ class penggajianService
         $unitKerjaByNik = $this->penggajianRepository
             ->getUnitKerjaLabelsByNiks($rows->pluck('nik')->all());
         $stage1TotalsByNik = $this->penggajianRepository->getGajiTahap1TotalsByNik($periode);
+        $deliveryLogsByGajiId = $this->penggajianRepository
+            ->getLatestSlipDeliveryLogs($periode, 2, $channel, $rows->pluck('id')->all());
 
         return $rows
-            ->map(function ($row) use ($doctorNikLookup, $unitKerjaByNik, $stage1TotalsByNik, $channel) {
+            ->map(function ($row) use ($doctorNikLookup, $unitKerjaByNik, $stage1TotalsByNik, $deliveryLogsByGajiId, $channel) {
                 $gajiDibayar = (int) $row->gaji_dibayar;
                 $totalPremi = (int) ($row->total_premi ?? 0);
                 $totalPotongan = (int) ($row->total_potongan ?? 0);
@@ -572,6 +582,7 @@ class penggajianService
                 $totalTahap1 = (int) ($stage1TotalsByNik[(string) $row->nik] ?? 0);
                 $komponenGajiLabel = PayrollComponentLabel::salaryLabel($row->jabatan, $row->status);
                 $unitKerja = $unitKerjaByNik->get((string) $row->nik) ?: ($row->jabatan ?? '-');
+                $deliveryStatus = $this->slipDeliveryStatusPayload($deliveryLogsByGajiId->get((int) $row->id));
 
                 return [
                     'id' => $row->id,
@@ -596,15 +607,128 @@ class penggajianService
                     'periode' => $row->periode,
                     'tahap' => 2,
                     'channel' => $channel,
+                    'delivery_status' => $deliveryStatus['status'],
+                    'delivery_status_label' => $deliveryStatus['label'],
+                    'delivery_status_message' => $deliveryStatus['message'],
+                    'delivery_processed_at' => $deliveryStatus['processed_at'],
                     'is_doctor_slip' => $this->isDoctorEmployee($row->nik, $doctorNikLookup),
                 ];
             })
             ->values();
     }
 
+    private function slipDeliveryStatusPayload($log): array
+    {
+        if (! $log) {
+            return [
+                'status' => 'pending',
+                'label' => 'Belum',
+                'message' => 'Belum ada log pengiriman pada periode ini.',
+                'processed_at' => null,
+            ];
+        }
+
+        $status = $log->status === 'success' ? 'success' : 'failed';
+
+        return [
+            'status' => $status,
+            'label' => $status === 'success' ? 'Berhasil' : 'Gagal',
+            'message' => $log->message,
+            'processed_at' => optional($log->processed_at)->format('d/m/Y H:i:s'),
+        ];
+    }
+
     public function getPenerimaSlipWhatsappTahap2(string $periode)
     {
         return $this->getPenerimaSlipTahap2($periode, self::SLIP_CHANNEL_WHATSAPP);
+    }
+
+    public function getSlipDeliveryLogs(
+        string $periode,
+        ?int $tahap = null,
+        ?string $channel = null,
+        ?string $status = null
+    ): Collection {
+        $channel = $channel ? $this->normalizeSlipDeliveryChannel($channel) : null;
+        $status = $status === 'failed' ? 'failed' : ($status === 'success' ? 'success' : null);
+
+        return $this->penggajianRepository
+            ->getSlipDeliveryLogs([
+                'periode' => $periode,
+                'tahap' => $tahap && $this->normalizeSlipWhatsappTahap($tahap) === 2 ? 2 : ($tahap ? 1 : null),
+                'channel' => $channel,
+                'status' => $status,
+            ])
+            ->map(function ($row) {
+                return [
+                    'id' => $row->id,
+                    'periode' => $row->periode,
+                    'tahap' => (int) $row->tahap,
+                    'tahap_label' => 'Tahap '.((int) $row->tahap === 2 ? '2' : '1'),
+                    'channel' => $row->channel,
+                    'channel_label' => $row->channel === self::SLIP_CHANNEL_EMAIL ? 'Email' : 'WhatsApp',
+                    'status' => $row->status,
+                    'status_label' => $row->status === 'success' ? 'Berhasil' : 'Gagal',
+                    'gaji_id' => $row->gaji_id,
+                    'nik' => $row->nik,
+                    'nama' => $row->nama,
+                    'jabatan' => $row->jabatan,
+                    'contact' => $row->contact,
+                    'message' => $row->message,
+                    'processed_at' => optional($row->processed_at)->format('d/m/Y H:i:s'),
+                    'processed_at_raw' => optional($row->processed_at)->toDateTimeString(),
+                ];
+            })
+            ->values();
+    }
+
+    public function recordSlipDeliveryLog(
+        string $channel,
+        string $status,
+        int $gajiId,
+        string $periode,
+        int $tahap = 1,
+        ?array $result = null,
+        ?string $message = null
+    ): void {
+        $channel = $this->normalizeSlipDeliveryChannel($channel);
+        $status = $status === 'success' ? 'success' : 'failed';
+        $tahap = $this->normalizeSlipWhatsappTahap($tahap);
+        $result = $result ?? [];
+        $row = null;
+
+        try {
+            $row = $this->getPenerimaSlipRows($periode, [$gajiId], $tahap, $channel)->first();
+        } catch (Throwable) {
+            $row = null;
+        }
+
+        $contact = $channel === self::SLIP_CHANNEL_EMAIL
+            ? ($result['email'] ?? ($row->email ?? null))
+            : ($result['phone'] ?? $this->normalizeWhatsappNumber($row->no_telp ?? null) ?? ($row->no_telp ?? null));
+
+        $responsePayload = $result['response'] ?? null;
+
+        if ($responsePayload !== null && ! is_array($responsePayload)) {
+            $responsePayload = ['response' => $responsePayload];
+        }
+
+        $this->penggajianRepository->createSlipDeliveryLog([
+            'periode' => $periode,
+            'tahap' => $tahap,
+            'channel' => $channel,
+            'status' => $status,
+            'gaji_id' => $gajiId,
+            'nik' => $result['nik'] ?? ($row->nik ?? null),
+            'nama' => $result['nama'] ?? ($row->nama ?? null),
+            'jabatan' => $row->jabatan ?? null,
+            'contact' => $contact,
+            'message' => $message ?: ($status === 'success'
+                ? 'Slip gaji berhasil terkirim.'
+                : 'Slip gaji gagal terkirim.'),
+            'response_payload' => $responsePayload,
+            'processed_at' => now(),
+        ]);
     }
 
     private function getPenerimaSlipRows(
@@ -655,8 +779,7 @@ class penggajianService
         array $gajiIds,
         int $tahap = 1,
         string $channel = self::SLIP_CHANNEL_WHATSAPP
-    )
-    {
+    ) {
         return $this->normalizeSlipDeliveryChannel($channel) === self::SLIP_CHANNEL_EMAIL
             ? $this->kirimSlipGajiEmailTahap1($periode, $gajiIds, $tahap)
             : $this->kirimSlipGajiWhatsappTahap1($periode, $gajiIds, $tahap);
