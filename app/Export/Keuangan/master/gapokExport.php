@@ -3,6 +3,8 @@
 namespace App\Export\Keuangan\master;
 
 use App\Models\dbKhanza\pegawaiModel;
+use App\Models\dbSimrs\gapokModel;
+use Illuminate\Support\Facades\Schema;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -23,16 +25,29 @@ class gapokExport implements FromCollection, WithColumnWidths, WithHeadings, Wit
             'mulai_kontrak'
         )->where('stts_aktif', 'AKTIF')->get();
 
-        return $data->map(function ($item) {
+        $selectGapok = ['nik', 'gaji_pokok', 'no_telp'];
+
+        if (Schema::hasColumn('gaji_pokok', 'email')) {
+            $selectGapok[] = 'email';
+        }
+
+        $existingGapok = gapokModel::select($selectGapok)
+            ->whereIn('nik', $data->pluck('nik'))
+            ->get()
+            ->keyBy('nik');
+
+        return $data->map(function ($item) use ($existingGapok) {
+            $gapok = $existingGapok->get($item->nik);
+
             return [
                 $item->nik,
                 $item->nama,
                 $item->jbtn,
                 $item->stts_kerja,
                 $item->mulai_kontrak,
-                '',
-                '', // hanya ini yang diisi user
-                '',
+                $gapok?->gaji_pokok ?? '',
+                $gapok?->no_telp ?? '',
+                $gapok?->email ?? '',
             ];
         });
     }

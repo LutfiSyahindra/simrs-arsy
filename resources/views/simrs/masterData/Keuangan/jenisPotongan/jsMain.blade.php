@@ -82,8 +82,9 @@
                     <div class="col-md-2">
                         <label class="form-label small text-muted">Nilai</label>
                         <input type="number" name="nilai[]"
-                            class="form-control form-control-sm input-nilai"
-                            placeholder="Diisi di mapping" disabled>
+                            class="form-control form-control-sm input-nilai bg-light"
+                            step="0.01" min="0" inputmode="decimal"
+                            placeholder="Diisi di mapping" readonly>
                     </div>
 
                     <div class="col-md-2">
@@ -115,16 +116,34 @@
             let tipe = $(this).val();
             let input = row.find('.input-nilai');
 
-            input.prop('disabled', false);
+            input.prop('readonly', false);
+            input.removeClass('bg-light');
+            input.removeAttr('max');
+            input.attr({
+                min: '0',
+                step: '1',
+                inputmode: 'numeric'
+            });
 
             if (tipe === 'manual') {
                 input.val('');
-                input.prop('disabled', true);
+                input.prop('readonly', true);
+                input.addClass('bg-light');
                 input.attr('placeholder', 'Diisi di mapping');
             } else if (tipe === 'persen_gapok') {
-                input.attr('placeholder', 'Persen (contoh: 1)');
+                input.attr({
+                    placeholder: 'Persen (contoh: 2.5)',
+                    step: '0.01',
+                    max: '100',
+                    inputmode: 'decimal'
+                });
             } else if (tipe === 'persen_total_gaji') {
-                input.attr('placeholder', 'Persen total gaji tahap 1 + 2');
+                input.attr({
+                    placeholder: 'Persen total gaji tahap 1 + 2',
+                    step: '0.01',
+                    max: '100',
+                    inputmode: 'decimal'
+                });
             } else {
                 input.attr('placeholder', 'Nominal tetap');
             }
@@ -147,6 +166,13 @@
 
         function formatRupiah(angka) {
             return new Intl.NumberFormat('id-ID').format(angka || 0);
+        }
+
+        function formatDecimal(angka) {
+            return new Intl.NumberFormat('id-ID', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2
+            }).format(angka || 0);
         }
 
         function labelTipe(tipe) {
@@ -190,7 +216,7 @@
                         }
 
                         if (row.tipe === 'persen_gapok' || row.tipe === 'persen_total_gaji') {
-                            return `<span class="badge bg-light text-dark">${data}%</span>`;
+                            return `<span class="badge bg-light text-dark">${formatDecimal(data)}%</span>`;
                         }
 
                         return `<span class="badge bg-light text-dark">Rp ${formatRupiah(data)}</span>`;
@@ -323,7 +349,8 @@
                 success: function(response) {
                     Swal.close();
                     let data = response.data || response;
-                    let disabled = data.tipe === 'manual' ? 'disabled' : '';
+                    let readonly = data.tipe === 'manual' ? 'readonly' : '';
+                    let nilaiClass = data.tipe === 'manual' ? 'bg-light' : '';
 
                     $('.modal-title').text('Edit Jenis Potongan');
                     $('button[form="potonganForm"]').html(`
@@ -355,9 +382,10 @@
                                 <div class="col-md-2">
                                     <label class="form-label small text-muted">Nilai</label>
                                     <input type="number" name="nilai"
-                                        class="form-control form-control-sm input-nilai"
+                                        class="form-control form-control-sm input-nilai ${nilaiClass}"
+                                        step="0.01" min="0" inputmode="decimal"
                                         value="${data.nilai ?? ''}"
-                                        ${disabled}>
+                                        ${readonly}>
                                 </div>
 
                                 <div class="col-md-3">

@@ -48,6 +48,33 @@ class PenggajianServiceTest extends TestCase
         $this->assertSame('1% x gaji tahap 1 + 2', $result->firstWhere('kode', 'POT001')['keterangan']);
     }
 
+    public function test_stage2_potongan_accepts_decimal_percent_values(): void
+    {
+        $result = $this->calculateStage2Potongan(collect([
+            (object) [
+                'potongan_id' => 4,
+                'kode' => 'POT004',
+                'nama' => 'Potongan Decimal Gapok',
+                'tipe' => 'persen_gapok',
+                'nilai' => 2.5,
+                'nominal_mapping' => 0,
+            ],
+            (object) [
+                'potongan_id' => 5,
+                'kode' => 'POT005',
+                'nama' => 'Potongan Decimal Total',
+                'tipe' => 'persen_total_gaji',
+                'nilai' => 2.5,
+                'nominal_mapping' => 0,
+            ],
+        ]));
+
+        $this->assertSame(25000, $result->firstWhere('kode', 'POT004')['nominal']);
+        $this->assertSame('2.5% x gaji pokok', $result->firstWhere('kode', 'POT004')['keterangan']);
+        $this->assertSame(62500, $result->firstWhere('kode', 'POT005')['nominal']);
+        $this->assertSame('2.5% x gaji tahap 1 + 2', $result->firstWhere('kode', 'POT005')['keterangan']);
+    }
+
     public function test_doctor_employee_lookup_uses_khanza_doctor_code_not_position_text(): void
     {
         $service = new penggajianService;
