@@ -269,7 +269,7 @@ class generatePremiBersamaService
 
             if ($pendingSources->isNotEmpty()) {
                 throw ValidationException::withMessages([
-                    'sources' => 'Kunci sumber generator terlebih dahulu: '.$pendingSources->pluck('source_label')->implode(', ').'.',
+                    'sources' => 'Generate dan kunci sumber generator terlebih dahulu: '.$pendingSources->pluck('source_label')->implode(', ').'.',
                 ]);
             }
 
@@ -802,7 +802,7 @@ class generatePremiBersamaService
                 $generated = (int) data_get($source, 'raw_snapshot.generated_count', 0);
                 $locked = (int) data_get($source, 'raw_snapshot.locked_count', 0);
 
-                return $generated > 0 && $locked < $generated;
+                return $generated < 1 || $locked < $generated;
             })
             ->values();
     }
@@ -814,7 +814,7 @@ class generatePremiBersamaService
         Collection $pendingSources
     ): string {
         if ($pendingSources->isNotEmpty()) {
-            return 'Masih ada sumber generator yang belum dikunci.';
+            return 'Masih ada sumber generator yang belum digenerate atau belum dikunci.';
         }
 
         if ($pegawai->isEmpty()) {
@@ -845,7 +845,7 @@ class generatePremiBersamaService
                 'status' => $pendingSources->isEmpty() ? 'success' : 'warning',
                 'value' => $pendingSources->isEmpty()
                     ? 'Siap'
-                    : $pendingSources->count().' perlu dikunci',
+                    : $pendingSources->count().' perlu digenerate/dikunci',
                 'note' => 'Total sumber terkunci: '.$this->rupiah((float) $calculation['total_generator_sumber']).'.',
             ],
             [
