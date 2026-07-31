@@ -1140,18 +1140,19 @@
             const allRows = $('#waSlipPegawaiList tr');
             const visibleRows = allRows.filter(':visible');
             const total = visibleRows.length;
-            const selected = visibleRows.find('.wa-slip-checkbox:checked').length;
+            const selectedVisible = visibleRows.find('.wa-slip-checkbox:checked').length;
+            const selectedTotal = allRows.find('.wa-slip-checkbox:checked').length;
             const totalLabel = allRows.length > 0 && total !== allRows.length ?
                 total + ' dari ' + allRows.length + ' penerima' :
                 total + ' penerima';
 
             $('#waSlipRecipientCount').text(totalLabel);
-            $('#waSlipSelectedCount').text(selected + ' dipilih');
-            $('#btnSendSlipWhatsapp').prop('disabled', selected === 0 || total === 0);
+            $('#waSlipSelectedCount').text(selectedTotal + ' dipilih');
+            $('#btnSendSlipWhatsapp').prop('disabled', selectedTotal === 0 || allRows.length === 0);
 
             $('#checkAllSlipWhatsapp')
-                .prop('checked', total > 0 && selected === total)
-                .prop('indeterminate', selected > 0 && selected < total);
+                .prop('checked', total > 0 && selectedVisible === total)
+                .prop('indeterminate', selectedVisible > 0 && selectedVisible < total);
         }
 
         function activeSlipWhatsappTahap() {
@@ -1441,8 +1442,6 @@
 
                 if (matches) {
                     visibleCount++;
-                } else {
-                    $(this).find('.wa-slip-checkbox').prop('checked', false);
                 }
             });
 
@@ -2042,7 +2041,7 @@
             const periode = $('#periodeGaji').val();
             const tahap = activeSlipWhatsappTahap();
             const meta = currentSlipDeliveryMeta();
-            const selectedIds = $('#waSlipPegawaiList tr:visible .wa-slip-checkbox:checked').map(function() {
+            const selectedIds = $('#waSlipPegawaiList .wa-slip-checkbox:checked').map(function() {
                 return $(this).val();
             }).get();
             const btn = $(this);
