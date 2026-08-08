@@ -33,6 +33,7 @@ class penggajianService
         'kebersamaan' => 'Kebersamaan',
         'jasa_operasi' => 'Jasa Operasi',
         'jasa_rawat_jalan' => 'Jasa Rawat Jalan',
+        'visite' => 'Jasa Visite',
         'jasa_poli' => 'Jasa Poli',
         'jasa_ecg' => 'Jasa ECG',
         'konsul_wa' => 'Konsul WA',
@@ -43,6 +44,7 @@ class penggajianService
         'kebersamaan' => 'Kebersamaan',
         'jasa_operasi' => 'Jasa Operasi',
         'jasa_rawat_jalan' => 'Jasa Rawat Jalan',
+        'visite' => 'Jasa Visite',
         'jasa_poli' => 'Jasa Poli',
         'jasa_ecg' => 'Jasa ECG',
         'konsul_wa' => 'Konsul WA',
@@ -1382,10 +1384,7 @@ class penggajianService
                 '',
                 Str::after($sourceKey, 'premi_dokter_')
             );
-            $doctorPremiumLabels = array_merge(
-                ['visite' => 'Jasa Visite'],
-                self::STAGE2_DOCTOR_PREMIUM_TYPES
-            );
+            $doctorPremiumLabels = self::STAGE2_DOCTOR_PREMIUM_TYPES;
 
             if (isset($doctorPremiumLabels[$premiumType])) {
                 return $this->stage2PremiumNameWithServiceMarker(

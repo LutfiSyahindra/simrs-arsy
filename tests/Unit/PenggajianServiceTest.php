@@ -179,6 +179,19 @@ class PenggajianServiceTest extends TestCase
         $this->assertSame('Kehadiran', PayrollComponentLabel::paidSalaryLabel($position, $status));
     }
 
+    public function test_jasa_visite_is_available_for_both_doctor_payroll_stages(): void
+    {
+        $service = new penggajianService;
+
+        foreach (['stage1DoctorPremiumTypeOptions', 'stage2DoctorPremiumTypeOptions'] as $methodName) {
+            $method = new ReflectionMethod($service, $methodName);
+            $method->setAccessible(true);
+            $options = collect($method->invoke($service));
+
+            $this->assertSame('Jasa Visite', $options->firstWhere('id', 'visite')['label'] ?? null);
+        }
+    }
+
     public function test_stage2_premium_detail_uses_a_short_non_repeated_name(): void
     {
         $service = new penggajianService;
