@@ -520,6 +520,73 @@
             height: 36px;
         }
 
+        .generator-period-panel.is-pinned {
+            border-color: #5eead4;
+            box-shadow: 0 0 0 1px rgba(13, 148, 136, .08);
+        }
+
+        .generator-period-control {
+            align-items: stretch;
+            display: flex;
+            gap: 6px;
+        }
+
+        .generator-period-control .form-control {
+            min-width: 145px;
+        }
+
+        .generator-period-control .form-control:disabled {
+            background: #f0fdfa;
+            color: #0f766e;
+            font-weight: 800;
+            opacity: 1;
+        }
+
+        .generator-period-action {
+            align-items: center;
+            border: 1px solid #0f766e;
+            border-radius: 6px;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 11px;
+            font-weight: 800;
+            gap: 4px;
+            justify-content: center;
+            padding: 6px 9px;
+            white-space: nowrap;
+        }
+
+        .generator-period-action.set {
+            background: #0f766e;
+            color: #fff;
+        }
+
+        .generator-period-action.release {
+            background: #fff;
+            color: #0f766e;
+        }
+
+        .generator-period-action:hover,
+        .generator-period-action:focus {
+            filter: brightness(.95);
+            outline: 0;
+        }
+
+        .generator-period-lock-state {
+            align-items: center;
+            color: #64748b;
+            display: flex;
+            font-size: 10px;
+            font-weight: 800;
+            gap: 4px;
+            margin-top: 6px;
+            text-transform: uppercase;
+        }
+
+        .generator-period-lock-state.is-pinned {
+            color: #0f766e;
+        }
+
         .generator-period-hint {
             color: var(--pg-muted);
             display: block;
@@ -1152,9 +1219,21 @@
                 </div>
                 <div class="generator-period-panel">
                     <label for="periodeGeneratorStatus">Periode Status Generate</label>
-                    <input type="month" id="periodeGeneratorStatus" class="form-control"
-                        value="{{ $defaultPeriode }}"
-                        data-status-url="{{ route("backOffice.keuangan.hitungPremi.generatorStatus") }}">
+                    <div class="generator-period-control">
+                        <input type="month" id="periodeGeneratorStatus" class="form-control"
+                            value="{{ $defaultPeriode }}"
+                            data-status-url="{{ route("backOffice.keuangan.hitungPremi.generatorStatus") }}">
+                        <button type="button" class="generator-period-action set" id="btnSetGeneratorPeriod">
+                            <i class="mdi mdi-pin-outline"></i> Set
+                        </button>
+                        <button type="button" class="generator-period-action release d-none"
+                            id="btnReleaseGeneratorPeriod">
+                            <i class="mdi mdi-pin-off-outline"></i> Lepaskan
+                        </button>
+                    </div>
+                    <span class="generator-period-lock-state" id="generatorPeriodLockState">
+                        <i class="mdi mdi-pin-outline"></i> Periode belum diset
+                    </span>
                     <small class="generator-period-hint" id="generatorStatusInfo">
                         Memeriksa status UMUM/BPJS periode {{ $defaultPeriode }}.
                     </small>

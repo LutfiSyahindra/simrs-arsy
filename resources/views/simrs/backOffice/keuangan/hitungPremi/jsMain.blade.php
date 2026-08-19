@@ -6,10 +6,71 @@
         const searchInput = $('#searchGeneratorPremi');
         const periodInput = $('#periodeGeneratorStatus');
         const statusInfo = $('#generatorStatusInfo');
+        const periodPanel = periodInput.closest('.generator-period-panel');
+        const periodLockState = $('#generatorPeriodLockState');
+        const setPeriodButton = $('#btnSetGeneratorPeriod');
+        const releasePeriodButton = $('#btnReleaseGeneratorPeriod');
         const filterButtons = $('.generator-filter-btn');
         const generatorLinks = $('.btn-open-generator[data-base-url]');
+        const periodStorageKey = 'simrs.hitung-premi.generator-status-period.{{ auth()->id() ?? "guest" }}';
         let statusRequest = null;
         let activeCategory = 'all';
+        let pinnedPeriod = readPinnedPeriod();
+
+        function isValidPeriod(periode) {
+            return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(periode || ''));
+        }
+
+        function readPinnedPeriod() {
+            try {
+                const periode = window.localStorage.getItem(periodStorageKey);
+
+                if (isValidPeriod(periode)) {
+                    return periode;
+                }
+
+                window.localStorage.removeItem(periodStorageKey);
+            } catch (error) {
+                // Halaman tetap dapat dipakai ketika penyimpanan browser dinonaktifkan.
+            }
+
+            return null;
+        }
+
+        function savePinnedPeriod(periode) {
+            try {
+                window.localStorage.setItem(periodStorageKey, periode);
+                return true;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function removePinnedPeriod() {
+            try {
+                window.localStorage.removeItem(periodStorageKey);
+            } catch (error) {
+                // Tidak ada yang perlu dilakukan jika penyimpanan browser tidak tersedia.
+            }
+        }
+
+        function applyPeriodPinState() {
+            const isPinned = isValidPeriod(pinnedPeriod);
+
+            if (isPinned) {
+                periodInput.val(pinnedPeriod);
+            }
+
+            periodInput.prop('disabled', isPinned);
+            periodPanel.toggleClass('is-pinned', isPinned);
+            setPeriodButton.toggleClass('d-none', isPinned);
+            releasePeriodButton.toggleClass('d-none', !isPinned);
+            periodLockState
+                .toggleClass('is-pinned', isPinned)
+                .html(isPinned
+                    ? '<i class="mdi mdi-pin"></i> Diset pada periode ' + pinnedPeriod
+                    : '<i class="mdi mdi-pin-outline"></i> Periode belum diset');
+        }
 
         function setActiveFilter(category) {
             activeCategory = category || 'all';
@@ -161,7 +222,10 @@
                     renderStatus(card, data[card.attr('data-status-key')]);
                 });
 
-                statusInfo.text('Status UMUM/BPJS periode ' + periode + ' sudah diperbarui.');
+                statusInfo.text(
+                    'Status UMUM/BPJS periode ' + periode + ' sudah diperbarui.' +
+                    (pinnedPeriod === periode ? ' Periode ini tetap digunakan sampai set dilepaskan.' : '')
+                );
             }).fail(function(xhr, status) {
                 if (status === 'abort') {
                     return;
@@ -181,6 +245,52 @@
 
         searchInput.on('input', filterGeneratorMenu);
         periodInput.on('change', loadGeneratorStatus);
+
+        setPeriodButton.on('click', function() {
+            const periode = String(periodInput.val() || '');
+
+            if (!isValidPeriod(periode)) {
+                Swal.fire('Periode belum dipilih', 'Pilih periode status generate terlebih dahulu.', 'warning');
+                return;
+            }
+
+            if (!savePinnedPeriod(periode)) {
+                Swal.fire('Periode gagal diset', 'Penyimpanan browser tidak tersedia. Periksa pengaturan browser lalu coba kembali.', 'error');
+                return;
+            }
+
+            pinnedPeriod = periode;
+            applyPeriodPinState();
+            loadGeneratorStatus();
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Periode berhasil diset',
+                text: 'Periode ' + periode + ' tidak akan berubah saat halaman direfresh.',
+                timer: 1800,
+                showConfirmButton: false
+            });
+        });
+
+        releasePeriodButton.on('click', function() {
+            const releasedPeriod = pinnedPeriod;
+
+            removePinnedPeriod();
+            pinnedPeriod = null;
+            applyPeriodPinState();
+            updateGeneratorLinks();
+            statusInfo.text(
+                'Set periode ' + releasedPeriod + ' sudah dilepaskan. Periode sekarang dapat diubah.'
+            );
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Set periode dilepaskan',
+                text: 'Periode status generate sekarang dapat diubah kembali.',
+                timer: 1600,
+                showConfirmButton: false
+            });
+        });
 
         filterButtons.on('click', function() {
             setActiveFilter($(this).attr('data-filter-category'));
@@ -215,6 +325,7 @@
             }, 1300);
         });
 
+        applyPeriodPinState();
         filterGeneratorMenu();
         loadGeneratorStatus();
     });
